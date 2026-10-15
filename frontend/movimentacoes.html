@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Movimentações · RezFire Manager</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            cream: "#f4efe8",
+            sidebar: "#1a1412",
+            accent: "#e85c2a",
+          },
+          fontFamily: { sans: ["Inter", "ui-sans-serif", "system-ui"] },
+        },
+      },
+    };
+  </script>
+  <link rel="stylesheet" href="css/app.css" />
+</head>
+
+<body>
+  <div class="app-shell" id="app-shell">
+    <main class="app-main">
+      <div class="page-toolbar">
+        <div>
+          <h1 class="page-title">MOVIMENTAÇÕES</h1>
+          <p class="page-subtitle" id="movimentacoes-count">Carregando histórico...</p>
+        </div>
+        <div class="flex items-center gap-3">
+          <input id="busca" class="search-input" type="search" placeholder="Buscar por SKU, nome, motivo..." />
+          <button class="btn-primary" id="btn-nova-movimentacao" type="button">+ Nova Movimentação</button>
+        </div>
+      </div>
+
+      <section class="card table-wrap">
+        <table class="products-table">
+          <thead>
+            <tr>
+              <th>DATA</th>
+              <th>PRODUTO</th>
+              <th>TIPO</th>
+              <th>MOTIVO</th>
+              <th>QTD</th>
+              <th>RESPONSÁVEL</th>
+            </tr>
+          </thead>
+          <tbody id="movimentacoes-body"></tbody>
+        </table>
+      </section>
+    </main>
+  </div>
+
+  <div class="modal-backdrop" id="modal" role="dialog" aria-modal="true" aria-labelledby="modal-title">
+    <form class="modal" id="form-movimentacao">
+      <h2 id="modal-title">Registrar Movimentação</h2>
+      
+      <div class="form-grid">
+        <div class="form-field span-2">
+          <label for="id_produto">Produto</label>
+          <select id="id_produto" name="id_produto" required>
+            <option value="">Selecione o produto...</option>
+          </select>
+        </div>
+        <div class="form-field">
+          <label for="tipo">Tipo</label>
+          <select id="tipo" name="tipo" required>
+            <option value="Entrada">Entrada (Aumentar Estoque)</option>
+            <option value="Saída">Saída (Reduzir Estoque)</option>
+          </select>
+        </div>
+        <div class="form-field">
+          <label for="motivo">Motivo</label>
+          <select id="motivo" name="motivo" required>
+            <!-- Filled via JS depending on Tipo -->
+          </select>
+        </div>
+        <div class="form-field">
+          <label for="quantidade">Quantidade</label>
+          <input id="quantidade" name="quantidade" type="number" min="1" step="1" value="1" required />
+        </div>
+      </div>
+      <p class="form-error" id="form-error"></p>
+      <div class="modal-actions">
+        <button class="btn-ghost" type="button" id="btn-cancelar">Cancelar</button>
+        <button class="btn-primary" type="submit">Salvar</button>
+      </div>
+    </form>
+  </div>
+
+  <script src="js/mock-data.js"></script>
+  <script src="js/layout.js"></script>
+  <script src="js/movimentacoes.js"></script>
+</body>
+
+</html>

@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Estoque · RezFire Manager</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            cream: "#f4efe8",
+            sidebar: "#1a1412",
+            accent: "#e85c2a",
+          },
+          fontFamily: { sans: ["Inter", "ui-sans-serif", "system-ui"] },
+        },
+      },
+    };
+  </script>
+  <link rel="stylesheet" href="css/app.css" />
+</head>
+
+<body>
+  <div class="app-shell" id="app-shell">
+    <main class="app-main">
+      <div class="page-toolbar">
+        <div>
+          <h1 class="page-title">ESTOQUE</h1>
+          <p class="page-subtitle" id="estoque-count"></p>
+        </div>
+        <div class="flex items-center gap-3">
+          <input id="busca" class="search-input" type="search" placeholder="Buscar SKU, nome..." />
+        </div>
+      </div>
+
+      <section class="card table-wrap">
+        <table class="products-table">
+          <thead>
+            <tr>
+              <th>SKU</th>
+              <th>PRODUTO</th>
+              <th>QTD ATUAL</th>
+              <th>ESTOQUE MÍNIMO</th>
+              <th>STATUS</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody id="estoque-body"></tbody>
+        </table>
+      </section>
+    </main>
+  </div>
+
+  <div class="modal-backdrop" id="modal" role="dialog" aria-modal="true" aria-labelledby="modal-title">
+    <form class="modal" id="form-estoque">
+      <h2 id="modal-title">Ajustar Estoque</h2>
+      <input type="hidden" id="id_produto" />
+      <div class="form-grid">
+        <div class="form-field">
+          <label for="quantidade_atual">Quantidade Atual</label>
+          <input id="quantidade_atual" name="quantidade_atual" type="number" min="0" step="1" required />
+        </div>
+        <div class="form-field">
+          <label for="estoque_minimo">Estoque Mínimo</label>
+          <input id="estoque_minimo" name="estoque_minimo" type="number" min="0" step="1" required />
+        </div>
+      </div>
+      <p class="form-error" id="form-error"></p>
+      <div class="modal-actions">
+        <button class="btn-ghost" type="button" id="btn-cancelar">Cancelar</button>
+        <button class="btn-primary" type="submit">Salvar</button>
+      </div>
+    </form>
+  </div>
+
+  <script src="js/mock-data.js"></script>
+  <script src="js/layout.js"></script>
+  <script src="js/estoque.js"></script>
+</body>
+
+</html>

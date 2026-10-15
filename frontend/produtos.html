@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Produtos · RezFire Manager</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            cream: "#f4efe8",
+            sidebar: "#1a1412",
+            accent: "#e85c2a",
+          },
+          fontFamily: { sans: ["Inter", "ui-sans-serif", "system-ui"] },
+        },
+      },
+    };
+  </script>
+  <link rel="stylesheet" href="css/app.css" />
+</head>
+
+<body>
+  <div class="app-shell" id="app-shell">
+    <main class="app-main">
+      <div class="page-toolbar">
+        <div>
+          <h1 class="page-title">PRODUTOS</h1>
+          <p class="page-subtitle" id="produtos-count"></p>
+        </div>
+        <div class="flex items-center gap-3">
+          <input id="busca" class="search-input" type="search" placeholder="Buscar SKU, nome..." />
+          <button class="btn-primary" id="btn-novo" type="button">+ Novo</button>
+        </div>
+      </div>
+
+      <section class="card table-wrap">
+        <table class="products-table">
+          <thead>
+            <tr>
+              <th>SKU</th>
+              <th>PRODUTO</th>
+              <th>CATEGORIA</th>
+              <th>TIPO</th>
+              <th>CUSTO</th>
+              <th>PREÇO</th>
+              <th>SITUAÇÃO</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody id="produtos-body"></tbody>
+        </table>
+      </section>
+    </main>
+  </div>
+
+  <div class="modal-backdrop" id="modal" role="dialog" aria-modal="true" aria-labelledby="modal-title">
+    <form class="modal" id="form-produto">
+      <h2 id="modal-title">Novo produto</h2>
+      <input type="hidden" id="id_produto" />
+      <div class="form-grid">
+        <div class="form-field">
+          <label for="sku">SKU</label>
+          <input id="sku" name="sku" required maxlength="40" />
+        </div>
+        <div class="form-field">
+          <label for="custo">Custo</label>
+          <input id="custo" name="custo" type="number" min="0" step="0.01" required />
+        </div>
+        <div class="form-field">
+          <label for="preco">Preço</label>
+          <input id="preco" name="preco" type="number" min="0" step="0.01" required />
+        </div>
+        <div class="form-field span-2">
+          <label for="nome">Nome</label>
+          <input id="nome" name="nome" required maxlength="120" />
+        </div>
+        <div class="form-field span-2">
+          <label for="descricao">Descrição</label>
+          <textarea id="descricao" name="descricao" rows="3" maxlength="500"></textarea>
+        </div>
+        <div class="form-field">
+          <label for="categoria">Categoria</label>
+          <input id="categoria" name="categoria" required maxlength="60" />
+        </div>
+        <div class="form-field">
+          <label for="tipo">Tipo</label>
+          <select id="tipo" name="tipo">
+            <option value="Simples">Simples</option>
+            <option value="Combo">Combo</option>
+          </select>
+        </div>
+        <div class="form-field">
+          <label for="ativo">Situação</label>
+          <select id="ativo" name="ativo">
+            <option value="true">Ativo</option>
+            <option value="false">Inativo</option>
+          </select>
+        </div>
+        <div id="combo-section" class="form-field span-2" style="display: none;">
+          <label>Itens do Combo</label>
+          <div class="flex gap-2 mb-2">
+            <select id="combo-item-select" class="flex-1" style="padding: 0.5rem; border: 1px solid #d1d5db; border-radius: 0.25rem;">
+              <option value="">Selecione um produto simples...</option>
+            </select>
+            <input id="combo-item-qtd" type="number" min="1" step="1" value="1" style="width: 5rem; padding: 0.5rem; border: 1px solid #d1d5db; border-radius: 0.25rem;" />
+            <button type="button" id="btn-add-combo-item" class="btn-ghost" style="padding: 0.5rem 1rem;">Adicionar</button>
+          </div>
+          <ul id="combo-items-list" class="flex flex-col gap-2 mt-2 bg-white border border-gray-200 rounded p-2 min-h-[50px]">
+            <!-- Combo items will be listed here -->
+          </ul>
+        </div>
+      </div>
+      <p class="form-error" id="form-error"></p>
+      <div class="modal-actions">
+        <button class="btn-ghost" type="button" id="btn-cancelar">Cancelar</button>
+        <button class="btn-primary" type="submit">Salvar</button>
+      </div>
+    </form>
+  </div>
+
+  <script src="js/mock-data.js"></script>
+  <script src="js/layout.js"></script>
+  <script src="js/produtos.js"></script>
+</body>
+
+</html>

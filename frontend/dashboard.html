@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Painel Executivo · RezFire Manager</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap"
+      rel="stylesheet"
+    />
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+      tailwind.config = {
+        theme: {
+          extend: {
+            colors: {
+              cream: "#f4efe8",
+              sidebar: "#1a1412",
+              accent: "#e85c2a",
+            },
+            fontFamily: { sans: ["Inter", "ui-sans-serif", "system-ui"] },
+          },
+        },
+      };
+    </script>
+    <link rel="stylesheet" href="css/app.css" />
+  </head>
+  <body>
+    <div class="app-shell" id="app-shell">
+      <main class="app-main">
+        <h1 class="page-title">PAINEL EXECUTIVO</h1>
+        <p class="page-subtitle">
+          Indicadores calculados a partir das movimentações dos últimos 6 meses
+          (dados de demonstração).
+        </p>
+
+        <div class="dash-tabs">
+          <button class="dash-tab" data-tab="visao-geral">Visão Geral</button>
+          <button class="dash-tab" data-tab="vendas">Vendas</button>
+          <button class="dash-tab" data-tab="estoque">Estoque</button>
+          <button class="dash-tab" data-tab="ml">Mercado Livre</button>
+          <button class="dash-tab" data-tab="entregas">Entregas</button>
+          <button class="dash-tab is-active" data-tab="produtos">Produtos</button>
+          <button class="dash-tab" data-tab="financeiro">Financeiro</button>
+        </div>
+
+        <div id="tab-visao-geral" class="tab-content">
+          <div class="section-head">
+            <span class="section-num">1</span>
+            GESTÃO DE ESTOQUE
+          </div>
+          <section class="kpi-grid" id="kpis-estoque"></section>
+          <div class="chart-card card" style="margin-top: 12px">
+            <h2 class="chart-title">Entradas × Saídas (unidades)</h2>
+            <div id="chart-movimentacoes"></div>
+          </div>
+
+          <div class="section-head">
+            <span class="section-num">2</span>
+            MOVIMENTAÇÕES
+          </div>
+          <section class="kpi-grid" id="kpis-movimentacoes"></section>
+
+          <div class="section-head">
+            <span class="section-num">3</span>
+            VENDAS
+          </div>
+          <section class="kpi-grid" id="kpis-vendas"></section>
+        </div>
+
+        <div id="tab-produtos" class="tab-content is-active">
+          <div class="page-toolbar" style="margin-top: 12px;">
+            <div class="flex items-center gap-3">
+              <select id="filtro-periodo" class="search-input" style="width: 200px;">
+                <option value="30">Últimos 30 dias</option>
+                <option value="90">Últimos 3 meses</option>
+                <option value="180" selected>Últimos 6 meses</option>
+                <option value="365">Último ano</option>
+              </select>
+              <select id="filtro-categoria" class="search-input" style="width: 200px;">
+                <option value="">Todas as categorias</option>
+                <option value="extintores">Extintores</option>
+                <option value="acessorios">Acessórios</option>
+                <option value="sinalizacao">Sinalização</option>
+              </select>
+            </div>
+            <div>
+               <!-- Espaço para botão de exportar futuramente -->
+            </div>
+          </div>
+
+          <section class="kpi-grid" id="kpis-tab-produtos"></section>
+
+          <div class="charts-row" style="margin-top: 24px;">
+            <div class="chart-card card">
+              <h2 class="chart-title">Faturamento por Produto (Top 5)</h2>
+              <div id="chart-faturamento-produtos"></div>
+            </div>
+            <div class="chart-card card">
+              <h2 class="chart-title">Lucro por Produto (Top 5)</h2>
+              <div id="chart-lucro-produtos"></div>
+            </div>
+          </div>
+
+          <div class="charts-row" style="margin-top: 12px;">
+            <div class="chart-card card">
+              <h2 class="chart-title">Vendas por Produto (Top 10 Unidades)</h2>
+              <div id="chart-vendas-produtos"></div>
+            </div>
+            <div class="chart-card card">
+              <h2 class="chart-title">Composição da Lucratividade</h2>
+              <div id="chart-lucratividade-pizza"></div>
+            </div>
+          </div>
+          
+          <div class="charts-row" style="margin-top: 12px;">
+            <div class="chart-card card">
+              <h2 class="chart-title">Representatividade (Curva ABC)</h2>
+              <div id="chart-curva-abc"></div>
+            </div>
+            <div class="chart-card card">
+              <!-- Espaço para futuros painéis ou relatórios secundários -->
+              <h2 class="chart-title">Status de Produtos</h2>
+              <div id="chart-status-produtos"></div>
+            </div>
+          </div>
+        </div>
+      </main>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/apexcharts"></script>
+    <script src="js/mock-data.js"></script>
+    <script src="js/layout.js"></script>
+    <script src="js/dashboard.js"></script>
+  </body>
+</html>

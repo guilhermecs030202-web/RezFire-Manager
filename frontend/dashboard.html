@@ -38,12 +38,139 @@
 
         <div class="dash-tabs">
           <button class="dash-tab" data-tab="visao-geral">Visão Geral</button>
-          <button class="dash-tab" data-tab="vendas">Vendas</button>
+          <button class="dash-tab is-active" data-tab="vendas">Vendas</button>
           <button class="dash-tab" data-tab="estoque">Estoque</button>
           <button class="dash-tab" data-tab="ml">Mercado Livre</button>
           <button class="dash-tab" data-tab="entregas">Entregas</button>
-          <button class="dash-tab is-active" data-tab="produtos">Produtos</button>
+          <button class="dash-tab" data-tab="produtos">Produtos</button>
           <button class="dash-tab" data-tab="financeiro">Financeiro</button>
+        </div>
+
+        <!-- ABA 2: DASHBOARD DE VENDAS -->
+        <div id="tab-vendas" class="tab-content is-active">
+          <!-- Toolbar de Filtros do Dashboard de Vendas -->
+          <div class="page-toolbar" style="margin-top: 12px; margin-bottom: 20px;">
+            <div class="flex items-center gap-3 flex-wrap">
+              <div class="flex items-center gap-2">
+                <label for="filtro-vendas-periodo" class="text-xs font-bold text-stone-500 uppercase">Período:</label>
+                <select id="filtro-vendas-periodo" class="search-input" style="width: 190px;">
+                  <option value="7">Últimos 7 dias</option>
+                  <option value="30" selected>Últimos 30 dias</option>
+                  <option value="90">Últimos 90 dias</option>
+                  <option value="180">Últimos 6 meses</option>
+                </select>
+              </div>
+
+              <div class="flex items-center gap-2">
+                <label for="filtro-vendas-canal" class="text-xs font-bold text-stone-500 uppercase">Canal:</label>
+                <select id="filtro-vendas-canal" class="search-input" style="width: 200px;">
+                  <option value="todos" selected>Todos os Canais</option>
+                  <option value="Mercado Livre">Mercado Livre (Full & Flex)</option>
+                  <option value="Venda Direta">Venda Direta / B2B</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="flex items-center gap-3 flex-wrap">
+              <a href="movimentacoes.html" class="btn-ghost" style="padding: 8px 14px; font-size: 0.82rem; text-decoration: none; display: inline-flex; align-items: center; gap: 6px;">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3v18"/><path d="m21 7-4-4-4 4"/><path d="M7 21V3"/><path d="m3 17 4 4 4-4"/></svg>
+                Ver Movimentações de Estoque
+              </a>
+              <div class="flex items-center gap-2 text-xs text-stone-500 font-medium">
+                <span class="inline-block w-2 h-2 rounded-full bg-emerald-500"></span>
+                <span>Dados sincronizados com Mercado Livre e estoque</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Grade de KPIs Estratégicos de Vendas -->
+          <section class="kpi-grid" id="kpis-tab-vendas" style="grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));"></section>
+
+          <!-- Linha 1 de Gráficos: Faturamento Temporal & Canal -->
+          <div class="charts-row" style="margin-top: 20px;">
+            <div class="chart-card card">
+              <div class="flex items-center justify-between mb-2">
+                <h2 class="chart-title">Evolução de Vendas no Período</h2>
+                <span class="text-xs text-stone-500 font-medium">Faturamento (R$) e Pedidos</span>
+              </div>
+              <div id="chart-vendas-timeline"></div>
+            </div>
+
+            <div class="chart-card card">
+              <div class="flex items-center justify-between mb-2">
+                <h2 class="chart-title">Vendas por Canal</h2>
+                <span class="text-xs text-stone-500 font-medium">Participação em Receita</span>
+              </div>
+              <div id="chart-vendas-canal"></div>
+            </div>
+          </div>
+
+          <!-- Linha 2 de Gráficos: Mix de Produtos e Categorias -->
+          <div class="charts-row-equal" style="margin-top: 14px;">
+            <div class="chart-card card">
+              <div class="flex items-center justify-between mb-2">
+                <h2 class="chart-title">Top 5 Extintores / Produtos Mais Vendidos</h2>
+                <span class="text-xs text-stone-500 font-medium">Por Faturamento Bruto</span>
+              </div>
+              <div id="chart-top-produtos-vendas"></div>
+            </div>
+
+            <div class="chart-card card">
+              <div class="flex items-center justify-between mb-2">
+                <h2 class="chart-title">Faturamento por Linha de Equipamento</h2>
+                <span class="text-xs text-stone-500 font-medium">Extintores × Acessórios × Placas</span>
+              </div>
+              <div id="chart-vendas-categoria"></div>
+            </div>
+          </div>
+
+          <!-- Linha 3 de Gráficos: Status dos Pedidos & Distribuição Regional -->
+          <div class="charts-row-equal" style="margin-top: 14px;">
+            <div class="chart-card card">
+              <div class="flex items-center justify-between mb-2">
+                <h2 class="chart-title">Status Operacional dos Pedidos</h2>
+                <span class="text-xs text-stone-500 font-medium">Funil e entregas no período</span>
+              </div>
+              <div id="chart-vendas-status"></div>
+            </div>
+
+            <div class="chart-card card">
+              <div class="flex items-center justify-between mb-2">
+                <h2 class="chart-title">Distribuição Geográfica de Vendas</h2>
+                <span class="text-xs text-stone-500 font-medium">Top Estados (Mercado Livre & Direto)</span>
+              </div>
+              <div id="chart-vendas-geografia"></div>
+            </div>
+          </div>
+
+          <!-- Seção de Tabela: Pedidos e Vendas Recentes -->
+          <div class="card" style="margin-top: 20px; padding: 20px;">
+            <div class="flex items-center justify-between mb-3">
+              <div>
+                <h2 class="chart-title" style="margin: 0;">Pedidos Recentes do Período</h2>
+                <p class="text-xs text-stone-500 mt-1">Detalhamento dos pedidos filtrados com atalho direto para conferência das movimentações</p>
+              </div>
+              <span id="label-total-pedidos-tabela" class="text-xs font-bold text-stone-600 bg-stone-100 px-3 py-1.5 rounded-full"></span>
+            </div>
+
+            <div class="table-wrap">
+              <table class="products-table" id="tabela-pedidos-vendas">
+                <thead>
+                  <tr>
+                    <th>CÓDIGO / ID</th>
+                    <th>DATA & HORA</th>
+                    <th>CANAL</th>
+                    <th>CLIENTE / DESTINO</th>
+                    <th>ITENS & QUANTIDADE</th>
+                    <th>VALOR TOTAL</th>
+                    <th>STATUS</th>
+                    <th style="text-align: right;">AÇÕES</th>
+                  </tr>
+                </thead>
+                <tbody id="lista-pedidos-vendas"></tbody>
+              </table>
+            </div>
+          </div>
         </div>
 
         <div id="tab-visao-geral" class="tab-content">
@@ -70,7 +197,7 @@
           <section class="kpi-grid" id="kpis-vendas"></section>
         </div>
 
-        <div id="tab-produtos" class="tab-content is-active">
+        <div id="tab-produtos" class="tab-content">
           <div class="page-toolbar" style="margin-top: 12px;">
             <div class="flex items-center gap-3">
               <select id="filtro-periodo" class="search-input" style="width: 200px;">
@@ -128,6 +255,17 @@
           </div>
         </div>
       </main>
+    </div>
+
+    <!-- Modal de Detalhes da Venda & Baixa de Estoque -->
+    <div class="modal-backdrop" id="modal-detalhes-pedido" role="dialog" aria-modal="true" aria-labelledby="modal-pedido-titulo">
+      <div class="modal" style="width: min(720px, 100%);">
+        <div class="modal-header">
+          <h2 id="modal-pedido-titulo">Detalhes do Pedido & Estoque</h2>
+          <button class="icon-btn" id="btn-fechar-modal-pedido" type="button" aria-label="Fechar">✕</button>
+        </div>
+        <div id="modal-pedido-conteudo"></div>
+      </div>
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/apexcharts"></script>

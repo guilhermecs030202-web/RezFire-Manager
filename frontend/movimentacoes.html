@@ -31,25 +31,67 @@
     <main class="app-main">
       <div class="page-toolbar">
         <div>
-          <h1 class="page-title">MOVIMENTAÇÕES</h1>
-          <p class="page-subtitle" id="movimentacoes-count">Carregando histórico...</p>
+          <h1 class="page-title">MOVIMENTAÇÕES DE ESTOQUE & VENDAS</h1>
+          <p class="page-subtitle" id="movimentacoes-count">Carregando histórico e sincronização com vendas...</p>
         </div>
         <div class="flex items-center gap-3">
-          <input id="busca" class="search-input" type="search" placeholder="Buscar por SKU, nome, motivo..." />
-          <button class="btn-primary" id="btn-nova-movimentacao" type="button">+ Nova Movimentação</button>
+          <a href="dashboard.html" class="btn-ghost" style="padding: 10px 16px; font-size: 0.88rem; text-decoration: none; display: inline-flex; align-items: center; gap: 6px;">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+            Painel de Vendas
+          </a>
+          <button class="btn-primary" id="btn-nova-movimentacao" type="button">+ Nova Movimentação / Venda</button>
         </div>
       </div>
 
+      <!-- Resumo Rápido Operacional de Movimentações -->
+      <section class="kpi-grid" id="kpis-movimentacoes-topo" style="margin-bottom: 22px; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));"></section>
+
+      <!-- Barra de Filtros e Pesquisa -->
+      <div class="card" style="padding: 16px; margin-bottom: 16px;">
+        <div class="flex items-center justify-between gap-3 flex-wrap">
+          <div class="flex items-center gap-3 flex-wrap flex-1">
+            <input id="busca" class="search-input" type="search" placeholder="Buscar por SKU, nome, código MLB, cliente..." style="width: 320px;" />
+
+            <div class="flex items-center gap-2">
+              <label for="filtro-mov-canal" class="text-xs font-bold text-stone-500 uppercase">Canal / Tipo:</label>
+              <select id="filtro-mov-canal" class="search-input" style="width: 210px;">
+                <option value="todos" selected>Todos os Tipos e Canais</option>
+                <option value="Mercado Livre">Vendas Mercado Livre</option>
+                <option value="Venda Direta">Vendas Diretas / B2B</option>
+                <option value="Entrada">Entradas (Abastecimento / NF)</option>
+              </select>
+            </div>
+
+            <div class="flex items-center gap-2">
+              <label for="filtro-mov-periodo" class="text-xs font-bold text-stone-500 uppercase">Período:</label>
+              <select id="filtro-mov-periodo" class="search-input" style="width: 170px;">
+                <option value="7">Últimos 7 dias</option>
+                <option value="30" selected>Últimos 30 dias</option>
+                <option value="90">Últimos 90 dias</option>
+                <option value="todos">Todo o Histórico</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="text-xs text-stone-500 font-medium">
+            <span class="inline-block w-2 h-2 rounded-full bg-emerald-500 mr-1.5"></span>
+            <span>Sincronizado com os Pedidos de Venda</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Tabela Completa de Movimentações e Vendas -->
       <section class="card table-wrap">
         <table class="products-table">
           <thead>
             <tr>
-              <th>DATA</th>
-              <th>PRODUTO</th>
-              <th>TIPO</th>
-              <th>MOTIVO</th>
-              <th>QTD</th>
-              <th>RESPONSÁVEL</th>
+              <th>DATA & HORA</th>
+              <th>PRODUTO / EXTINTOR</th>
+              <th>CANAL & TIPO</th>
+              <th>PEDIDO / CLIENTE / DESTINO</th>
+              <th>QUANTIDADE</th>
+              <th>VALOR UNIT. / TOTAL</th>
+              <th>STATUS / ORIGEM</th>
             </tr>
           </thead>
           <tbody id="movimentacoes-body"></tbody>
@@ -60,7 +102,7 @@
 
   <div class="modal-backdrop" id="modal" role="dialog" aria-modal="true" aria-labelledby="modal-title">
     <form class="modal" id="form-movimentacao">
-      <h2 id="modal-title">Registrar Movimentação</h2>
+      <h2 id="modal-title">Registrar Movimentação de Estoque</h2>
       
       <div class="form-grid">
         <div class="form-field span-2">
@@ -70,34 +112,141 @@
           </select>
         </div>
         <div class="form-field">
-          <label for="tipo">Tipo</label>
+          <label for="tipo">Tipo de Operação</label>
           <select id="tipo" name="tipo" required>
-            <option value="Entrada">Entrada (Aumentar Estoque)</option>
-            <option value="Saída">Saída (Reduzir Estoque)</option>
+            <option value="Saída">Saída (Venda ou Baixa de Estoque)</option>
+            <option value="Entrada">Entrada (Abastecimento ou Devolução)</option>
           </select>
         </div>
         <div class="form-field">
-          <label for="motivo">Motivo</label>
+          <label for="motivo">Motivo da Movimentação</label>
           <select id="motivo" name="motivo" required>
-            <!-- Filled via JS depending on Tipo -->
+            <!-- Preenchido via JS conforme o Tipo -->
           </select>
         </div>
+
         <div class="form-field">
           <label for="quantidade">Quantidade</label>
           <input id="quantidade" name="quantidade" type="number" min="1" step="1" value="1" required />
         </div>
+
+        <div class="form-field" id="campo-preco-venda">
+          <label for="preco_unitario">Preço Unitário (R$)</label>
+          <input id="preco_unitario" name="preco_unitario" type="number" step="0.01" min="0" placeholder="R$ 0,00" />
+        </div>
+
+        <!-- Seção de Venda (Mercado Livre ou Venda Direta) -->
+        <div id="secao-dados-venda" class="form-field span-2" style="border-top: 1px dashed #e4ddd4; padding-top: 14px; margin-top: 4px;">
+          <div class="modal-info-box" style="margin-bottom: 12px;">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0; margin-top: 1px;">
+              <circle cx="12" cy="12" r="10"></circle>
+              <line x1="12" y1="16" x2="12" y2="12"></line>
+              <line x1="12" y1="8" x2="12.01" y2="8"></line>
+            </svg>
+            <div>
+              <strong>Informações do Pedido / Venda:</strong> Esta movimentação será registrada no histórico e sincronizada com os relatórios de vendas.
+            </div>
+          </div>
+
+          <div class="form-grid">
+            <div class="form-field">
+              <label for="codigo_pedido">Código do Pedido / ID</label>
+              <input id="codigo_pedido" name="codigo_pedido" placeholder="Ex: MLB-28940120 ou DIR-2024-050" />
+            </div>
+            <div class="form-field">
+              <label for="cliente_nome">Nome do Cliente / Empresa</label>
+              <input id="cliente_nome" name="cliente_nome" placeholder="Ex: Condomínio Solar das Palmeiras" />
+            </div>
+            <div class="form-field">
+              <label for="cliente_uf">Estado (UF)</label>
+              <select id="cliente_uf" name="cliente_uf">
+                <option value="SP" selected>SP</option>
+                <option value="RJ">RJ</option>
+                <option value="MG">MG</option>
+                <option value="PR">PR</option>
+                <option value="SC">SC</option>
+                <option value="RS">RS</option>
+                <option value="BA">BA</option>
+                <option value="GO">GO</option>
+                <option value="Outro">Outro</option>
+              </select>
+            </div>
+            <div class="form-field">
+              <label for="tipo_envio">Modalidade de Envio</label>
+              <select id="tipo_envio" name="tipo_envio">
+                <option value="Mercado Envios Full">Mercado Envios Full</option>
+                <option value="Mercado Envios Coleta">Mercado Envios Coleta / Flex</option>
+                <option value="Transportadora Própria">Transportadora / Retirada</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        <!-- Seção de Rastreabilidade para Extintores (Entrada de Lote/Remessa) -->
+        <div id="extintor-lote-section" class="form-field span-2" style="display: none; border-top: 1px dashed #e4ddd4; padding-top: 14px; margin-top: 6px;">
+          <div class="modal-info-box" style="margin-bottom: 12px;">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0; margin-top: 1px;">
+              <circle cx="12" cy="12" r="10"></circle>
+              <line x1="12" y1="16" x2="12" y2="12"></line>
+              <line x1="12" y1="8" x2="12.01" y2="8"></line>
+            </svg>
+            <div>
+              <strong>Rastreabilidade desta Remessa de Extintores:</strong> Identifique a validade, lote e lacres específicos deste novo abastecimento sem precisar cadastrar um novo SKU.
+            </div>
+          </div>
+
+          <div class="form-grid">
+            <div class="form-field">
+              <label for="lote_serie">Lote / Identificador</label>
+              <input id="lote_serie" name="lote_serie" maxlength="40" placeholder="Ex: LT-2024/02" />
+            </div>
+            <div class="form-field">
+              <label for="lote_inmetro">Selo / Inmetro da Remessa</label>
+              <input id="lote_inmetro" name="lote_inmetro" maxlength="50" placeholder="Ex: INM-994120" />
+            </div>
+            <div class="form-field">
+              <label for="lote_fabricacao">Data de Fabricação</label>
+              <input id="lote_fabricacao" name="lote_fabricacao" type="date" />
+            </div>
+            <div class="form-field">
+              <label for="lote_validade">Data de Validade / Carga</label>
+              <input id="lote_validade" name="lote_validade" type="date" />
+            </div>
+            <div class="form-field span-2">
+              <label for="lote_lacre">Número do Lacre</label>
+              <input id="lote_lacre" name="lote_lacre" maxlength="50" placeholder="Ex: L-849201 ou faixa de lacres" />
+            </div>
+            <div class="form-field span-2">
+              <label class="flex items-center gap-2 cursor-pointer font-normal text-xs text-gray-700">
+                <input type="checkbox" id="atualizar_produto_extintor" checked style="width: auto; margin: 0;" />
+                <span>Atualizar cadastro principal do produto com as informações desta remessa</span>
+              </label>
+            </div>
+          </div>
+        </div>
       </div>
+
       <p class="form-error" id="form-error"></p>
       <div class="modal-actions">
         <button class="btn-ghost" type="button" id="btn-cancelar">Cancelar</button>
-        <button class="btn-primary" type="submit">Salvar</button>
+        <button class="btn-primary" type="submit">Salvar Movimentação</button>
       </div>
     </form>
+  </div>
+
+  <!-- Modal de Detalhes da Venda & Baixa de Estoque -->
+  <div class="modal-backdrop" id="modal-detalhes-venda" role="dialog" aria-modal="true" aria-labelledby="modal-venda-titulo">
+    <div class="modal" style="width: min(720px, 100%);">
+      <div class="modal-header">
+        <h2 id="modal-venda-titulo">Detalhes da Venda & Estoque</h2>
+        <button class="icon-btn" id="btn-fechar-modal-venda" type="button" aria-label="Fechar">✕</button>
+      </div>
+      <div id="modal-venda-conteudo"></div>
+    </div>
   </div>
 
   <script src="js/mock-data.js"></script>
   <script src="js/layout.js"></script>
   <script src="js/movimentacoes.js"></script>
 </body>
-
 </html>

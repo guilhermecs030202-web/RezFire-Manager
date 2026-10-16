@@ -62,61 +62,151 @@
 
   <div class="modal-backdrop" id="modal" role="dialog" aria-modal="true" aria-labelledby="modal-title">
     <form class="modal" id="form-produto">
-      <h2 id="modal-title">Novo produto</h2>
+      <div class="modal-header">
+        <h2 id="modal-title">Novo produto</h2>
+      </div>
+
+      <!-- Abas de Navegação -->
+      <div class="modal-tabs" role="tablist">
+        <button type="button" class="modal-tab-btn is-active" id="tab-btn-geral" data-tab="geral" role="tab" aria-selected="true">
+          Geral
+        </button>
+        <button type="button" class="modal-tab-btn" id="tab-btn-detalhes" data-tab="detalhes" role="tab" aria-selected="false">
+          Detalhes <span class="modal-tab-badge">Extintor</span>
+        </button>
+      </div>
+
       <input type="hidden" id="id_produto" />
-      <div class="form-grid">
-        <div class="form-field">
-          <label for="sku">SKU</label>
-          <input id="sku" name="sku" required maxlength="40" />
-        </div>
-        <div class="form-field">
-          <label for="custo">Custo</label>
-          <input id="custo" name="custo" type="number" min="0" step="0.01" required />
-        </div>
-        <div class="form-field">
-          <label for="preco">Preço</label>
-          <input id="preco" name="preco" type="number" min="0" step="0.01" required />
-        </div>
-        <div class="form-field span-2">
-          <label for="nome">Nome</label>
-          <input id="nome" name="nome" required maxlength="120" />
-        </div>
-        <div class="form-field span-2">
-          <label for="descricao">Descrição</label>
-          <textarea id="descricao" name="descricao" rows="3" maxlength="500"></textarea>
-        </div>
-        <div class="form-field">
-          <label for="categoria">Categoria</label>
-          <input id="categoria" name="categoria" required maxlength="60" />
-        </div>
-        <div class="form-field">
-          <label for="tipo">Tipo</label>
-          <select id="tipo" name="tipo">
-            <option value="Simples">Simples</option>
-            <option value="Combo">Combo</option>
-          </select>
-        </div>
-        <div class="form-field">
-          <label for="ativo">Situação</label>
-          <select id="ativo" name="ativo">
-            <option value="true">Ativo</option>
-            <option value="false">Inativo</option>
-          </select>
-        </div>
-        <div id="combo-section" class="form-field span-2" style="display: none;">
-          <label>Itens do Combo</label>
-          <div class="flex gap-2 mb-2">
-            <select id="combo-item-select" class="flex-1" style="padding: 0.5rem; border: 1px solid #d1d5db; border-radius: 0.25rem;">
-              <option value="">Selecione um produto simples...</option>
-            </select>
-            <input id="combo-item-qtd" type="number" min="1" step="1" value="1" style="width: 5rem; padding: 0.5rem; border: 1px solid #d1d5db; border-radius: 0.25rem;" />
-            <button type="button" id="btn-add-combo-item" class="btn-ghost" style="padding: 0.5rem 1rem;">Adicionar</button>
+
+      <!-- Aba 1: Informações Gerais -->
+      <div class="modal-tab-pane" id="tab-pane-geral" role="tabpanel">
+        <div class="form-grid">
+          <div class="form-field">
+            <label for="sku">SKU</label>
+            <input id="sku" name="sku" required maxlength="40" />
           </div>
-          <ul id="combo-items-list" class="flex flex-col gap-2 mt-2 bg-white border border-gray-200 rounded p-2 min-h-[50px]">
-            <!-- Combo items will be listed here -->
-          </ul>
+          <div class="form-field">
+            <label for="custo">Custo</label>
+            <input id="custo" name="custo" type="number" min="0" step="0.01" required />
+          </div>
+          <div class="form-field">
+            <label for="preco">Preço</label>
+            <input id="preco" name="preco" type="number" min="0" step="0.01" required />
+          </div>
+          <div class="form-field span-2">
+            <label for="nome">Nome</label>
+            <input id="nome" name="nome" required maxlength="120" />
+          </div>
+          <div class="form-field span-2">
+            <label for="descricao">Descrição</label>
+            <textarea id="descricao" name="descricao" rows="3" maxlength="500"></textarea>
+          </div>
+          <div class="form-field">
+            <label for="categoria">Categoria</label>
+            <input id="categoria" name="categoria" required maxlength="60" />
+          </div>
+          <div class="form-field">
+            <label for="tipo">Tipo</label>
+            <select id="tipo" name="tipo">
+              <option value="Simples">Simples</option>
+              <option value="Combo">Combo</option>
+            </select>
+          </div>
+          <div class="form-field">
+            <label for="ativo">Situação</label>
+            <select id="ativo" name="ativo">
+              <option value="true">Ativo</option>
+              <option value="false">Inativo</option>
+            </select>
+          </div>
+          <div id="combo-section" class="form-field span-2" style="display: none;">
+            <label>Itens do Combo</label>
+            <div class="flex gap-2 mb-2">
+              <select id="combo-item-select" class="flex-1" style="padding: 0.5rem; border: 1px solid #d1d5db; border-radius: 0.25rem;">
+                <option value="">Selecione um produto simples...</option>
+              </select>
+              <input id="combo-item-qtd" type="number" min="1" step="1" value="1" style="width: 5rem; padding: 0.5rem; border: 1px solid #d1d5db; border-radius: 0.25rem;" />
+              <button type="button" id="btn-add-combo-item" class="btn-ghost" style="padding: 0.5rem 1rem;">Adicionar</button>
+            </div>
+            <ul id="combo-items-list" class="flex flex-col gap-2 mt-2 bg-white border border-gray-200 rounded p-2 min-h-[50px]">
+              <!-- Combo items will be listed here -->
+            </ul>
+          </div>
         </div>
       </div>
+
+      <!-- Aba 2: Detalhes do Extintor -->
+      <div class="modal-tab-pane" id="tab-pane-detalhes" role="tabpanel" style="display: none;">
+        <div class="modal-info-box">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0; margin-top: 1px;">
+            <circle cx="12" cy="12" r="10"></circle>
+            <line x1="12" y1="16" x2="12" y2="12"></line>
+            <line x1="12" y1="8" x2="12.01" y2="8"></line>
+          </svg>
+          <div>
+            <strong>Ficha Técnica do Extintor:</strong> Acrescente os dados técnicos de certificação e rastreabilidade para itens do tipo extintor.
+          </div>
+        </div>
+
+        <div class="form-grid">
+          <div class="form-field">
+            <label for="registro_inmetro">Certificação / Registro Inmetro</label>
+            <input id="registro_inmetro" name="registro_inmetro" maxlength="50" placeholder="Ex: 003180/2022" />
+          </div>
+          <div class="form-field">
+            <label for="tipo_extintor">Tipo do Extintor</label>
+            <select id="tipo_extintor" name="tipo_extintor">
+              <option value="">Selecione o tipo...</option>
+              <option value="Pó Químico ABC">Pó Químico ABC</option>
+              <option value="Pó Químico BC">Pó Químico BC</option>
+              <option value="Água Pressurizada (AP)">Água Pressurizada (AP)</option>
+              <option value="Dióxido de Carbono (CO2)">Dióxido de Carbono (CO2)</option>
+              <option value="Espuma Mecânica">Espuma Mecânica</option>
+              <option value="Classe K (Cozinhas)">Classe K (Cozinhas)</option>
+              <option value="Halotron / Gases Limpos">Halotron / Gases Limpos</option>
+              <option value="Outro">Outro</option>
+            </select>
+          </div>
+          <div class="form-field">
+            <label for="capacidade_peso">Capacidade Extintora / Peso</label>
+            <input id="capacidade_peso" name="capacidade_peso" maxlength="50" placeholder="Ex: 4 kg (2-A:20-B:C) ou 10L" />
+          </div>
+          <div class="form-field">
+            <label for="classe_incendio">Classe de Incêndio (A, B ou C)</label>
+            <select id="classe_incendio" name="classe_incendio">
+              <option value="">Selecione a classe...</option>
+              <option value="ABC">Classe ABC (Múltiplo uso)</option>
+              <option value="A">Classe A (Sólidos combustíveis)</option>
+              <option value="BC">Classe BC (Líquidos e Elétricos)</option>
+              <option value="B">Classe B (Líquidos inflamáveis)</option>
+              <option value="C">Classe C (Equipamentos elétricos)</option>
+              <option value="K">Classe K (Gorduras e óleos)</option>
+              <option value="D">Classe D (Metais pirofóricos)</option>
+            </select>
+          </div>
+          <div class="form-field span-2">
+            <label for="fabricante">Fabricante</label>
+            <input id="fabricante" name="fabricante" maxlength="100" placeholder="Ex: Resil, Kidde, Mocelin, Extang..." />
+          </div>
+          <div class="form-field">
+            <label for="data_fabricacao">Data de Fabricação</label>
+            <input id="data_fabricacao" name="data_fabricacao" type="date" />
+          </div>
+          <div class="form-field">
+            <label for="data_validade">Data de Validade / Carga</label>
+            <input id="data_validade" name="data_validade" type="date" />
+          </div>
+          <div class="form-field">
+            <label for="numero_lacre">Número do Lacre</label>
+            <input id="numero_lacre" name="numero_lacre" maxlength="50" placeholder="Ex: L-849201" />
+          </div>
+          <div class="form-field">
+            <label for="selo_conformidade">Selo de Conformidade</label>
+            <input id="selo_conformidade" name="selo_conformidade" maxlength="50" placeholder="Ex: INM-994120" />
+          </div>
+        </div>
+      </div>
+
       <p class="form-error" id="form-error"></p>
       <div class="modal-actions">
         <button class="btn-ghost" type="button" id="btn-cancelar">Cancelar</button>

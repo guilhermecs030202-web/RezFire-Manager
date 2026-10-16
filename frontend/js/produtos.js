@@ -61,19 +61,32 @@ function renderTable() {
   document.getElementById("produtos-count").textContent = `${products.length} SKUs cadastrados`;
 
   if (!rows.length) {
-    body.innerHTML = `<tr class="empty-row"><td colspan="7">Nenhum produto encontrado.</td></tr>`;
+    body.innerHTML = `<tr class="empty-row"><td colspan="8">Nenhum produto encontrado.</td></tr>`;
     return;
   }
 
   body.innerHTML = rows
     .map((p) => {
+      const d = p.detalhes_extintor;
+      const temDetalhesExtintor = d && (d.registro_inmetro || d.tipo_extintor || d.capacidade_peso || d.classe_incendio);
+
       return `
         <tr>
           <td>
             <span class="sku-main">${escapeHtml(p.sku)}</span>
             <span class="sku-sub">ID ${p.id_produto}</span>
           </td>
-          <td class="prod-name">${escapeHtml(p.nome)}</td>
+          <td class="prod-name">
+            <div>${escapeHtml(p.nome)}</div>
+            ${temDetalhesExtintor ? `
+              <div class="flex flex-wrap gap-1 mt-1 text-xs">
+                ${d.tipo_extintor ? `<span class="inline-flex items-center px-1.5 py-0.5 rounded bg-orange-50 text-orange-800 border border-orange-200">${escapeHtml(d.tipo_extintor)}</span>` : ''}
+                ${d.capacidade_peso ? `<span class="inline-flex items-center px-1.5 py-0.5 rounded bg-amber-50 text-amber-800 border border-amber-200">${escapeHtml(d.capacidade_peso)}</span>` : ''}
+                ${d.classe_incendio ? `<span class="inline-flex items-center px-1.5 py-0.5 rounded bg-gray-100 text-gray-700 font-semibold">Classe ${escapeHtml(d.classe_incendio)}</span>` : ''}
+                ${d.registro_inmetro ? `<span class="inline-flex items-center px-1.5 py-0.5 rounded bg-blue-50 text-blue-800 border border-blue-200" title="Registro Inmetro">Inmetro: ${escapeHtml(d.registro_inmetro)}</span>` : ''}
+              </div>
+            ` : ''}
+          </td>
           <td>${escapeHtml(p.categoria || "Sem Categoria")}</td>
           <td>${p.tipo === "Combo" ? '<span class="status-pill on">Combo</span>' : 'Simples'}</td>
           <td>${RezFireData.formatMoney(Number(p.custo || 0))}</td>
@@ -103,10 +116,41 @@ function escapeHtml(value) {
     .replaceAll('"', "&quot;");
 }
 
+function switchModalTab(tabName) {
+  const tabBtnGeral = document.getElementById("tab-btn-geral");
+  const tabBtnDetalhes = document.getElementById("tab-btn-detalhes");
+  const paneGeral = document.getElementById("tab-pane-geral");
+  const paneDetalhes = document.getElementById("tab-pane-detalhes");
+
+  if (!tabBtnGeral || !tabBtnDetalhes || !paneGeral || !paneDetalhes) return;
+
+  if (tabName === "detalhes") {
+    tabBtnGeral.classList.remove("is-active");
+    tabBtnGeral.setAttribute("aria-selected", "false");
+    tabBtnDetalhes.classList.add("is-active");
+    tabBtnDetalhes.setAttribute("aria-selected", "true");
+
+    paneGeral.style.display = "none";
+    paneDetalhes.style.display = "block";
+  } else {
+    tabBtnDetalhes.classList.remove("is-active");
+    tabBtnDetalhes.setAttribute("aria-selected", "false");
+    tabBtnGeral.classList.add("is-active");
+    tabBtnGeral.setAttribute("aria-selected", "true");
+
+    paneDetalhes.style.display = "none";
+    paneGeral.style.display = "block";
+  }
+}
+
 function openModal(product) {
   const modal = document.getElementById("modal");
   const title = document.getElementById("modal-title");
   document.getElementById("form-error").textContent = "";
+
+  // Retorna sempre para a primeira aba por padrão
+  switchModalTab("geral");
+
   document.getElementById("id_produto").value = product ? product.id_produto : "";
   document.getElementById("sku").value = product ? product.sku : "";
   document.getElementById("nome").value = product ? product.nome : "";
@@ -116,6 +160,19 @@ function openModal(product) {
   document.getElementById("categoria").value = product ? (product.categoria || "") : "";
   document.getElementById("tipo").value = product ? (product.tipo || "Simples") : "Simples";
   document.getElementById("ativo").value = product && product.ativo === false ? "false" : "true";
+
+  // Preenche ou limpa campos da aba Detalhes (Extintor)
+  const d = (product && product.detalhes_extintor) || {};
+  document.getElementById("registro_inmetro").value = d.registro_inmetro || "";
+  document.getElementById("tipo_extintor").value = d.tipo_extintor || "";
+  document.getElementById("capacidade_peso").value = d.capacidade_peso || "";
+  document.getElementById("classe_incendio").value = d.classe_incendio || "";
+  document.getElementById("fabricante").value = d.fabricante || "";
+  document.getElementById("data_fabricacao").value = d.data_fabricacao || "";
+  document.getElementById("data_validade").value = d.data_validade || "";
+  document.getElementById("numero_lacre").value = d.numero_lacre || "";
+  document.getElementById("selo_conformidade").value = d.selo_conformidade || "";
+
   title.textContent = product ? "Editar produto" : "Novo produto";
   
   currentComboItems = product && product.combo_items ? [...product.combo_items] : [];
@@ -147,6 +204,18 @@ function validateForm(payload, editingId) {
 }
 
 function readForm() {
+  const detalhes_extintor = {
+    registro_inmetro: document.getElementById("registro_inmetro").value.trim(),
+    tipo_extintor: document.getElementById("tipo_extintor").value,
+    capacidade_peso: document.getElementById("capacidade_peso").value.trim(),
+    classe_incendio: document.getElementById("classe_incendio").value,
+    fabricante: document.getElementById("fabricante").value.trim(),
+    data_fabricacao: document.getElementById("data_fabricacao").value,
+    data_validade: document.getElementById("data_validade").value,
+    numero_lacre: document.getElementById("numero_lacre").value.trim(),
+    selo_conformidade: document.getElementById("selo_conformidade").value.trim(),
+  };
+
   return {
     sku: document.getElementById("sku").value.trim(),
     nome: document.getElementById("nome").value.trim(),
@@ -157,6 +226,7 @@ function readForm() {
     tipo: document.getElementById("tipo").value,
     ativo: document.getElementById("ativo").value === "true",
     combo_items: [...currentComboItems],
+    detalhes_extintor,
   };
 }
 
@@ -172,6 +242,12 @@ function bindEvents() {
     if (event.target.id === "modal") closeModal();
   });
   document.getElementById("tipo").addEventListener("change", updateComboVisibility);
+
+  // Eventos de troca de abas no modal
+  const tabBtnGeral = document.getElementById("tab-btn-geral");
+  const tabBtnDetalhes = document.getElementById("tab-btn-detalhes");
+  if (tabBtnGeral) tabBtnGeral.addEventListener("click", () => switchModalTab("geral"));
+  if (tabBtnDetalhes) tabBtnDetalhes.addEventListener("click", () => switchModalTab("detalhes"));
 
   document.getElementById("btn-add-combo-item").addEventListener("click", () => {
     const select = document.getElementById("combo-item-select");
@@ -231,7 +307,13 @@ function bindEvents() {
     const payload = readForm();
     const error = validateForm(payload, editingId);
     document.getElementById("form-error").textContent = error;
-    if (error) return;
+    if (error) {
+      // Se houver erro em campo da aba geral, volta para a aba geral para o usuário corrigir
+      if (error.includes("SKU") || error.includes("nome") || error.includes("Custo") || error.includes("Preço") || error.includes("categoria") || error.includes("combo")) {
+        switchModalTab("geral");
+      }
+      return;
+    }
 
     if (editingId) {
       products = products.map((p) =>

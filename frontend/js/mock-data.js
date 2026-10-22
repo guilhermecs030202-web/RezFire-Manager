@@ -885,6 +885,460 @@ function computeMovementsMetrics(movements) {
   };
 }
 
+function computeStockDashboardMetrics(products, filterCategory = "todos", filterRisk = "todos") {
+  // Deriva dados enriquecidos para cada produto
+  const enriched = products.map((p) => {
+    const qty = Number(p.quantidade_atual || 0);
+    const min = Number(p.estoque_minimo || 0);
+    const custo = Number(p.custo || (p.preco ? p.preco * 0.55 : 0));
+    const preco = Number(p.preco || 0);
+    const valorCusto = qty * custo;
+    const valorVenda = qty * preco;
+
+    // Macro-categoria e Categoria detalhada
+    let macroCategoria = "Extintores";
+    let categoriaDetalhada = "Extintor Geral";
+    if (p.sku.startsWith("EXT-CO2")) {
+      macroCategoria = "Extintores";
+      categoriaDetalhada = "Extintor CO2";
+    } else if (p.sku.startsWith("EXT-H2O")) {
+      macroCategoria = "Extintores";
+      categoriaDetalhada = "Extintor Água";
+    } else if (p.sku.startsWith("EXT-PQS")) {
+      macroCategoria = "Extintores";
+      categoriaDetalhada = "Extintor Pó Químico";
+    } else if (p.sku.startsWith("EXT-K")) {
+      macroCategoria = "Extintores";
+      categoriaDetalhada = "Extintor Classe K";
+    } else if (p.sku.startsWith("EXT-ESP")) {
+      macroCategoria = "Extintores";
+      categoriaDetalhada = "Espuma Mecânica";
+    } else if (p.sku.startsWith("MAN")) {
+      macroCategoria = "Hidrantes & Mangueiras";
+      categoriaDetalhada = "Mangueiras de Incêndio";
+    } else if (p.sku.startsWith("PLA")) {
+      macroCategoria = "Sinalização";
+      categoriaDetalhada = "Placas Fotoluminescentes";
+    } else if (p.sku.startsWith("DET") || p.sku.startsWith("SUP")) {
+      macroCategoria = "Acessórios & Suportes";
+      categoriaDetalhada = p.sku.startsWith("DET") ? "Detectores" : "Suportes Metálicos";
+    }
+
+    // Classificação de Risco Operacional
+    let risco = "normal";
+    let riscoLabel = "Estoque Seguro";
+    let riscoCor = "#1f9d5c";
+    let chipClass = "ok";
+
+    if (qty <= 0) {
+      risco = "ruptura";
+      riscoLabel = "Ruptura Imediata";
+      riscoCor = "#e24b4b";
+      chipClass = "zero";
+    } else if (qty <= min) {
+      risco = "critico";
+      riscoLabel = "Abaixo do Mínimo";
+      riscoCor = "#e85c2a";
+      chipClass = "low";
+    } else if (qty <= Math.ceil(min * 1.35)) {
+      risco = "atencao";
+      riscoLabel = "Ponto de Atenção";
+      riscoCor = "#f59e0b";
+      chipClass = "warning";
+    } else if (qty > min * 3.5 && min > 0) {
+      risco = "excesso";
+      riscoLabel = "Excesso / Sem Giro";
+      riscoCor = "#3b82f6";
+      chipClass = "excess";
+    }
+
+    // Média de consumo mensal estimada baseada no giro histórico
+    let mediaMensal = Math.max(1, Math.round(min * 1.25));
+    if (p.id_produto === 7) mediaMensal = 55; // PQS 4kg (alto giro)
+    else if (p.id_produto === 8) mediaMensal = 32; // PQS 6kg
+    else if (p.id_produto === 4) mediaMensal = 25; // CO2 4kg (zerado mas com alta demanda)
+    else if (p.id_produto === 1) mediaMensal = 40; // Detector de Fumaça
+    else if (p.id_produto === 11) mediaMensal = 65; // Placa Fotoluminescente
+    else if (p.id_produto === 2) mediaMensal = 28; // H2O 10L
+    else if (p.id_produto === 3) mediaMensal = 6; // Classe K
+    else if (p.id_produto === 5) mediaMensal = 22; // CO2 6kg
+    else if (p.id_produto === 6) mediaMensal = 12; // Espuma Mecânica
+    else if (p.id_produto === 9) mediaMensal = 18; // PQS 12kg
+    else if (p.id_produto === 10) mediaMensal = 14; // Mangueira
+    else if (p.id_produto === 12) mediaMensal = 0; // Inativo
+
+    const mediaDiaria = mediaMensal > 0 ? mediaMensal / 30 : 0;
+    const diasCobertura = qty <= 0 ? 0 : (mediaDiaria > 0 ? Math.round(qty / mediaDiaria) : 999);
+
+    // Sugestão de reposição (Ponto de Pedido para atingir 160% do estoque mínimo de segurança)
+    let sugestaoQtd = 0;
+    if (qty <= min) {
+      const target = Math.ceil(min * 1.6);
+      sugestaoQtd = Math.max(0, target - qty);
+      if (sugestaoQtd > 10) sugestaoQtd = Math.ceil(sugestaoQtd / 5) * 5;
+    }
+    const custoReposicao = sugestaoQtd * custo;
+
+    return {
+      ...p,
+      macro_categoria: macroCategoria,
+      categoria_detalhada: categoriaDetalhada,
+      custo_unitario: custo,
+      valor_custo_total: valorCusto,
+      valor_venda_total: valorVenda,
+      risco,
+      risco_label: riscoLabel,
+      risco_cor: riscoCor,
+      chip_class: chipClass,
+      media_mensal: mediaMensal,
+      media_diaria: mediaDiaria,
+      dias_cobertura: diasCobertura,
+      sugestao_qtd: sugestaoQtd,
+      custo_reposicao: custoReposicao,
+    };
+  });
+
+  // Filtros
+  let filtered = [...enriched];
+  if (filterCategory && filterCategory !== "todos") {
+    filtered = filtered.filter((p) => {
+      if (filterCategory === "extintores") return p.sku.startsWith("EXT");
+      if (filterCategory === "acessorios") return p.sku.startsWith("DET") || p.sku.startsWith("SUP");
+      if (filterCategory === "sinalizacao") return p.sku.startsWith("PLA");
+      if (filterCategory === "hidrantes") return p.sku.startsWith("MAN");
+      return (
+        p.macro_categoria.toLowerCase().includes(filterCategory.toLowerCase()) ||
+        p.categoria_detalhada.toLowerCase().includes(filterCategory.toLowerCase())
+      );
+    });
+  }
+
+  if (filterRisk && filterRisk !== "todos") {
+    filtered = filtered.filter((p) => p.risco === filterRisk);
+  }
+
+  // Agregações Globais
+  const baseAtivos = enriched.filter((p) => p.ativo);
+  const quantidadeTotal = baseAtivos.reduce((sum, p) => sum + Number(p.quantidade_atual || 0), 0);
+  const valorTotalCusto = baseAtivos.reduce((sum, p) => sum + p.valor_custo_total, 0);
+  const valorTotalVenda = baseAtivos.reduce((sum, p) => sum + p.valor_venda_total, 0);
+  const margemProjetada =
+    valorTotalVenda > 0 ? (((valorTotalVenda - valorTotalCusto) / valorTotalVenda) * 100).toFixed(1) : "0.0";
+
+  const skusRuptura = baseAtivos.filter((p) => p.risco === "ruptura");
+  const skusCriticos = baseAtivos.filter((p) => p.risco === "critico");
+  const skusAtencao = baseAtivos.filter((p) => p.risco === "atencao");
+  const skusNormais = baseAtivos.filter((p) => p.risco === "normal");
+  const skusExcesso = baseAtivos.filter((p) => p.risco === "excesso");
+
+  const taxaRuptura = baseAtivos.length > 0 ? ((skusRuptura.length / baseAtivos.length) * 100).toFixed(1) : "0.0";
+  const totalAbaixoMinimo = skusRuptura.length + skusCriticos.length;
+
+  const somaMediaDiaria = baseAtivos.reduce((sum, p) => sum + p.media_diaria, 0);
+  const coberturaMedia = somaMediaDiaria > 0 ? Math.round(quantidadeTotal / somaMediaDiaria) : 0;
+
+  const totalSugestaoQtd = baseAtivos.reduce((sum, p) => sum + p.sugestao_qtd, 0);
+  const totalSugestaoCusto = baseAtivos.reduce((sum, p) => sum + p.custo_reposicao, 0);
+
+  // Capital por categoria
+  const catAgg = {};
+  enriched.forEach((p) => {
+    const macro = p.macro_categoria;
+    if (!catAgg[macro]) catAgg[macro] = { nome: macro, valorCusto: 0, valorVenda: 0, unidades: 0 };
+    catAgg[macro].valorCusto += p.valor_custo_total;
+    catAgg[macro].valorVenda += p.valor_venda_total;
+    catAgg[macro].unidades += p.quantidade_atual;
+  });
+
+  return {
+    items: filtered,
+    allItems: enriched,
+    quantidadeTotal,
+    valorTotalCusto,
+    valorTotalVenda,
+    margemProjetada,
+    taxaRuptura,
+    totalAbaixoMinimo,
+    coberturaMedia,
+    totalSugestaoQtd,
+    totalSugestaoCusto,
+    acuraciaInventario: "98,2%",
+    giroEstoque: "28,4x",
+    distribuicaoSaude: {
+      ruptura: skusRuptura.length,
+      critico: skusCriticos.length,
+      atencao: skusAtencao.length,
+      normal: skusNormais.length,
+      excesso: skusExcesso.length,
+    },
+    skusRuptura,
+    skusCriticos,
+    skusAtencao,
+    skusExcesso,
+    capitalPorCategoria: Object.values(catAgg),
+  };
+}
+
+function computeFinancialDashboardMetrics(products, orders, filterPeriodDays = 30, filterChannel = "todos", filterMarginRisk = "todos") {
+  const refTime = new Date("2024-10-15T18:00:00Z").getTime();
+  const dayMs = 86400000;
+  const currentWindowStart = refTime - (filterPeriodDays * dayMs);
+  const previousWindowStart = currentWindowStart - (filterPeriodDays * dayMs);
+
+  // 1. Filtra Pedidos por Canal
+  let baseOrders = orders;
+  if (filterChannel && filterChannel !== "todos") {
+    baseOrders = baseOrders.filter((o) => o.canal.toLowerCase().includes(filterChannel.toLowerCase()));
+  }
+
+  const periodOrders = baseOrders.filter((o) => {
+    const t = new Date(o.data_pedido).getTime();
+    return t >= currentWindowStart && t <= refTime;
+  });
+
+  const prevPeriodOrders = baseOrders.filter((o) => {
+    const t = new Date(o.data_pedido).getTime();
+    return t >= previousWindowStart && t < currentWindowStart;
+  });
+
+  const validOrders = periodOrders.filter((o) => o.status !== "Cancelado");
+  const cancelOrders = periodOrders.filter((o) => o.status === "Cancelado");
+  const prevValidOrders = prevPeriodOrders.filter((o) => o.status !== "Cancelado");
+
+  // Alíquotas configuradas pelo gestor
+  const settings = loadFinancialSettings();
+  const taxaMlPercent = Number(settings.taxa_ml_percent ?? 16);
+  const taxaDiretoPercent = Number(settings.taxa_direto_percent ?? 0);
+
+  // Receitas e Lucros
+  const faturamentoTotal = validOrders.reduce((sum, o) => sum + Number(o.valor_total || 0), 0);
+  const faturamentoAnterior = prevValidOrders.reduce((sum, o) => sum + Number(o.valor_total || 0), 0);
+  
+  let deltaFaturamento = 0;
+  if (faturamentoAnterior > 0) {
+    deltaFaturamento = Math.round(((faturamentoTotal - faturamentoAnterior) / faturamentoAnterior) * 1000) / 10;
+  } else if (faturamentoTotal > 0) {
+    deltaFaturamento = 100;
+  }
+
+  const cmvTotal = validOrders.reduce((sum, o) => sum + Number(o.custo_total || 0), 0);
+  const lucroBruto = faturamentoTotal - cmvTotal;
+  const margemBrutaPercentual = faturamentoTotal > 0 ? ((lucroBruto / faturamentoTotal) * 100).toFixed(1) : "0.0";
+
+  // Comissões e Taxas estimadas dos canais
+  const ordersML = validOrders.filter((o) => o.canal === "Mercado Livre");
+  const faturamentoML = ordersML.reduce((sum, o) => sum + Number(o.valor_total || 0), 0);
+  const cmvML = ordersML.reduce((sum, o) => sum + Number(o.custo_total || 0), 0);
+  const taxasML = Math.round(faturamentoML * (taxaMlPercent / 100));
+  const lucroLiquidoML = (faturamentoML - cmvML) - taxasML;
+
+  const ordersDireto = validOrders.filter((o) => o.canal === "Venda Direta");
+  const faturamentoDireto = ordersDireto.reduce((sum, o) => sum + Number(o.valor_total || 0), 0);
+  const cmvDireto = ordersDireto.reduce((sum, o) => sum + Number(o.custo_total || 0), 0);
+  const taxasDireto = Math.round(faturamentoDireto * (taxaDiretoPercent / 100));
+  const lucroLiquidoDireto = (faturamentoDireto - cmvDireto) - taxasDireto;
+
+  const taxasCanaisTotal = taxasML + taxasDireto;
+  const lucroLiquidoContribuicao = lucroBruto - taxasCanaisTotal;
+  const margemLiquidaContribuicao = faturamentoTotal > 0 ? ((lucroLiquidoContribuicao / faturamentoTotal) * 100).toFixed(1) : "0.0";
+
+  // Capital Imobilizado em Estoque e Custo de Carregamento (Holding Cost)
+  const ativos = products.filter((p) => p.ativo);
+  const valorEstoqueAtivo = ativos.reduce((sum, p) => sum + (Number(p.quantidade_atual || 0) * Number(p.custo || (p.preco * 0.55))), 0);
+  
+  // Holding cost padrão de armazém de segurança: 25% a.a. sobre o estoque ativo
+  const custoCarregamentoAno = valorEstoqueAtivo * 0.25;
+  const custoCarregamentoMes = custoCarregamentoAno / 12;
+
+  // GMROI (Gross Margin Return on Investment): (Lucro Bruto Anualizado / Estoque Médio a Custo) * 100
+  const diasPeriodo = Math.max(1, filterPeriodDays);
+  const lucroBrutoAnualizado = (lucroBruto / diasPeriodo) * 365;
+  const gmroi = valorEstoqueAtivo > 0 ? ((lucroBrutoAnualizado / valorEstoqueAtivo) * 100).toFixed(1) : "0.0";
+
+  const ticketMedio = validOrders.length > 0 ? faturamentoTotal / validOrders.length : 0;
+  const perdaCancelamentos = cancelOrders.reduce((sum, o) => sum + Number(o.valor_total || 0), 0);
+
+  // Agregações por Produto no Período
+  const productFinancials = {};
+  products.forEach((p) => {
+    const custo = Number(p.custo || (p.preco ? p.preco * 0.55 : 0));
+    const preco = Number(p.preco || 0);
+    const margemUnitRs = preco - custo;
+    const margemUnitPct = preco > 0 ? ((margemUnitRs / preco) * 100).toFixed(1) : "0.0";
+    
+    let riscoMargem = "medium";
+    let riscoMargemLabel = "Margem Segura (40-50%)";
+    let riscoBadgeClass = "medium";
+    let diagnostico = "Margem dentro do padrão de mercado";
+
+    if (Number(margemUnitPct) >= 50) {
+      riscoMargem = "high";
+      riscoMargemLabel = "Alta Rentabilidade (> 50%)";
+      riscoBadgeClass = "high";
+      diagnostico = "Excelente retorno unitário";
+    } else if (Number(margemUnitPct) < 40) {
+      riscoMargem = "low";
+      riscoMargemLabel = "Margem em Risco (< 40%)";
+      riscoBadgeClass = "low";
+      diagnostico = "Atenção: Margem comprimida por taxas do ML";
+    }
+
+    productFinancials[p.id_produto] = {
+      ...p,
+      custo_unitario: custo,
+      preco_unitario: preco,
+      margem_unit_rs: margemUnitRs,
+      margem_unit_pct: Number(margemUnitPct),
+      risco_margem: riscoMargem,
+      risco_margem_label: riscoMargemLabel,
+      risco_badge_class: riscoBadgeClass,
+      diagnostico,
+      unidades_vendidas: 0,
+      faturamento_periodo: 0,
+      cmv_periodo: 0,
+      lucro_periodo: 0,
+    };
+  });
+
+  // Soma vendas dos pedidos válidos
+  validOrders.forEach((o) => {
+    (o.itens || []).forEach((item) => {
+      if (productFinancials[item.id_produto]) {
+        const pf = productFinancials[item.id_produto];
+        pf.unidades_vendidas += item.quantidade;
+        pf.faturamento_periodo += item.subtotal;
+        pf.cmv_periodo += item.quantidade * (item.custo_unitario || pf.custo_unitario);
+        pf.lucro_periodo = pf.faturamento_periodo - pf.cmv_periodo;
+      }
+    });
+  });
+
+  let productList = Object.values(productFinancials);
+
+  // Calcula % de participação na receita
+  productList.forEach((p) => {
+    p.share_receita = faturamentoTotal > 0 ? ((p.faturamento_periodo / faturamentoTotal) * 100).toFixed(1) : "0.0";
+  });
+
+  // Filtro de risco de margem se aplicado
+  let filteredProducts = [...productList];
+  if (filterMarginRisk && filterMarginRisk !== "todos") {
+    filteredProducts = filteredProducts.filter((p) => p.risco_margem === filterMarginRisk);
+  }
+
+  // Ordena por Lucro Total gerado
+  filteredProducts.sort((a, b) => b.lucro_periodo - a.lucro_periodo);
+
+  // Identifica SKUs em Risco Financeiro para o Banner
+  const skusRiscoMargem = productList.filter((p) => p.risco_margem === "low");
+  const shareML = faturamentoTotal > 0 ? ((faturamentoML / faturamentoTotal) * 100).toFixed(1) : "0.0";
+
+  // Curva ABC Financeira (Classe A: 70%, Classe B: 20%, Classe C: 10%)
+  const sortedByFat = [...productList].sort((a, b) => b.faturamento_periodo - a.faturamento_periodo);
+  let acumulado = 0;
+  let countA = 0;
+  let countB = 0;
+  let countC = 0;
+  let fatA = 0;
+  let fatB = 0;
+  let fatC = 0;
+
+  sortedByFat.forEach((p) => {
+    acumulado += p.faturamento_periodo;
+    const pctAcum = faturamentoTotal > 0 ? acumulado / faturamentoTotal : 0;
+    if (pctAcum <= 0.70 || countA === 0) {
+      countA += 1;
+      fatA += p.faturamento_periodo;
+    } else if (pctAcum <= 0.90) {
+      countB += 1;
+      fatB += p.faturamento_periodo;
+    } else {
+      countC += 1;
+      fatC += p.faturamento_periodo;
+    }
+  });
+
+  // Timeline Mensal Financeira consolidada (mai a out)
+  const monthlyTimeline = [
+    { mes: "mai.", receita: 368000, cmv: 198000, lucro: 170000 },
+    { mes: "jun.", receita: 395000, cmv: 212000, lucro: 183000 },
+    { mes: "jul.", receita: 310000, cmv: 168000, lucro: 142000 },
+    { mes: "ago.", receita: 405000, cmv: 219000, lucro: 186000 },
+    { mes: "set.", receita: 355000, cmv: 191000, lucro: 164000 },
+    { mes: "out.", receita: 42000, cmv: 22000, lucro: 20000 },
+  ];
+
+  return {
+    items: filteredProducts,
+    allItems: productList,
+    faturamentoTotal,
+    faturamentoAnterior,
+    deltaFaturamento,
+    cmvTotal,
+    lucroBruto,
+    margemBrutaPercentual,
+    taxasCanaisTotal,
+    lucroLiquidoContribuicao,
+    margemLiquidaContribuicao,
+    valorEstoqueAtivo,
+    custoCarregamentoAno,
+    custoCarregamentoMes,
+    gmroi,
+    ticketMedio,
+    perdaCancelamentos,
+    faturamentoML,
+    lucroLiquidoML,
+    faturamentoDireto,
+    lucroLiquidoDireto,
+    taxaMlPercent,
+    taxaDiretoPercent,
+    taxasML,
+    taxasDireto,
+    shareML,
+    skusRiscoMargem,
+    curvaABC: {
+      countA,
+      countB,
+      countC,
+      fatA,
+      fatB,
+      fatC,
+    },
+    timeline: monthlyTimeline,
+  };
+}
+
+const FINANCIAL_SETTINGS_KEY = "rezfire.config_financeiro";
+const DEFAULT_FINANCIAL_SETTINGS = {
+  taxa_ml_percent: 16.0,
+  taxa_direto_percent: 0.0,
+};
+
+function loadFinancialSettings() {
+  try {
+    const raw = localStorage.getItem(FINANCIAL_SETTINGS_KEY);
+    if (!raw) {
+      localStorage.setItem(FINANCIAL_SETTINGS_KEY, JSON.stringify(DEFAULT_FINANCIAL_SETTINGS));
+      return { ...DEFAULT_FINANCIAL_SETTINGS };
+    }
+    const parsed = JSON.parse(raw);
+    return {
+      taxa_ml_percent: typeof parsed.taxa_ml_percent === "number" ? parsed.taxa_ml_percent : DEFAULT_FINANCIAL_SETTINGS.taxa_ml_percent,
+      taxa_direto_percent: typeof parsed.taxa_direto_percent === "number" ? parsed.taxa_direto_percent : DEFAULT_FINANCIAL_SETTINGS.taxa_direto_percent,
+    };
+  } catch {
+    return { ...DEFAULT_FINANCIAL_SETTINGS };
+  }
+}
+
+function saveFinancialSettings(settings) {
+  try {
+    localStorage.setItem(FINANCIAL_SETTINGS_KEY, JSON.stringify(settings));
+  } catch (err) {
+    console.error("Erro ao salvar taxas financeiras:", err);
+  }
+}
+
 window.RezFireData = {
   loadProducts,
   saveProducts,
@@ -900,6 +1354,10 @@ window.RezFireData = {
   saveMovements,
   computeMovementsMetrics,
   generateMockMovements,
+  computeStockDashboardMetrics,
+  computeFinancialDashboardMetrics,
+  loadFinancialSettings,
+  saveFinancialSettings,
 };
 
 

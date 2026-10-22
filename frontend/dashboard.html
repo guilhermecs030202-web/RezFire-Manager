@@ -173,6 +173,129 @@
           </div>
         </div>
 
+        <!-- ABA 3: DASHBOARD DE ESTOQUE -->
+        <div id="tab-estoque" class="tab-content">
+          <!-- Toolbar de Filtros do Dashboard de Estoque -->
+          <div class="page-toolbar" style="margin-top: 12px; margin-bottom: 20px;">
+            <div class="flex items-center gap-3 flex-wrap">
+              <div class="flex items-center gap-2">
+                <label for="filtro-estoque-categoria" class="text-xs font-bold text-stone-500 uppercase">Categoria:</label>
+                <select id="filtro-estoque-categoria" class="search-input" style="width: 210px;">
+                  <option value="todos" selected>Todas as Categorias</option>
+                  <option value="extintores">Extintores (CO2, AP, PQS, K, Espuma)</option>
+                  <option value="hidrantes">Mangueiras & Hidrantes</option>
+                  <option value="sinalizacao">Sinalização & Placas</option>
+                  <option value="acessorios">Acessórios & Suportes</option>
+                </select>
+              </div>
+
+              <div class="flex items-center gap-2">
+                <label for="filtro-estoque-risco" class="text-xs font-bold text-stone-500 uppercase">Situação de Risco:</label>
+                <select id="filtro-estoque-risco" class="search-input" style="width: 220px;">
+                  <option value="todos" selected>Todas as Situações</option>
+                  <option value="ruptura">🔴 Ruptura Imediata (Zerado)</option>
+                  <option value="critico">🟠 Crítico (Abaixo do Mínimo)</option>
+                  <option value="atencao">🟡 Ponto de Atenção</option>
+                  <option value="normal">🟢 Estoque Seguro</option>
+                  <option value="excesso">🔵 Excesso / Sem Giro</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="flex items-center gap-3 flex-wrap">
+              <a href="estoque.html" class="btn-ghost" style="padding: 8px 14px; font-size: 0.82rem; text-decoration: none; display: inline-flex; align-items: center; gap: 6px;">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
+                Gerenciar Saldo & Mínimos
+              </a>
+              <a href="movimentacoes.html" class="btn-ghost" style="padding: 8px 14px; font-size: 0.82rem; text-decoration: none; display: inline-flex; align-items: center; gap: 6px;">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 3v18"/><path d="m21 7-4-4-4 4"/><path d="M7 21V3"/><path d="m3 17 4 4 4-4"/></svg>
+                Histórico de Movimentações
+              </a>
+              <div class="flex items-center gap-2 text-xs text-stone-500 font-medium">
+                <span class="inline-block w-2 h-2 rounded-full bg-emerald-500"></span>
+                <span>Inventário monitorado em tempo real</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Banner de Alertas Críticos Operacionais -->
+          <div id="alerta-estoque-banner" class="stock-alert-banner"></div>
+
+          <!-- Grade de KPIs Estratégicos de Estoque -->
+          <section class="kpi-grid" id="kpis-tab-estoque" style="grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));"></section>
+
+          <!-- Linha 1 de Gráficos: Diagnóstico de Saúde & Saldo vs Mínimo -->
+          <div class="charts-row" style="margin-top: 20px;">
+            <div class="chart-card card">
+              <div class="flex items-center justify-between mb-2">
+                <h2 class="chart-title">Saldo Físico Atual vs Estoque Mínimo (Ponto de Reposição)</h2>
+                <span class="text-xs text-stone-500 font-medium">Defasagens e risco de ruptura por SKU</span>
+              </div>
+              <div id="chart-estoque-saldo-minimo"></div>
+            </div>
+
+            <div class="chart-card card">
+              <div class="flex items-center justify-between mb-2">
+                <h2 class="chart-title">Diagnóstico de Saúde do Catálogo</h2>
+                <span class="text-xs text-stone-500 font-medium">Proporção de SKUs por estado operacional</span>
+              </div>
+              <div id="chart-estoque-saude"></div>
+            </div>
+          </div>
+
+          <!-- Linha 2 de Gráficos: Autonomia / Cobertura & Capital Imobilizado -->
+          <div class="charts-row-equal" style="margin-top: 14px;">
+            <div class="chart-card card">
+              <div class="flex items-center justify-between mb-2">
+                <h2 class="chart-title">Autonomia / Cobertura Estimada em Dias (Por Produto)</h2>
+                <span class="text-xs text-stone-500 font-medium">Linha de corte de segurança: 15 dias</span>
+              </div>
+              <div id="chart-estoque-cobertura"></div>
+            </div>
+
+            <div class="chart-card card">
+              <div class="flex items-center justify-between mb-2">
+                <h2 class="chart-title">Capital Imobilizado por Categoria</h2>
+                <span class="text-xs text-stone-500 font-medium">Distribuição do valor em custo (R$)</span>
+              </div>
+              <div id="chart-estoque-categoria"></div>
+            </div>
+          </div>
+
+          <!-- Seção de Tabela: Diagnóstico Operacional & Matriz de Reposição -->
+          <div class="card" style="margin-top: 20px; padding: 20px;">
+            <div class="flex items-center justify-between mb-3 flex-wrap gap-3">
+              <div>
+                <h2 class="chart-title" style="margin: 0;">Matriz de Reposição & Diagnóstico por Produto</h2>
+                <p class="text-xs text-stone-500 mt-1">Acompanhamento item a item para decisões ágeis de compra e prevenção de rupturas</p>
+              </div>
+              <div class="flex items-center gap-3">
+                <input id="busca-estoque-tabela" class="search-input" type="search" placeholder="Filtrar por SKU, extintor..." style="width: 220px; padding: 6px 12px; font-size: 0.82rem;" />
+                <span id="label-total-estoque-tabela" class="text-xs font-bold text-stone-600 bg-stone-100 px-3 py-1.5 rounded-full"></span>
+              </div>
+            </div>
+
+            <div class="table-wrap">
+              <table class="products-table" id="tabela-estoque-detalhada">
+                <thead>
+                  <tr>
+                    <th>SKU / PRODUTO</th>
+                    <th>CATEGORIA</th>
+                    <th>SALDO ATUAL</th>
+                    <th>ESTOQUE MÍN.</th>
+                    <th>STATUS OPERACIONAL</th>
+                    <th>CONSUMO ESTIMADO</th>
+                    <th>AUTONOMIA</th>
+                    <th>SUGESTÃO DE COMPRA</th>
+                    <th style="text-align: right;">AÇÃO RÁPIDA</th>
+                  </tr>
+                </thead>
+                <tbody id="lista-estoque-detalhada"></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
         <div id="tab-visao-geral" class="tab-content">
           <div class="section-head">
             <span class="section-num">1</span>
@@ -254,6 +377,151 @@
             </div>
           </div>
         </div>
+
+        <!-- ABA 7: DASHBOARD FINANCEIRO -->
+        <div id="tab-financeiro" class="tab-content">
+          <!-- Toolbar de Filtros do Dashboard Financeiro -->
+          <div class="page-toolbar" style="margin-top: 12px; margin-bottom: 20px;">
+            <div class="flex items-center gap-3 flex-wrap">
+              <div class="flex items-center gap-2">
+                <label for="filtro-financeiro-periodo" class="text-xs font-bold text-stone-500 uppercase">Período:</label>
+                <select id="filtro-financeiro-periodo" class="search-input" style="width: 190px;">
+                  <option value="30" selected>Últimos 30 dias</option>
+                  <option value="90">Últimos 90 dias</option>
+                  <option value="180">Últimos 6 meses</option>
+                  <option value="365">Último ano</option>
+                </select>
+              </div>
+
+              <div class="flex items-center gap-2">
+                <label for="filtro-financeiro-canal" class="text-xs font-bold text-stone-500 uppercase">Canal:</label>
+                <select id="filtro-financeiro-canal" class="search-input" style="width: 200px;">
+                  <option value="todos" selected>Todos os Canais</option>
+                  <option value="Mercado Livre">Mercado Livre (com comissão)</option>
+                  <option value="Venda Direta">Venda Direta / B2B (sem taxa)</option>
+                </select>
+              </div>
+
+              <div class="flex items-center gap-2">
+                <label for="filtro-financeiro-margem" class="text-xs font-bold text-stone-500 uppercase">Rentabilidade:</label>
+                <select id="filtro-financeiro-margem" class="search-input" style="width: 210px;">
+                  <option value="todos" selected>Todas as Margens</option>
+                  <option value="high">🟢 Alta Rentabilidade (&gt; 50%)</option>
+                  <option value="medium">🟡 Margem Segura (40% - 50%)</option>
+                  <option value="low">🔴 Margem em Risco (&lt; 40%)</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="flex items-center gap-3 flex-wrap">
+              <button id="btn-abrir-config-taxas" class="btn-primary" type="button" style="padding: 8px 14px; font-size: 0.82rem; display: inline-flex; align-items: center; gap: 6px;">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg>
+                Configurar Alíquotas & Taxas
+              </button>
+              <a href="dashboard.html?tab=estoque" class="btn-ghost" style="padding: 8px 14px; font-size: 0.82rem; text-decoration: none; display: inline-flex; align-items: center; gap: 6px;">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 7h16v12H4z"/><path d="M8 7V5h8v2"/></svg>
+                Ver Capital em Estoque
+              </a>
+              <a href="movimentacoes.html" class="btn-ghost" style="padding: 8px 14px; font-size: 0.82rem; text-decoration: none; display: inline-flex; align-items: center; gap: 6px;">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 3v18"/><path d="m21 7-4-4-4 4"/><path d="M7 21V3"/><path d="m3 17 4 4 4-4"/></svg>
+                Movimentações & Custos
+              </a>
+              <div class="flex items-center gap-2 text-xs text-stone-500 font-medium">
+                <span class="inline-block w-2 h-2 rounded-full bg-emerald-500"></span>
+                <span>Demonstrativo financeiro integrado em tempo real</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Banner de Alertas e Riscos Financeiros -->
+          <div id="alerta-financeiro-banner" class="financial-alert-banner"></div>
+
+          <!-- Grade de KPIs Estratégicos Financeiros -->
+          <section class="kpi-grid" id="kpis-tab-financeiro" style="grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));"></section>
+
+          <!-- Linha 1 de Gráficos: Evolução Mensal & Decomposição da Receita -->
+          <div class="charts-row" style="margin-top: 20px;">
+            <div class="chart-card card">
+              <div class="flex items-center justify-between mb-2">
+                <h2 class="chart-title">Evolução Financeira Mensal (Receita × CMV × Lucro Bruto)</h2>
+                <span class="text-xs text-stone-500 font-medium">Histórico consolidado em R$</span>
+              </div>
+              <div id="chart-financeiro-timeline"></div>
+            </div>
+
+            <div class="chart-card card">
+              <div class="flex items-center justify-between mb-2">
+                <h2 class="chart-title">Decomposição da Receita Bruta (DRE Simplificado)</h2>
+                <span class="text-xs text-stone-500 font-medium">Destinação do faturamento (CMV, Taxas e Margem)</span>
+              </div>
+              <div id="chart-financeiro-dre"></div>
+            </div>
+          </div>
+
+          <!-- Linha 2 de Gráficos: Margem Bruta por Produto & Curva ABC Financeira -->
+          <div class="charts-row-equal" style="margin-top: 14px;">
+            <div class="chart-card card">
+              <div class="flex items-center justify-between mb-2">
+                <h2 class="chart-title">Margem Bruta por Extintor / Equipamento (%)</h2>
+                <span class="text-xs text-stone-500 font-medium">Linha de segurança: 40% de margem mínima</span>
+              </div>
+              <div id="chart-financeiro-margens-produto"></div>
+            </div>
+
+            <div class="chart-card card">
+              <div class="flex items-center justify-between mb-2">
+                <h2 class="chart-title">Curva ABC de Faturamento & Rentabilidade</h2>
+                <span class="text-xs text-stone-500 font-medium">Concentração de receita por número de SKUs</span>
+              </div>
+              <div id="chart-financeiro-curva-abc"></div>
+            </div>
+          </div>
+
+          <!-- Linha 3 de Gráficos: Rentabilidade por Canal -->
+          <div class="chart-card card" style="margin-top: 14px;">
+            <div class="flex items-center justify-between mb-2">
+              <div>
+                <h2 class="chart-title" style="margin: 0;">Comparativo de Rentabilidade Líquida por Canal de Venda</h2>
+                <p class="text-xs text-stone-500 mt-1">Impacto das taxas de marketplace (Mercado Livre ~16%) vs Venda Direta / B2B</p>
+              </div>
+              <span class="text-xs font-bold text-stone-500 bg-stone-100 px-3 py-1 rounded-full">Mercado Livre vs B2B</span>
+            </div>
+            <div id="chart-financeiro-canais"></div>
+          </div>
+
+          <!-- Seção de Tabela: Diagnóstico Financeiro & Margens por Produto -->
+          <div class="card" style="margin-top: 20px; padding: 20px;">
+            <div class="flex items-center justify-between mb-3 flex-wrap gap-3">
+              <div>
+                <h2 class="chart-title" style="margin: 0;">Matriz de Margens, Custos & Rentabilidade por Produto</h2>
+                <p class="text-xs text-stone-500 mt-1">Detalhamento financeiro individual para precificação, renegociação de fornecedores e controle de margem</p>
+              </div>
+              <div class="flex items-center gap-3">
+                <input id="busca-financeiro-tabela" class="search-input" type="search" placeholder="Buscar SKU, extintor..." style="width: 220px; padding: 6px 12px; font-size: 0.82rem;" />
+                <span id="label-total-financeiro-tabela" class="text-xs font-bold text-stone-600 bg-stone-100 px-3 py-1.5 rounded-full"></span>
+              </div>
+            </div>
+
+            <div class="table-wrap">
+              <table class="products-table" id="tabela-financeiro-produtos">
+                <thead>
+                  <tr>
+                    <th>SKU / PRODUTO</th>
+                    <th>PREÇO VENDA</th>
+                    <th>CUSTO (CMV)</th>
+                    <th>MARGEM UNIT. (R$)</th>
+                    <th>MARGEM (%)</th>
+                    <th>RECEITA PERÍODO</th>
+                    <th>LUCRO GERADO</th>
+                    <th>STATUS / RISCO</th>
+                    <th style="text-align: right;">DIAGNÓSTICO & AÇÃO</th>
+                  </tr>
+                </thead>
+                <tbody id="lista-financeiro-produtos"></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
       </main>
     </div>
 
@@ -266,6 +534,70 @@
         </div>
         <div id="modal-pedido-conteudo"></div>
       </div>
+    </div>
+
+    <!-- Modal de Ajuste Rápido de Estoque a partir do Dashboard -->
+    <div class="modal-backdrop" id="modal-ajuste-estoque" role="dialog" aria-modal="true" aria-labelledby="modal-ajuste-titulo">
+      <form class="modal" id="form-ajuste-estoque" style="width: min(520px, 100%);">
+        <div class="modal-header">
+          <h2 id="modal-ajuste-titulo">Ajustar / Repor Estoque</h2>
+          <button class="icon-btn" id="btn-fechar-modal-ajuste" type="button" aria-label="Fechar">✕</button>
+        </div>
+        <p class="text-xs text-stone-500 mb-4" id="modal-ajuste-subtitulo">Atualize o saldo físico ou o ponto de reposição mínimo do extintor selecionado.</p>
+        <input type="hidden" id="ajuste_id_produto" />
+        <div class="form-grid">
+          <div class="form-field">
+            <label for="ajuste_quantidade_atual">Quantidade Física Atual (un.)</label>
+            <input id="ajuste_quantidade_atual" type="number" min="0" step="1" required />
+          </div>
+          <div class="form-field">
+            <label for="ajuste_estoque_minimo">Estoque Mínimo de Segurança (un.)</label>
+            <input id="ajuste_estoque_minimo" type="number" min="0" step="1" required />
+          </div>
+        </div>
+        <p class="form-error" id="ajuste-form-error"></p>
+        <div class="modal-actions">
+          <button class="btn-ghost" type="button" id="btn-cancelar-ajuste">Cancelar</button>
+          <button class="btn-primary" type="submit">Salvar Ajuste</button>
+        </div>
+      </form>
+    </div>
+
+    <!-- Modal de Configuração de Taxas e Alíquotas de Canais -->
+    <div class="modal-backdrop" id="modal-config-taxas" role="dialog" aria-modal="true" aria-labelledby="modal-taxas-titulo">
+      <form class="modal" id="form-config-taxas" style="width: min(540px, 100%);">
+        <div class="modal-header">
+          <h2 id="modal-taxas-titulo">Alíquotas & Taxas de Comercialização</h2>
+          <button class="icon-btn" id="btn-fechar-modal-taxas" type="button" aria-label="Fechar">✕</button>
+        </div>
+        <p class="text-xs text-stone-500 mb-4">
+          Defina as alíquotas cobradas sobre o faturamento de cada canal de venda para cálculo preciso do Lucro Líquido Real e das Margens da RezFire.
+        </p>
+
+        <div class="form-grid">
+          <div class="form-field">
+            <label for="config_taxa_ml">Comissão Média Mercado Livre (%)</label>
+            <input id="config_taxa_ml" type="number" min="0" max="100" step="0.1" required />
+            <span class="text-xs text-stone-400 mt-1">Ex.: 16.0% (Média ML Clássico/Premium + tarifas)</span>
+          </div>
+
+          <div class="form-field">
+            <label for="config_taxa_direto">Taxa / Frete Vendas Diretas (%)</label>
+            <input id="config_taxa_direto" type="number" min="0" max="100" step="0.1" required />
+            <span class="text-xs text-stone-400 mt-1">Ex.: 0.0% a 5.0% (custos operacionais de entrega B2B)</span>
+          </div>
+        </div>
+
+        <div style="background:#faf7f3; border:1px solid #ebe4db; border-radius:10px; padding:12px; margin-top:14px; font-size:0.8rem; color:#6b6560;">
+          💡 <strong>Impacto Imediato:</strong> Ao alterar as alíquotas, todos os KPIs de comissões, margens de contribuição e comparativos de canais são recalculados instantaneamente.
+        </div>
+
+        <p class="form-error" id="taxas-form-error"></p>
+        <div class="modal-actions">
+          <button class="btn-ghost" type="button" id="btn-cancelar-taxas">Cancelar</button>
+          <button class="btn-primary" type="submit">Salvar Alíquotas</button>
+        </div>
+      </form>
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/apexcharts"></script>

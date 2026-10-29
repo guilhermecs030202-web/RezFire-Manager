@@ -278,17 +278,15 @@ PEDIDO ---------------------------------------------------- 1:N ----+
 
 ## 7. Regra de estoque
 
-Não assumir automaticamente:
+Definição alinhada com a RezFire:
 
 ``` text
-Pedido criado -> estoque diminuído
+Pedido aprovado -> estoque diminuído (baixa imediata via movimentação de saída)
 ```
 
-É necessário definir com a RezFire em qual status o estoque será
-reservado/removido e o que acontece em cancelamentos.
-
-Essa é uma **regra de negócio pendente** e não deve ser inventada pela
-IA.
+- **Momento da baixa:** O débito no banco de dados é realizado no momento da **aprovação do pedido** (pagamento confirmado / pedido liberado para operação).
+- **Cancelamento pós-aprovação:** Caso um pedido aprovado seja posteriormente cancelado, deve ser gerada automaticamente uma movimentação de estoque do tipo **entrada** (estorno/devolução) para repor as quantidades dos itens.
+- **Cancelamento pré-aprovação:** Se o pedido for cancelado antes da aprovação, nenhuma alteração de estoque é realizada.
 
 ## 8. Telas planejadas
 

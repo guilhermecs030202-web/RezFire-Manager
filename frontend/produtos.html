@@ -204,6 +204,18 @@
             <label for="selo_conformidade">Selo de Conformidade</label>
             <input id="selo_conformidade" name="selo_conformidade" maxlength="50" placeholder="Ex: INM-994120" />
           </div>
+          <div class="form-field">
+            <label for="id_lote">Identificador do Lote Padrão</label>
+            <input id="id_lote" name="id_lote" maxlength="50" placeholder="Ex: LT-2024/07" />
+          </div>
+          <div class="form-field">
+            <label for="peso_bruto_kg">Peso Bruto p/ Envio (kg)</label>
+            <input id="peso_bruto_kg" name="peso_bruto_kg" type="number" step="0.01" min="0" placeholder="Ex: 6.50" />
+          </div>
+          <div class="form-field span-2">
+            <label for="dimensoes">Dimensões da Embalagem (C x L x A cm)</label>
+            <input id="dimensoes" name="dimensoes" maxlength="50" placeholder="Ex: 55 x 20 x 20 cm" />
+          </div>
         </div>
       </div>
 
@@ -213,6 +225,41 @@
         <button class="btn-primary" type="submit">Salvar</button>
       </div>
     </form>
+  </div>
+
+  <!-- Modal de Visualização de Detalhes do Produto -->
+  <div class="modal-backdrop" id="modal-view">
+    <div class="modal" style="width: min(720px, 100%);">
+      <div class="modal-header">
+        <div style="display:flex;align-items:center;gap:10px">
+          <div style="width:36px;height:36px;border-radius:8px;background:rgba(232,92,42,0.1);color:var(--accent);display:flex;align-items:center;justify-content:center">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"></path>
+              <circle cx="12" cy="12" r="3"></circle>
+            </svg>
+          </div>
+          <div>
+            <h2 id="view-title" style="margin:0;font-size:1.15rem;font-weight:700">Detalhes do Produto</h2>
+            <span id="view-sku-badge" style="font-size:0.75rem;color:var(--muted);font-family:monospace">SKU: —</span>
+          </div>
+        </div>
+        <button class="icon-btn" type="button" id="btn-close-view" title="Fechar">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+        </button>
+      </div>
+
+      <div id="view-content" style="padding-top:10px">
+        <!-- Preenchido dinamicamente via JS -->
+      </div>
+
+      <div class="modal-actions" style="margin-top:20px;border-top:1px solid var(--line);padding-top:16px">
+        <button class="btn-ghost" type="button" id="btn-view-fechar">Fechar</button>
+        <button class="btn-primary" type="button" id="btn-view-editar">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-right:4px"><path d="M12 20h9"></path><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"></path></svg>
+          Editar Produto
+        </button>
+      </div>
+    </div>
   </div>
 
   <script src="js/mock-data.js"></script>

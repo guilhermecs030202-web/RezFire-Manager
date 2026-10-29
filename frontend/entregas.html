@@ -1,0 +1,496 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Entregas · RezFire Manager</title>
+  <meta name="description" content="Acompanhe os pedidos, prazos de envio e status das entregas — RezFire Manager." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            cream: "#f4efe8",
+            sidebar: "#1a1412",
+            accent: "#e85c2a",
+          },
+          fontFamily: { sans: ["Inter", "ui-sans-serif", "system-ui"] },
+        },
+      },
+    };
+  </script>
+  <link rel="stylesheet" href="css/app.css" />
+  <style>
+    /* ── Badges de status logístico ─────────────────────────── */
+    .entrega-badge {
+      display: inline-flex;
+      align-items: center;
+      font-size: 0.72rem;
+      font-weight: 700;
+      padding: 2px 8px;
+      border-radius: 6px;
+      letter-spacing: 0.02em;
+      white-space: nowrap;
+    }
+    .badge-aguardando  { background:#f1f5f9; color:#475569; border:1px solid #cbd5e1; }
+    .badge-enviado     { background:#ede9fe; color:#5b21b6; border:1px solid #c4b5fd; }
+    .badge-transito    { background:#e8f2fe; color:#1d68bd; border:1px solid #93c5fd; }
+    .badge-saiu        { background:#ecfeff; color:#0e7490; border:1px solid #67e8f9; }
+    .badge-entregue    { background:#e8f8ee; color:#1f9d5c; border:1px solid #6ee7b7; }
+    .badge-ocorrencia  { background:#fff7ed; color:#b45309; border:1px solid #fcd34d; }
+    .badge-atraso      { background:#fde8e8; color:#d13c3c; border:1px solid #fca5a5; }
+    .badge-cancelado   { background:#f3f4f6; color:#6b7280; border:1px solid #d1d5db; }
+
+    /* ── Badges de status interno ───────────────────────────── */
+    .entrega-badge-int {
+      display: inline-flex;
+      align-items: center;
+      font-size: 0.7rem;
+      font-weight: 700;
+      padding: 2px 7px;
+      border-radius: 999px;
+      white-space: nowrap;
+    }
+    .badge-int-aseparar   { background:#fef3c7; color:#92400e; }
+    .badge-int-separando  { background:#fff7ed; color:#c2410c; }
+    .badge-int-pronto     { background:#dbeafe; color:#1e40af; }
+    .badge-int-despachado { background:#f0fdf4; color:#166534; }
+    .badge-int-cancelado  { background:#f3f4f6; color:#6b7280; }
+
+    /* ── KPI Cards de Entregas ──────────────────────────────── */
+    .entrega-kpi {
+      cursor: pointer;
+      transition: box-shadow 0.15s, transform 0.1s;
+      user-select: none;
+    }
+    .entrega-kpi:hover {
+      box-shadow: 0 4px 16px rgba(26,20,18,0.10);
+      transform: translateY(-1px);
+    }
+    .entrega-kpi-active {
+      outline: 2px solid var(--accent);
+      outline-offset: 2px;
+    }
+    .entrega-kpi-problema {
+      border: 1.5px solid #fca5a5;
+    }
+
+    /* ── Tabela de entregas ─────────────────────────────────── */
+    .entregas-row:hover td {
+      background: #faf7f4;
+    }
+    .row-problema td:first-child {
+      border-left: 3px solid var(--down);
+    }
+    .row-cancelado {
+      opacity: 0.55;
+    }
+
+    /* ── Paginação ──────────────────────────────────────────── */
+    .pagination-bar {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      flex-wrap: wrap;
+      padding: 12px 16px;
+    }
+    .page-btn {
+      min-width: 32px;
+      height: 32px;
+      padding: 0 8px;
+      border: 1px solid var(--line);
+      background: #fff;
+      border-radius: 8px;
+      font: inherit;
+      font-size: 0.85rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.1s;
+    }
+    .page-btn:hover:not([disabled]) { background: #f4efe8; }
+    .page-btn.is-active { background: var(--accent); color: #fff; border-color: var(--accent); }
+    .page-btn[disabled] { opacity: 0.4; cursor: default; }
+    .page-info { margin-left: 8px; color: var(--muted); font-size: 0.78rem; }
+
+    /* ── Painel lateral de detalhes ─────────────────────────── */
+    #detalhe-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(26,20,18,0.35);
+      z-index: 40;
+      display: none;
+    }
+    #detalhe-overlay.is-open { display: block; }
+
+    #detalhe-panel {
+      position: fixed;
+      top: 0;
+      right: -640px;
+      width: min(640px, 100vw);
+      height: 100vh;
+      background: #fff;
+      z-index: 50;
+      overflow-y: auto;
+      transition: right 0.28s cubic-bezier(.4,0,.2,1);
+      display: flex;
+      flex-direction: column;
+      box-shadow: -4px 0 32px rgba(26,20,18,0.12);
+    }
+    #detalhe-panel.is-open { right: 0; }
+    #detalhe-panel:focus { outline: none; }
+
+    .detalhe-header {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      padding: 20px 24px 14px;
+      border-bottom: 1px solid var(--line);
+      position: sticky;
+      top: 0;
+      background: #fff;
+      z-index: 2;
+    }
+
+    .detalhe-tabs {
+      display: flex;
+      gap: 0;
+      border-bottom: 1px solid var(--line);
+      padding: 0 16px;
+      background: #faf7f3;
+    }
+    .detalhe-tab {
+      background: none;
+      border: none;
+      border-bottom: 2px solid transparent;
+      padding: 10px 14px;
+      font: inherit;
+      font-size: 0.85rem;
+      font-weight: 600;
+      color: var(--muted);
+      cursor: pointer;
+      margin-bottom: -1px;
+      transition: color 0.12s, border-color 0.12s;
+    }
+    .detalhe-tab:hover { color: var(--ink); }
+    .detalhe-tab.is-active { color: var(--accent); border-bottom-color: var(--accent); }
+
+    #detalhe-content {
+      padding: 20px 24px;
+      flex: 1;
+    }
+
+    .detalhe-acoes {
+      padding: 16px 24px 24px;
+      border-top: 1px solid var(--line);
+      background: #faf7f3;
+    }
+
+    .detalhe-section { margin-bottom: 20px; }
+    .detalhe-section-title {
+      margin: 0 0 12px;
+      font-size: 0.8rem;
+      font-weight: 800;
+      letter-spacing: 0.08em;
+      color: var(--muted);
+      text-transform: uppercase;
+    }
+
+    .detalhe-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px 16px;
+    }
+    .detalhe-field {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+    .detalhe-label {
+      font-size: 0.72rem;
+      font-weight: 700;
+      color: var(--muted);
+      letter-spacing: 0.04em;
+    }
+
+    .detalhe-alerta {
+      border-radius: 8px;
+      padding: 10px 14px;
+      font-size: 0.82rem;
+      margin-bottom: 14px;
+      line-height: 1.45;
+    }
+    .alerta-erro   { background: #fde8e8; color: #922b2b; border: 1px solid #fca5a5; }
+    .alerta-aviso  { background: #fff7ed; color: #92400e; border: 1px solid #fcd34d; }
+    .alerta-info   { background: #e8f2fe; border: 1px solid #bfdbfe; color: #1e40af; }
+
+    /* ── Separação ──────────────────────────────────────────── */
+    .sep-itens-list { display: flex; flex-direction: column; gap: 12px; }
+
+    .sep-item {
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      padding: 14px;
+      background: #faf7f3;
+    }
+    .sep-item-conferido { background: #f0fdf4; border-color: #86efac; }
+    .sep-item-header {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin-bottom: 10px;
+    }
+    .sep-item-foot { margin-top: 10px; display: flex; justify-content: flex-end; }
+    .sep-resumo {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 12px 0 0;
+      margin-top: 14px;
+      border-top: 1px solid var(--line);
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+
+    .lotes-list { display: flex; flex-direction: column; gap: 6px; }
+    .lote-row {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      flex-wrap: wrap;
+    }
+
+    /* ── Timeline histórico ─────────────────────────────────── */
+    .hist-timeline { display: flex; flex-direction: column; gap: 14px; }
+    .hist-item { display: flex; gap: 12px; align-items: flex-start; }
+    .hist-icon {
+      width: 24px;
+      height: 24px;
+      border-radius: 50%;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.7rem;
+      font-weight: 800;
+      flex-shrink: 0;
+      margin-top: 2px;
+    }
+    .hist-info    { background: #e8f2fe; color: #1d68bd; }
+    .hist-sucesso { background: #e8f8ee; color: #1f9d5c; }
+    .hist-alerta  { background: #fff7ed; color: #b45309; }
+    .hist-erro    { background: #fde8e8; color: #d13c3c; }
+    .hist-body { flex: 1; }
+    .hist-evento { margin: 0; font-size: 0.88rem; font-weight: 700; }
+    .hist-desc   { margin: 2px 0 0; font-size: 0.82rem; color: var(--muted); }
+    .hist-data   { margin: 2px 0 0; font-size: 0.75rem; color: #a09890; }
+
+    /* ── Toasts ─────────────────────────────────────────────── */
+    #toast-container {
+      position: fixed;
+      bottom: 24px;
+      right: 24px;
+      z-index: 100;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      pointer-events: none;
+    }
+    .toast {
+      background: var(--ink);
+      color: #fff;
+      padding: 10px 18px;
+      border-radius: 10px;
+      font-size: 0.88rem;
+      font-weight: 600;
+      opacity: 0;
+      transform: translateY(10px);
+      transition: opacity 0.22s, transform 0.22s;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.18);
+      max-width: 340px;
+      word-break: break-word;
+    }
+    .toast.toast-show { opacity: 1; transform: translateY(0); }
+    .toast.toast-sucesso { background: #1f9d5c; }
+    .toast.toast-erro    { background: var(--down); }
+
+    /* ── Modal de confirmação ───────────────────────────────── */
+    #modal-confirmacao { z-index: 80; }
+
+    /* ── Responsive ─────────────────────────────────────────── */
+    @media (max-width: 960px) {
+      .detalhe-grid { grid-template-columns: 1fr; }
+      #detalhe-panel { width: 100vw; }
+      .sep-item-header { flex-direction: column; }
+    }
+  </style>
+</head>
+
+<body>
+  <div class="app-shell" id="app-shell">
+    <main class="app-main">
+
+      <!-- Cabeçalho ─────────────────────────────────────────── -->
+      <div class="page-toolbar">
+        <div>
+          <h1 class="page-title">ENTREGAS</h1>
+          <p class="page-subtitle">
+            Acompanhe os pedidos, prazos de envio e status das entregas.
+            <span style="color:var(--muted);font-size:0.78rem;margin-left:6px">· dados de demonstração</span>
+          </p>
+        </div>
+        <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+          <span style="font-size:0.78rem;color:var(--muted)" id="data-ref-label">
+            Referência: 15/10/2024
+          </span>
+          <button class="btn-ghost" id="btn-atualizar" style="font-size:0.84rem;padding:8px 14px;display:inline-flex;align-items:center;gap:6px">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8"/>
+              <path d="M21 3v5h-5"/>
+            </svg>
+            Atualizar
+          </button>
+        </div>
+      </div>
+
+      <!-- Indicadores operacionais ──────────────────────────── -->
+      <section class="kpi-grid" id="entregas-kpis"
+        style="margin-bottom:22px;grid-template-columns:repeat(auto-fit,minmax(170px,1fr))">
+      </section>
+
+      <!-- Filtros ────────────────────────────────────────────── -->
+      <div class="card" style="padding:16px;margin-bottom:16px">
+        <div style="display:flex;align-items:flex-start;gap:12px;flex-wrap:wrap;justify-content:space-between">
+          <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;flex:1">
+
+            <!-- Busca -->
+            <input id="busca-entregas" class="search-input" type="search"
+              placeholder="Buscar pedido, produto ou SKU..." style="width:280px"
+              aria-label="Buscar pedido por código, produto ou SKU" />
+
+            <!-- Status -->
+            <div style="display:flex;align-items:center;gap:6px">
+              <label for="filtro-status" class="text-xs font-bold text-stone-500 uppercase" style="font-size:0.72rem;font-weight:700;color:var(--muted);letter-spacing:0.05em">Status:</label>
+              <select id="filtro-status" class="search-input" style="width:200px">
+                <option value="todos">Todos os status</option>
+                <option value="a_separar">A separar</option>
+                <option value="em_separacao">Em separação</option>
+                <option value="pronto_despacho">Pronto p/ despacho</option>
+                <option value="em_transito">Em trânsito</option>
+                <option value="entregue">Entregue</option>
+                <option value="problema">Com problemas</option>
+                <option value="cancelado">Cancelado</option>
+              </select>
+            </div>
+
+            <!-- Canal -->
+            <div style="display:flex;align-items:center;gap:6px">
+              <label for="filtro-canal" style="font-size:0.72rem;font-weight:700;color:var(--muted);letter-spacing:0.05em;white-space:nowrap">Canal:</label>
+              <select id="filtro-canal" class="search-input" style="width:160px">
+                <option value="todos">Todos</option>
+                <option value="ml">Mercado Livre</option>
+                <option value="direto">Venda Direta</option>
+              </select>
+            </div>
+
+            <!-- Período -->
+            <div style="display:flex;align-items:center;gap:6px">
+              <label for="filtro-periodo" style="font-size:0.72rem;font-weight:700;color:var(--muted);letter-spacing:0.05em;white-space:nowrap">Período:</label>
+              <select id="filtro-periodo" class="search-input" style="width:150px">
+                <option value="todos">Todo o histórico</option>
+                <option value="7">Últimos 7 dias</option>
+                <option value="30">Últimos 30 dias</option>
+                <option value="90">Últimos 90 dias</option>
+              </select>
+            </div>
+
+            <!-- Prazo de despacho -->
+            <div style="display:flex;align-items:center;gap:6px">
+              <label for="filtro-despacho" style="font-size:0.72rem;font-weight:700;color:var(--muted);letter-spacing:0.05em;white-space:nowrap">Despacho:</label>
+              <select id="filtro-despacho" class="search-input" style="width:160px">
+                <option value="todos">Qualquer prazo</option>
+                <option value="hoje">Hoje</option>
+                <option value="amanha">Amanhã</option>
+                <option value="atrasado">Atrasado</option>
+              </select>
+            </div>
+
+            <!-- Apenas atrasados -->
+            <label style="display:inline-flex;align-items:center;gap:6px;font-size:0.82rem;font-weight:600;color:var(--muted);cursor:pointer;white-space:nowrap">
+              <input type="checkbox" id="filtro-atrasados" style="accent-color:var(--accent)" />
+              Só atrasados
+            </label>
+          </div>
+
+          <button class="btn-ghost" id="btn-limpar" style="font-size:0.82rem;padding:8px 12px;white-space:nowrap">
+            Limpar filtros
+          </button>
+        </div>
+      </div>
+
+      <!-- Tabela de pedidos ──────────────────────────────────── -->
+      <section class="card">
+        <div style="padding:12px 16px 0;display:flex;align-items:center;justify-content:space-between">
+          <span id="entregas-count" style="font-size:0.82rem;color:var(--muted);font-weight:600">Carregando...</span>
+        </div>
+        <div class="table-wrap">
+          <table class="products-table" id="entregas-table" aria-label="Lista de pedidos de entrega">
+            <thead>
+              <tr>
+                <th>PEDIDO / CLIENTE</th>
+                <th>DATA VENDA</th>
+                <th>PRODUTOS</th>
+                <th>DESPACHO ATÉ</th>
+                <th>STATUS LOGÍSTICO</th>
+                <th>SEPARAÇÃO</th>
+                <th>RASTREIO</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody id="entregas-tbody">
+              <tr class="empty-row"><td colspan="8">Carregando pedidos...</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div id="entregas-pagination"></div>
+      </section>
+
+    </main>
+  </div>
+
+  <!-- Overlay do painel lateral -->
+  <div id="detalhe-overlay" aria-hidden="true"></div>
+
+  <!-- Painel lateral de detalhes -->
+  <aside id="detalhe-panel" role="dialog" aria-modal="true" aria-label="Detalhes do pedido" tabindex="-1">
+    <!-- Preenchido por JS -->
+  </aside>
+
+  <!-- Modal de confirmação -->
+  <div class="modal-backdrop" id="modal-confirmacao" role="dialog" aria-modal="true" aria-labelledby="confirm-msg">
+    <div class="modal" style="width:min(420px,100%)">
+      <div class="modal-header">
+        <h2 style="font-size:1rem">Confirmação</h2>
+      </div>
+      <p id="confirm-msg" style="font-size:0.9rem;margin:0 0 16px;line-height:1.5"></p>
+      <div class="modal-actions">
+        <button class="btn-ghost" id="btn-confirm-nao">Cancelar</button>
+        <button class="btn-primary" id="btn-confirm-sim">Confirmar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toasts -->
+  <div id="toast-container" aria-live="polite" aria-atomic="true"></div>
+
+  <!-- Scripts ────────────────────────────────────────────────── -->
+  <script src="js/mock-data.js"></script>
+  <script src="js/mock-entregas.js"></script>
+  <script src="js/layout.js"></script>
+  <script src="js/entregas.js"></script>
+</body>
+</html>

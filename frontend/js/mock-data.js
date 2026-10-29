@@ -304,14 +304,15 @@ function generateMockOrders() {
     const preset = orderPresets[idx % orderPresets.length];
     const dateObj = new Date(now - daysAgo * dayMs);
     
-    // Status do pedido dependendo do tempo
-    let status = "Entregue";
-    if (daysAgo < 2) {
-      status = (idx % 2 === 0) ? "Em trânsito" : "Aprovado";
-    } else if (daysAgo < 6) {
-      status = (idx % 3 === 0) ? "Em trânsito" : "Entregue";
+    // Status comercial do pedido
+    // "Pendente de confirmação" | "Confirmado" | "Em preparação" | "Concluído" | "Cancelado"
+    let status = "Concluído";
+    if (daysAgo < 1.5) {
+      status = (idx % 2 === 0) ? "Pendente de confirmação" : "Confirmado";
+    } else if (daysAgo < 4) {
+      status = (idx % 2 === 0) ? "Em preparação" : "Confirmado";
     }
-    // Poucos cancelamentos simulados (aprox 3%)
+    // Poucos cancelamentos simulados (aprox 4%)
     if (idx === 14 || idx === 43 || idx === 68) {
       status = "Cancelado";
     }
@@ -332,18 +333,25 @@ function generateMockOrders() {
         quantidade: itemPreset.qty,
         preco_unitario: prod.preco,
         custo_unitario: prod.custo,
+        desconto: 0,
         subtotal: subtotal,
         custo_total: custoTotalItem,
       };
     });
 
-    const valor_total = itens.reduce((sum, item) => sum + item.subtotal, 0);
+    // Simula frete e desconto em alguns pedidos comerciais
+    const frete = (idx % 4 === 0) ? 25.00 : 0;
+    const desconto = (idx % 7 === 0) ? 15.00 : 0;
+
+    const subtotal_itens = itens.reduce((sum, item) => sum + item.subtotal, 0);
+    const valor_total = Math.max(0, subtotal_itens - desconto + frete);
     const custo_total = itens.reduce((sum, item) => sum + item.custo_total, 0);
     const lucro_bruto = valor_total - custo_total;
 
     orders.push({
       id_pedido: orderId++,
       codigo_pedido,
+      codigo_externo_ml: isML ? codigo_pedido : null,
       canal,
       tipo_envio,
       data_pedido: dateObj.toISOString(),
@@ -351,9 +359,18 @@ function generateMockOrders() {
       uf: client.uf,
       status,
       itens,
+      subtotal_itens: Math.round(subtotal_itens * 100) / 100,
+      desconto: Math.round(desconto * 100) / 100,
+      frete: Math.round(frete * 100) / 100,
       valor_total: Math.round(valor_total * 100) / 100,
       custo_total: Math.round(custo_total * 100) / 100,
       lucro_bruto: Math.round(lucro_bruto * 100) / 100,
+      observacoes: (idx % 6 === 0) ? "Cliente solicitou entrega no período matutino com NF física anexada." : "",
+      motivo_cancelamento: status === "Cancelado" ? "Cancelamento a pedido do comprador antes da expedição." : null,
+      historico: [
+        { data: dateObj.toISOString(), evento: "Pedido registrado", descricao: `Registrado via ${canal}.`, usuario: "Sistema" },
+        ...(status !== "Pendente de confirmação" ? [{ data: dateObj.toISOString(), evento: "Status: " + status, descricao: "Atualização comercial.", usuario: "Gestor RezFire" }] : [])
+      ]
     });
   });
 
@@ -638,10 +655,26 @@ function loadOrders() {
       return PEDIDOS_MOCK;
     }
     const parsed = JSON.parse(raw);
-    return Array.isArray(parsed) && parsed.length > 0 ? parsed : PEDIDOS_MOCK;
+    if (Array.isArray(parsed) && parsed.length > 0) {
+      // Se tiver versão antiga (sem subtotal_itens ou com status antigo "Aprovado"), migra para a base rica
+      if (parsed[0].subtotal_itens !== undefined) {
+        return parsed;
+      }
+    }
+    localStorage.setItem(ORDERS_KEY, JSON.stringify(PEDIDOS_MOCK));
+    return PEDIDOS_MOCK;
   } catch {
     return PEDIDOS_MOCK;
   }
+}
+
+function saveOrders(orders) {
+  localStorage.setItem(ORDERS_KEY, JSON.stringify(orders));
+}
+
+function nextOrderId(orders) {
+  if (!orders || orders.length === 0) return 1;
+  return Math.max(...orders.map((o) => Number(o.id_pedido || 0))) + 1;
 }
 
 function computeSalesMetrics(orders, filterDays = 30, filterChannel = "") {
@@ -1348,6 +1381,8 @@ window.RezFireData = {
   cloneDefaults,
   TOTAL_MOVIMENTACOES,
   loadOrders,
+  saveOrders,
+  nextOrderId,
   computeSalesMetrics,
   generateMockOrders,
   loadMovements,

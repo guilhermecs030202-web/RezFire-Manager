@@ -6,6 +6,27 @@ let products = [];
 let query = "";
 let currentComboItems = [];
 
+// -------------------------------------------------------------------
+// Indica se o backend está disponível (detectado na primeira chamada)
+// -------------------------------------------------------------------
+let _backendDisponivel = null;
+
+async function _testarBackend() {
+  if (_backendDisponivel !== null) return _backendDisponivel;
+  try {
+    const resp = await fetch(`${API_BASE_URL}/health`, { method: "GET" });
+    _backendDisponivel = resp.ok;
+  } catch {
+    _backendDisponivel = false;
+  }
+  return _backendDisponivel;
+}
+
+function showFormError(msg) {
+  const el = document.getElementById("form-error");
+  if (el) el.textContent = msg || "";
+}
+
 function updateComboVisibility() {
   const tipo = document.getElementById("tipo").value;
   const comboSection = document.getElementById("combo-section");
@@ -43,8 +64,6 @@ function renderComboItems() {
     `;
   }).join("");
 }
-
-
 
 function filteredProducts() {
   const term = query.trim().toLowerCase();
@@ -150,7 +169,7 @@ function switchModalTab(tabName) {
 function openModal(product) {
   const modal = document.getElementById("modal");
   const title = document.getElementById("modal-title");
-  document.getElementById("form-error").textContent = "";
+  showFormError("");
 
   // Retorna sempre para a primeira aba por padrão
   switchModalTab("geral");
@@ -164,6 +183,12 @@ function openModal(product) {
   document.getElementById("categoria").value = product ? (product.categoria || "") : "";
   document.getElementById("tipo").value = product ? (product.tipo || "Simples") : "Simples";
   document.getElementById("ativo").value = product && product.ativo === false ? "false" : "true";
+
+  // Campo unidade_medida (adicionado no SCRUM-7)
+  const unidadeMedidaEl = document.getElementById("unidade_medida");
+  if (unidadeMedidaEl) {
+    unidadeMedidaEl.value = product ? (product.unidade_medida || "un") : "un";
+  }
 
   // Preenche ou limpa campos da aba Detalhes (Extintor)
   const d = (product && product.detalhes_extintor) || {};
@@ -181,7 +206,7 @@ function openModal(product) {
   document.getElementById("dimensoes").value = d.dimensoes || "";
 
   title.textContent = product ? "Editar produto" : "Novo produto";
-  
+
   currentComboItems = product && product.combo_items ? [...product.combo_items] : [];
   updateComboVisibility();
   renderComboItems();
@@ -272,7 +297,7 @@ function openViewModal(product) {
       <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:10px 12px">
         <span style="font-size:0.7rem;font-weight:700;color:var(--muted);text-transform:uppercase;display:block">Estoque Físico</span>
         <strong style="font-size:1.1rem;color:var(--ink);display:block;margin-top:2px">
-          ${product.quantidade_atual !== undefined ? product.quantidade_atual : "—"} un
+          ${product.quantidade_atual !== undefined ? product.quantidade_atual : "—"} ${product.unidade_medida || "un"}
         </strong>
       </div>
     </div>
@@ -286,6 +311,10 @@ function openViewModal(product) {
           <strong style="color:var(--ink)">${escapeHtml(product.categoria || "—")}</strong>
         </div>
         <div>
+          <span style="color:var(--muted);font-size:0.75rem;display:block">Unidade de Medida</span>
+          <strong style="color:var(--ink)">${escapeHtml(product.unidade_medida || "un")}</strong>
+        </div>
+        <div>
           <span style="color:var(--muted);font-size:0.75rem;display:block">Tipo de Produto</span>
           <span class="status-pill ${product.tipo === "Combo" ? "on" : ""}" style="font-size:0.75rem">${product.tipo || "Simples"}</span>
         </div>
@@ -295,7 +324,7 @@ function openViewModal(product) {
         </div>
         <div>
           <span style="color:var(--muted);font-size:0.75rem;display:block">Estoque Mínimo</span>
-          <span style="color:var(--ink);font-weight:600">${product.estoque_minimo || 0} unidades</span>
+          <span style="color:var(--ink);font-weight:600">${product.estoque_minimo || 0} ${product.unidade_medida || "un"}</span>
         </div>
         ${product.descricao ? `
           <div style="grid-column: 1 / -1">
@@ -312,7 +341,7 @@ function openViewModal(product) {
       <div style="background:#fff;border:1px solid var(--line);border-radius:10px;padding:14px 16px">
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
           <h4 style="font-size:0.82rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:0.06em;margin:0">
-            Ficha Técnica, Lote & Logística
+            Ficha Técnica, Lote &amp; Logística
           </h4>
           ${d.registro_inmetro ? `
             <span style="font-size:0.75rem;font-weight:700;color:#1e40af;background:#dbeafe;padding:2px 8px;border-radius:999px">
@@ -403,6 +432,7 @@ function validateForm(payload, editingId) {
   if (Number.isNaN(payload.custo) || payload.custo < 0) return "Custo deve ser maior ou igual a zero.";
   if (Number.isNaN(payload.preco) || payload.preco < 0) return "Preço deve ser maior ou igual a zero.";
   if (!payload.categoria) return "Informe a categoria.";
+  if (!payload.unidade_medida) return "Informe a unidade de medida.";
   if (payload.tipo === "Combo" && (!payload.combo_items || payload.combo_items.length === 0)) {
     return "Um combo deve ter pelo menos um item.";
   }
@@ -429,6 +459,8 @@ function readForm() {
     dimensoes: document.getElementById("dimensoes").value.trim(),
   };
 
+  const unidadeMedidaEl = document.getElementById("unidade_medida");
+
   return {
     sku: document.getElementById("sku").value.trim(),
     nome: document.getElementById("nome").value.trim(),
@@ -437,6 +469,7 @@ function readForm() {
     preco: Number(document.getElementById("preco").value),
     categoria: document.getElementById("categoria").value.trim(),
     tipo: document.getElementById("tipo").value,
+    unidade_medida: unidadeMedidaEl ? unidadeMedidaEl.value : "un",
     ativo: document.getElementById("ativo").value === "true",
     combo_items: [...currentComboItems],
     detalhes_extintor,
@@ -477,7 +510,7 @@ function bindEvents() {
     } else {
       currentComboItems.push({ id_produto: id, quantidade: qtd });
     }
-    
+
     select.value = "";
     qtdInput.value = "1";
     renderComboItems();
@@ -514,9 +547,7 @@ function bindEvents() {
       const id = Number(deleteBtn.getAttribute("data-delete"));
       const product = products.find((p) => p.id_produto === id);
       if (product && confirm(`Deseja realmente excluir o produto "${product.nome}" (SKU: ${product.sku})?`)) {
-        products = products.filter((p) => p.id_produto !== id);
-        RezFireData.saveProducts(products);
-        renderTable();
+        _handleDelete(id, product);
       }
       return;
     }
@@ -540,18 +571,45 @@ function bindEvents() {
 
   document.getElementById("form-produto").addEventListener("submit", (event) => {
     event.preventDefault();
-    const editingId = Number(document.getElementById("id_produto").value) || null;
-    const payload = readForm();
-    const error = validateForm(payload, editingId);
-    document.getElementById("form-error").textContent = error;
-    if (error) {
-      // Se houver erro em campo da aba geral, volta para a aba geral para o usuário corrigir
-      if (error.includes("SKU") || error.includes("nome") || error.includes("Custo") || error.includes("Preço") || error.includes("categoria") || error.includes("combo")) {
-        switchModalTab("geral");
-      }
-      return;
-    }
+    _handleFormSubmit();
+  });
+}
 
+// -------------------------------------------------------------------
+// Handlers com integração à API (com fallback para localStorage)
+// -------------------------------------------------------------------
+
+async function _handleFormSubmit() {
+  const editingId = Number(document.getElementById("id_produto").value) || null;
+  const payload = readForm();
+  const error = validateForm(payload, editingId);
+  showFormError(error);
+  if (error) {
+    if (error.includes("SKU") || error.includes("nome") || error.includes("Custo") || error.includes("Preço") || error.includes("categoria") || error.includes("unidade") || error.includes("combo")) {
+      switchModalTab("geral");
+    }
+    return;
+  }
+
+  const apiAtiva = await _testarBackend();
+
+  if (apiAtiva) {
+    try {
+      if (editingId) {
+        const atualizado = await RezFireAPI.updateProduto(editingId, payload);
+        products = products.map((p) => (p.id_produto === editingId ? { ...p, ...atualizado } : p));
+      } else {
+        const criado = await RezFireAPI.createProduto(payload);
+        products = [...products, criado];
+      }
+      RezFireData.saveProducts(products);
+      closeModal();
+      renderTable();
+    } catch (err) {
+      showFormError(err.message || "Erro ao salvar produto na API.");
+    }
+  } else {
+    // Fallback: salva no localStorage
     if (editingId) {
       products = products.map((p) =>
         p.id_produto === editingId ? { ...p, ...payload, id_produto: editingId } : p
@@ -562,16 +620,50 @@ function bindEvents() {
         { ...payload, quantidade_atual: 0, estoque_minimo: 0, id_produto: RezFireData.nextProductId(products) },
       ];
     }
-
     RezFireData.saveProducts(products);
     closeModal();
     renderTable();
-  });
+  }
 }
 
-function init() {
+async function _handleDelete(id, product) {
+  const apiAtiva = await _testarBackend();
+
+  if (apiAtiva) {
+    try {
+      await RezFireAPI.deleteProduto(id);
+      // Soft delete retorna ativo=false; atualiza localmente
+      products = products.map((p) => (p.id_produto === id ? { ...p, ativo: false } : p));
+      RezFireData.saveProducts(products);
+      renderTable();
+    } catch (err) {
+      alert("Erro ao excluir produto: " + (err.message || "Tente novamente."));
+    }
+  } else {
+    // Fallback: remove do localStorage
+    products = products.filter((p) => p.id_produto !== id);
+    RezFireData.saveProducts(products);
+    renderTable();
+  }
+}
+
+async function init() {
   RezFireLayout.renderSidebar("produtos");
-  products = RezFireData.loadProducts();
+
+  const apiAtiva = await _testarBackend();
+
+  if (apiAtiva) {
+    try {
+      products = await RezFireAPI.getProdutos();
+      RezFireData.saveProducts(products);
+    } catch {
+      // Fallback silencioso se a API falhar após o health check passar
+      products = RezFireData.loadProducts();
+    }
+  } else {
+    products = RezFireData.loadProducts();
+  }
+
   bindEvents();
   renderTable();
 }

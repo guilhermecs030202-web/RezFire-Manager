@@ -1,3 +1,5 @@
+const API_BASE_URL = 'http://localhost:3333/api';
+
 const STORAGE_KEY = "rezfire.produtos";
 
 const DEFAULT_PRODUCTS = [

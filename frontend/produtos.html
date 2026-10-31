@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="pt-BR">
 
 <head>
@@ -104,6 +104,17 @@
           <div class="form-field">
             <label for="categoria">Categoria</label>
             <input id="categoria" name="categoria" required maxlength="60" />
+          </div>
+          <div class="form-field">
+            <label for="unidade_medida">Unidade de Medida</label>
+            <select id="unidade_medida" name="unidade_medida" required>
+              <option value="un">Unidade (un)</option>
+              <option value="cx">Caixa (cx)</option>
+              <option value="kg">Quilograma (kg)</option>
+              <option value="L">Litro (L)</option>
+              <option value="m">Metro (m)</option>
+              <option value="par">Par (par)</option>
+            </select>
           </div>
           <div class="form-field">
             <label for="tipo">Tipo</label>
@@ -264,6 +275,7 @@
 
   <script src="js/mock-data.js"></script>
   <script src="js/layout.js"></script>
+  <script src="js/api.js"></script>
   <script src="js/produtos.js"></script>
 </body>
 

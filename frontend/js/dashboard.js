@@ -352,17 +352,16 @@ function renderTabVendas(products) {
         {
           name: "Pedidos",
           data: [
-            metrics.statusCount["Entregue"] || 0,
-            metrics.statusCount["Em trânsito"] || 0,
-            metrics.statusCount["Aprovado"] || 0,
+            metrics.statusCount["Confirmado"] || 0,
+            metrics.statusCount["Concluido"] || 0,
             metrics.statusCount["Cancelado"] || 0,
           ],
         },
       ],
       xaxis: {
-        categories: ["Entregues", "Em Trânsito", "Aprovados", "Cancelados"],
+        categories: ["Confirmados", "Concluídos", "Cancelados"],
       },
-      colors: ["#1f9d5c", "#1d68bd", "#f59e0b", "#d13c3c"],
+      colors: ["#1d68bd", "#1f9d5c", "#d13c3c"],
       legend: { show: false },
       dataLabels: { enabled: true, style: { fontSize: "11px", fontWeight: "bold" } },
       tooltip: {
@@ -438,9 +437,8 @@ function renderTabVendas(products) {
             ? `<span class="badge-channel ml">Mercado Livre</span>`
             : `<span class="badge-channel direto">Venda Direta</span>`;
 
-          let statusClass = "entregue";
-          if (p.status === "Em trânsito") statusClass = "transito";
-          else if (p.status === "Aprovado") statusClass = "aprovado";
+          let statusClass = "concluido";
+          if (p.status === "Confirmado") statusClass = "confirmado";
           else if (p.status === "Cancelado") statusClass = "cancelado";
 
           const statusBadge = `<span class="badge-order-status ${statusClass}">${p.status}</span>`;
@@ -508,9 +506,8 @@ function openOrderDetailsModal(order) {
     ? `<span class="badge-channel ml">Mercado Livre (${order.tipo_envio || "Full"})</span>`
     : `<span class="badge-channel direto">Venda Direta / B2B</span>`;
 
-  let statusClass = "entregue";
-  if (order.status === "Em trânsito") statusClass = "transito";
-  else if (order.status === "Aprovado") statusClass = "aprovado";
+  let statusClass = "concluido";
+  if (order.status === "Confirmado") statusClass = "confirmado";
   else if (order.status === "Cancelado") statusClass = "cancelado";
 
   conteudo.innerHTML = `

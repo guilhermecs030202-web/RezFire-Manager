@@ -700,27 +700,15 @@ function saveEntregas(entregas) {
  * Combina os lotes pré-definidos com o lote configurado no cadastro de produtos.
  */
 function getLotesPorProduto(id_produto) {
-  const lotes = [...LOTES_SIMULADOS.filter((l) => l.id_produto === id_produto)];
-
-  // Se o gestor cadastrou/editou um produto com detalhes de lote e validade na tela de Produtos:
-  if (window.RezFireData && typeof window.RezFireData.loadProducts === "function") {
-    const produtos = window.RezFireData.loadProducts();
-    const prod = produtos.find((p) => p.id_produto === id_produto);
-    if (prod && prod.detalhes_extintor) {
-      const d = prod.detalhes_extintor;
-      const loteId = d.id_lote || (d.numero_lacre ? `LT-${d.numero_lacre}` : null);
-      if (loteId && !lotes.some((l) => l.id_lote === loteId)) {
-        lotes.unshift({
-          id_lote: loteId,
-          id_produto: prod.id_produto,
-          sku: prod.sku,
-          validade: d.data_validade || "2028-12-31",
-          lacre: d.numero_lacre || "L-000000",
-          quantidade_disponivel: Number(prod.quantidade_atual || 0),
-        });
-      }
-    }
+  let lotes = [];
+  if (window.RezFireData && typeof window.RezFireData.loadLotes === "function") {
+    lotes = window.RezFireData.loadLotes().filter((l) => l.id_produto === id_produto);
+  } else {
+    lotes = [...LOTES_SIMULADOS.filter((l) => l.id_produto === id_produto)];
   }
+
+  // Ordena por validade mais próxima (FEFO)
+  lotes.sort((a, b) => new Date(a.validade || "9999-12-31").getTime() - new Date(b.validade || "9999-12-31").getTime());
 
   return lotes;
 }

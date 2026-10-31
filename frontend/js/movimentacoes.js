@@ -1,3 +1,13 @@
+/**
+ * movimentacoes.js
+ * Lógica da página de Movimentações de Estoque & Vendas — RezFire Manager.
+ *
+ * Separado entre:
+ * 1. Entrada de Mercadoria por Nota Fiscal (múltiplos itens, cadastro de lote de extintor);
+ * 2. Saída Avulsa não-comercial (Perdas, Avarias, Vencidos, Amostras);
+ * 3. Extrato completo integrado com vendas e histórico.
+ */
+
 let movements = [];
 let products = [];
 let query = "";
@@ -76,7 +86,7 @@ function renderKPIs() {
     <article class="card kpi-card">
       <p class="kpi-label">ENTRADAS DE REPOSIÇÃO</p>
       <p class="kpi-value">${metrics.qtdEntradas.toLocaleString("pt-BR")} <span style="font-size:0.95rem;font-weight:600;color:#1f9d5c;">unidades</span></p>
-      <p class="kpi-hint">Abastecimento de estoque (${periodLabel})</p>
+      <p class="kpi-hint">Abastecimento por NF (${periodLabel})</p>
     </article>
     <article class="card kpi-card">
       <p class="kpi-label">TOTAL DE OPERAÇÕES</p>
@@ -86,69 +96,11 @@ function renderKPIs() {
   `;
 }
 
-function updateModalFieldsVisibility() {
-  const tipo = document.getElementById("tipo").value;
-  const motivo = document.getElementById("motivo").value;
-  const idProduto = Number(document.getElementById("id_produto").value);
-  const product = products.find((p) => p.id_produto === idProduto);
-
-  const secaoVenda = document.getElementById("secao-dados-venda");
-  const secaoExtintor = document.getElementById("extintor-lote-section");
-  const campoPreco = document.getElementById("campo-preco-venda");
-
-  const isVenda = motivo === "Venda Mercado Livre" || motivo === "Venda Direta";
-
-  if (secaoVenda) {
-    secaoVenda.style.display = isVenda ? "block" : "none";
-  }
-
-  if (campoPreco) {
-    campoPreco.style.display = tipo === "Saída" || isVenda ? "block" : "none";
-    if (product && isVenda && !document.getElementById("preco_unitario").value) {
-      document.getElementById("preco_unitario").value = product.preco || 0;
-    }
-  }
-
-  if (secaoExtintor) {
-    if (tipo === "Entrada" && isExtintorProduct(product)) {
-      secaoExtintor.style.display = "block";
-      const inmetroInput = document.getElementById("lote_inmetro");
-      const d = product.detalhes_extintor || {};
-      if (inmetroInput && !inmetroInput.value && d.registro_inmetro) {
-        inmetroInput.value = d.registro_inmetro;
-      }
-    } else {
-      secaoExtintor.style.display = "none";
-    }
-  }
-}
-
-function updateMotivosOptions() {
-  const tipo = document.getElementById("tipo").value;
-  const motivoSelect = document.getElementById("motivo");
-
-  if (tipo === "Entrada") {
-    motivoSelect.innerHTML = `
-      <option value="Nota Fiscal (Abastecimento)">Nota Fiscal (Abastecimento)</option>
-      <option value="Devolução">Devolução de Cliente</option>
-      <option value="Ajuste Manual">Ajuste Manual (Entrada)</option>
-    `;
-  } else {
-    motivoSelect.innerHTML = `
-      <option value="Venda Mercado Livre" selected>Venda Mercado Livre</option>
-      <option value="Venda Direta">Venda Direta / B2B</option>
-      <option value="Avaria / Perda">Avaria / Perda</option>
-      <option value="Ajuste Manual">Ajuste Manual (Saída)</option>
-    `;
-  }
-
-  updateModalFieldsVisibility();
-}
-
 function renderTable() {
   const body = document.getElementById("movimentacoes-body");
   const countEl = document.getElementById("movimentacoes-count");
   const money = RezFireData.formatMoney;
+  if (!body) return;
 
   // 1. Filtro por Período
   let filtered = getMovementsForPeriod(filterPeriodo);
@@ -160,6 +112,10 @@ function renderTable() {
     filtered = filtered.filter((m) => m.canal === "Venda Direta" || m.motivo.includes("Venda Direta"));
   } else if (filterCanal === "Entrada") {
     filtered = filtered.filter((m) => m.tipo === "Entrada");
+  } else if (filterCanal === "Perda") {
+    filtered = filtered.filter((m) => m.tipo === "Saída" && !m.canal && !m.motivo.includes("Venda"));
+  } else if (filterCanal === "Ajuste") {
+    filtered = filtered.filter((m) => m.motivo.includes("Ajuste") || m.motivo.includes("Balanço"));
   }
 
   // 3. Busca Textual
@@ -194,7 +150,7 @@ function renderTable() {
   if (!filtered.length) {
     body.innerHTML = `
       <tr class="empty-row">
-        <td colspan="7">Nenhuma movimentação encontrada para os filtros selecionados.</td>
+        <td colspan="7" style="text-align:center;padding:36px;color:var(--muted)">Nenhuma movimentação encontrada para os filtros selecionados.</td>
       </tr>
     `;
     return;
@@ -223,18 +179,6 @@ function renderTable() {
       const r = m.detalhes_remessa;
       const temRemessa = r && (r.lote || r.validade || r.lacre || r.inmetro);
 
-      // Status do Pedido
-      let statusBadge = "";
-      if (m.status_pedido) {
-        let stClass = "entregue";
-        if (m.status_pedido === "Em trânsito") stClass = "transito";
-        else if (m.status_pedido === "Aprovado") stClass = "aprovado";
-        else if (m.status_pedido === "Cancelado") stClass = "cancelado";
-        statusBadge = `<span class="badge-order-status ${stClass}">${m.status_pedido}</span>`;
-      } else {
-        statusBadge = `<span class="badge-order-status entregue">Concluído</span>`;
-      }
-
       const valorUnit = m.preco_unitario ? money(m.preco_unitario) : "-";
       const valorTotal = m.valor_total ? money(m.valor_total) : (m.preco_unitario ? money(m.preco_unitario * m.quantidade) : "-");
 
@@ -248,411 +192,462 @@ function renderTable() {
               <span class="sku-main">${sku}</span>
               <span class="sku-sub">${nome}</span>
               ${temRemessa ? `
-                <div class="flex flex-wrap gap-1 mt-1 text-xs">
-                  ${r.lote ? `<span class="px-1.5 py-0.5 rounded bg-gray-100 text-gray-700 font-medium">Lote: ${r.lote}</span>` : ""}
-                  ${r.validade ? `<span class="px-1.5 py-0.5 rounded bg-amber-50 text-amber-800 border border-amber-200">Validade: ${formatDateOnly(r.validade)}</span>` : ""}
-                  ${r.lacre ? `<span class="px-1.5 py-0.5 rounded bg-blue-50 text-blue-800 border border-blue-200">Lacre: ${r.lacre}</span>` : ""}
-                  ${r.inmetro ? `<span class="px-1.5 py-0.5 rounded bg-orange-50 text-orange-800 border border-orange-200">Selo: ${r.inmetro}</span>` : ""}
+                <div style="margin-top:3px;font-size:0.72rem;color:#78716c;font-family:monospace">
+                  ${r.lote ? `Lote: <strong>${r.lote}</strong> ` : ""}
+                  ${r.lacre ? `· Lacre: ${r.lacre} ` : ""}
+                  ${r.validade ? `· Val: ${formatDateOnly(r.validade)}` : ""}
                 </div>
               ` : ""}
             </div>
           </td>
-          <td>${canalBadge}</td>
           <td>
-            <div class="flex flex-col">
-              ${m.codigo_pedido ? `
-                <button type="button" class="btn-ver-detalhes-venda text-left bg-transparent border-0 p-0 cursor-pointer group" data-codigo="${m.codigo_pedido}" title="Clique para ver detalhes do pedido e produtos">
-                  <strong class="text-xs text-stone-900 group-hover:text-amber-600 underline decoration-stone-300 underline-offset-2">${m.codigo_pedido}</strong>
-                </button>
-              ` : `<span class="text-xs text-stone-400">Sem código</span>`}
-              <span class="text-xs text-stone-600">${m.cliente || "RezFire Operação"} ${m.uf ? `(${m.uf})` : ""}</span>
-              ${m.tipo_envio ? `<span class="text-[11px] text-stone-400">${m.tipo_envio}</span>` : ""}
+            <div class="flex flex-col gap-1 items-start">
+              <span class="status-pill ${isEntrada ? 'on' : ''}" style="${isEntrada ? 'background:#dcfce7;color:#166534;' : 'background:#fee2e2;color:#991b1b;'}">
+                ${m.tipo}
+              </span>
+              <span class="text-xs text-stone-600 font-medium">${m.motivo}</span>
             </div>
-          </td>
-          <td>
-            <span class="font-bold text-sm ${isEntrada ? "text-emerald-600" : "text-rose-600"}">
-              ${isEntrada ? "+" : "-"}${m.quantidade} un.
-            </span>
           </td>
           <td>
             <div class="flex flex-col">
-              <span class="font-bold text-xs text-stone-900">${valorTotal}</span>
-              <span class="text-[11px] text-stone-500">${valorUnit} / un.</span>
+              ${m.codigo_pedido ? `<strong style="font-family:monospace;font-size:0.85rem">${m.codigo_pedido}</strong>` : `<span style="color:var(--muted)">${m.fornecedor || "—"}</span>`}
+              ${m.cliente ? `<span class="text-xs text-stone-600">${m.cliente} (${m.uf || "SP"})</span>` : ""}
+            </div>
+          </td>
+          <td style="text-align:center">
+            <strong style="font-size:1rem;color:${isEntrada ? '#166534' : '#991b1b'}">
+              ${isEntrada ? '+' : '-'}${m.quantidade}
+            </strong>
+          </td>
+          <td>
+            <div class="flex flex-col">
+              <strong>${valorTotal}</strong>
+              <span class="text-xs text-stone-500">Un: ${valorUnit}</span>
             </div>
           </td>
           <td>
-            <div class="flex flex-col items-start gap-1">
-              ${statusBadge}
-              <span class="text-[11px] text-stone-400">${m.responsavel || "Gestor RezFire"}</span>
-            </div>
+            <span class="text-xs text-stone-600">${m.responsavel || "Gestor RezFire"}</span>
           </td>
         </tr>
       `;
     })
     .join("");
-
-  // Vincula botões de detalhes do pedido
-  body.querySelectorAll(".btn-ver-detalhes-venda").forEach((btn) => {
-    btn.addEventListener("click", () => {
-      const codigo = btn.dataset.codigo;
-      openSaleDetailsModal(codigo);
-    });
-  });
 }
 
-function openSaleDetailsModal(codigoPedido) {
-  const modal = document.getElementById("modal-detalhes-venda");
-  const titulo = document.getElementById("modal-venda-titulo");
-  const conteudo = document.getElementById("modal-venda-conteudo");
-  const money = RezFireData.formatMoney;
+// ═════════════════════════════════════════════════════════════════════════════
+// 1. MODAL DE ENTRADA POR NOTA FISCAL (COMPRA / REABASTECIMENTO)
+// ═════════════════════════════════════════════════════════════════════════════
+let nfItems = [];
 
-  if (!modal || !conteudo) return;
+function createNfItemRow(itemIndex) {
+  const prodsOptions = products
+    .filter((p) => p.tipo !== "Combo") // Apenas itens físicos podem entrar por NF
+    .map((p) => `<option value="${p.id_produto}">${p.sku} - ${p.nome}</option>`)
+    .join("");
 
-  // Busca o pedido correspondente ou agrupa movimentações com este código
-  const orders = RezFireData.loadOrders();
-  const order = orders.find((o) => o.codigo_pedido === codigoPedido);
-  const movsDoPedido = movements.filter((m) => m.codigo_pedido === codigoPedido);
-
-  titulo.textContent = `Operação / Pedido: ${codigoPedido}`;
-
-  const canal = order ? order.canal : (movsDoPedido[0] ? movsDoPedido[0].canal : "Mercado Livre");
-  const cliente = order ? order.cliente : (movsDoPedido[0] ? movsDoPedido[0].cliente : "Cliente");
-  const uf = order ? order.uf : (movsDoPedido[0] ? movsDoPedido[0].uf : "SP");
-  const status = order ? order.status : (movsDoPedido[0] ? movsDoPedido[0].status_pedido || "Entregue" : "Entregue");
-  const data = order ? order.data_pedido : (movsDoPedido[0] ? movsDoPedido[0].data : new Date().toISOString());
-  const tipoEnvio = order ? order.tipo_envio : (movsDoPedido[0] ? movsDoPedido[0].tipo_envio : "Padrão");
-
-  const isML = canal === "Mercado Livre";
-  const canalBadge = isML
-    ? `<span class="badge-channel ml">Mercado Livre (${tipoEnvio || "Full"})</span>`
-    : `<span class="badge-channel direto">Venda Direta / B2B</span>`;
-
-  let statusClass = "entregue";
-  if (status === "Em trânsito") statusClass = "transito";
-  else if (status === "Aprovado") statusClass = "aprovado";
-  else if (status === "Cancelado") statusClass = "cancelado";
-
-  // Itens: usa itens do pedido ou as próprias movimentações vinculadas
-  let itensHtml = "";
-  let totalValor = 0;
-
-  if (order && order.itens && order.itens.length > 0) {
-    totalValor = order.valor_total;
-    itensHtml = order.itens.map((it) => `
-      <tr>
-        <td>
-          <strong>${it.sku}</strong>
-          <div style="font-size:0.75rem; color:#6b6560;">${it.nome}</div>
-        </td>
-        <td><span class="text-xs text-stone-500">${it.categoria || "Extintores"}</span></td>
-        <td><strong class="text-rose-600">-${it.quantidade} un.</strong></td>
-        <td>${money(it.preco_unitario)}</td>
-        <td><strong>${money(it.subtotal)}</strong></td>
-      </tr>
-    `).join("");
-  } else {
-    totalValor = movsDoPedido.reduce((sum, m) => sum + Number(m.valor_total || 0), 0);
-    itensHtml = movsDoPedido.map((m) => `
-      <tr>
-        <td>
-          <strong>${m.sku}</strong>
-          <div style="font-size:0.75rem; color:#6b6560;">${m.nome_produto}</div>
-        </td>
-        <td><span class="text-xs text-stone-500">${m.motivo}</span></td>
-        <td><strong class="${m.tipo === 'Entrada' ? 'text-emerald-600' : 'text-rose-600'}">${m.tipo === 'Entrada' ? '+' : '-'}${m.quantidade} un.</strong></td>
-        <td>${money(m.preco_unitario)}</td>
-        <td><strong>${money(m.valor_total)}</strong></td>
-      </tr>
-    `).join("");
-  }
-
-  conteudo.innerHTML = `
-    <div style="display:flex; flex-direction:column; gap:16px;">
-      <div style="background:#faf7f3; border:1px solid #ebe4db; border-radius:12px; padding:14px 16px; display:grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap:12px;">
-        <div>
-          <span style="font-size:0.7rem; font-weight:700; color:#6b6560; text-transform:uppercase;">Canal de Venda</span>
-          <div style="margin-top:4px;">${canalBadge}</div>
+  return `
+    <div class="nf-item-row" data-item-idx="${itemIndex}">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+        <strong style="font-size:0.82rem;color:var(--ink)">Item #${itemIndex + 1}</strong>
+        ${itemIndex > 0 ? `<button type="button" class="btn-ghost btn-remove-nf-item" data-remove-idx="${itemIndex}" style="color:var(--down);font-size:0.75rem;padding:2px 6px">✕ Remover</button>` : ""}
+      </div>
+      <div class="form-grid">
+        <div class="form-field span-2">
+          <label>Produto Catalogado *</label>
+          <select class="search-input nf-item-prod" data-item-idx="${itemIndex}" style="width:100%" required>
+            <option value="">— Selecione o produto —</option>
+            ${prodsOptions}
+          </select>
         </div>
-        <div>
-          <span style="font-size:0.7rem; font-weight:700; color:#6b6560; text-transform:uppercase;">Cliente / Destinatário</span>
-          <div style="font-size:0.85rem; font-weight:700; color:#1a1412; margin-top:2px;">${cliente}</div>
-          <div style="font-size:0.75rem; color:#6b6560;">Estado: ${uf}</div>
+        <div class="form-field">
+          <label>Quantidade Recebida *</label>
+          <input type="number" min="1" step="1" value="10" class="search-input nf-item-qtd" data-item-idx="${itemIndex}" required />
         </div>
-        <div>
-          <span style="font-size:0.7rem; font-weight:700; color:#6b6560; text-transform:uppercase;">Data do Registro</span>
-          <div style="font-size:0.85rem; font-weight:600; color:#1a1412; margin-top:2px;">${formatDate(data)}</div>
-        </div>
-        <div>
-          <span style="font-size:0.7rem; font-weight:700; color:#6b6560; text-transform:uppercase;">Status da Venda</span>
-          <div style="margin-top:4px;"><span class="badge-order-status ${statusClass}">${status}</span></div>
+        <div class="form-field">
+          <label>Custo Unitário (R$)</label>
+          <input type="number" step="0.01" min="0" placeholder="0.00" class="search-input nf-item-custo" data-item-idx="${itemIndex}" />
         </div>
       </div>
 
-      <div>
-        <h4 style="margin:0 0 8px; font-size:0.85rem; font-weight:700; color:#1a1412;">Itens e Extintores Baixados no Estoque</h4>
-        <div class="table-wrap" style="border:1px solid #ebe4db; border-radius:10px;">
-          <table class="products-table" style="font-size:0.82rem;">
-            <thead>
-              <tr style="background:#fcfbf9;">
-                <th>ITEM / PRODUTO</th>
-                <th>CATEGORIA / MOTIVO</th>
-                <th>BAIXA ESTOQUE</th>
-                <th>VALOR UNIT.</th>
-                <th>TOTAL</th>
-              </tr>
-            </thead>
-            <tbody>
-              ${itensHtml}
-            </tbody>
-          </table>
+      <!-- Campos de Lote para Extintores -->
+      <div class="nf-extintor-lote-wrap" id="nf-lote-wrap-${itemIndex}" style="display:none;margin-top:10px;padding-top:10px;border-top:1px dashed #d1d5db">
+        <div style="font-size:0.75rem;font-weight:700;color:var(--accent);margin-bottom:6px">
+          🧯 Dados da Remessa do Extintor (Lote &amp; Validade)
         </div>
-      </div>
-
-      <div style="display:flex; justify-content:space-between; align-items:center; background:#fff; border-top:1px solid #ebe4db; padding-top:14px; flex-wrap:wrap; gap:12px;">
-        <div style="font-size:0.85rem;">
-          <span style="color:#6b6560;">Valor Transacionado:</span> <strong style="font-size:1.15rem; color:#1a1412;">${money(totalValor)}</strong>
-          <span style="font-size:0.75rem; color:#6b6560; margin-left:8px;">(${movsDoPedido.length} item(ns) movimentado(s))</span>
-        </div>
-        <div style="display:flex; gap:8px;">
-          <a href="dashboard.html" class="btn-primary" style="text-decoration:none; font-size:0.82rem; padding:8px 14px; display:inline-flex; align-items:center; gap:6px;">
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
-            Ver no Painel de Vendas
-          </a>
+        <div class="form-grid">
+          <div class="form-field">
+            <label>Código do Lote *</label>
+            <input placeholder="Ex: LT-2026/05" class="search-input nf-item-lote" data-item-idx="${itemIndex}" />
+          </div>
+          <div class="form-field">
+            <label>Lacre / Selo INMETRO</label>
+            <input placeholder="Ex: INM-849201" class="search-input nf-item-lacre" data-item-idx="${itemIndex}" />
+          </div>
+          <div class="form-field">
+            <label>Data de Validade / Carga *</label>
+            <input type="date" class="search-input nf-item-validade" data-item-idx="${itemIndex}" />
+          </div>
         </div>
       </div>
     </div>
   `;
+}
+
+function renderNfItems() {
+  const container = document.getElementById("nf-itens-container");
+  if (!container) return;
+
+  container.innerHTML = nfItems.map((_, idx) => createNfItemRow(idx)).join("");
+
+  // Vincula evento de mudança no select de produto para exibir campos de lote se for extintor
+  container.querySelectorAll(".nf-item-prod").forEach((sel) => {
+    sel.addEventListener("change", (e) => {
+      const idx = Number(e.target.getAttribute("data-item-idx"));
+      const pId = Number(e.target.value);
+      const prod = products.find((p) => p.id_produto === pId);
+      const loteWrap = document.getElementById(`nf-lote-wrap-${idx}`);
+
+      if (prod && isExtintorProduct(prod)) {
+        if (loteWrap) loteWrap.style.display = "block";
+        // Preenche sugestão de validade (5 anos à frente)
+        const dVal = new Date();
+        dVal.setFullYear(dVal.getFullYear() + 5);
+        const valInput = container.querySelector(`.nf-item-validade[data-item-idx="${idx}"]`);
+        if (valInput && !valInput.value) valInput.value = dVal.toISOString().split("T")[0];
+      } else {
+        if (loteWrap) loteWrap.style.display = "none";
+      }
+
+      // Preenche custo do produto
+      if (prod) {
+        const custoInput = container.querySelector(`.nf-item-custo[data-item-idx="${idx}"]`);
+        if (custoInput && !custoInput.value) custoInput.value = prod.custo || "";
+      }
+    });
+  });
+
+  // Remover item
+  container.querySelectorAll(".btn-remove-nf-item").forEach((btn) => {
+    btn.addEventListener("click", (e) => {
+      const idx = Number(e.target.getAttribute("data-remove-idx"));
+      if (nfItems.length > 1) {
+        nfItems.splice(idx, 1);
+        renderNfItems();
+      }
+    });
+  });
+}
+
+function openEntradaModal() {
+  const modal = document.getElementById("modal-entrada");
+  if (!modal) return;
+
+  document.getElementById("form-entrada-error").textContent = "";
+  document.getElementById("nf-numero").value = `NF-e ${Math.floor(100000 + Math.random() * 900000)}`;
+  document.getElementById("nf-fornecedor").value = "Mocelin Equipamentos de Segurança";
+
+  // Data atual pré-preenchida
+  const now = new Date();
+  const pad = (n) => String(n).padStart(2, "0");
+  document.getElementById("nf-data").value = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}T${pad(now.getHours())}:${pad(now.getMinutes())}`;
+
+  nfItems = [{}];
+  renderNfItems();
 
   modal.classList.add("is-open");
 }
 
-function openModal() {
-  document.getElementById("form-error").textContent = "";
-
-  const select = document.getElementById("id_produto");
-  select.innerHTML =
-    `<option value="">Selecione o produto...</option>` +
-    products.map((p) => `<option value="${p.id_produto}">${p.sku} - ${p.nome}</option>`).join("");
-
-  document.getElementById("tipo").value = "Saída";
-  updateMotivosOptions();
-  document.getElementById("quantidade").value = 1;
-  document.getElementById("preco_unitario").value = "";
-
-  // Campos de Venda
-  document.getElementById("codigo_pedido").value = `MLB-28${Math.floor(100000 + Math.random() * 900000)}`;
-  document.getElementById("cliente_nome").value = "";
-  document.getElementById("cliente_uf").value = "SP";
-
-  // Campos de Remessa
-  document.getElementById("lote_serie").value = "";
-  document.getElementById("lote_inmetro").value = "";
-  document.getElementById("lote_fabricacao").value = "";
-  document.getElementById("lote_validade").value = "";
-  document.getElementById("lote_lacre").value = "";
-  const chk = document.getElementById("atualizar_produto_extintor");
-  if (chk) chk.checked = true;
-
-  updateModalFieldsVisibility();
-  document.getElementById("modal").classList.add("is-open");
+function closeEntradaModal() {
+  document.getElementById("modal-entrada")?.classList.remove("is-open");
 }
 
-function closeModal() {
-  document.getElementById("modal").classList.remove("is-open");
+// ═════════════════════════════════════════════════════════════════════════════
+// 2. MODAL DE SAÍDA AVULSA (PERDA / AVARIA / DESCARTE)
+// ═════════════════════════════════════════════════════════════════════════════
+function openSaidaModal() {
+  const modal = document.getElementById("modal-saida");
+  if (!modal) return;
+
+  document.getElementById("form-saida-error").textContent = "";
+  const prodSelect = document.getElementById("saida-produto");
+  prodSelect.innerHTML = `<option value="">— Selecione o produto —</option>` +
+    products
+      .filter((p) => p.tipo !== "Combo")
+      .map((p) => `<option value="${p.id_produto}">${p.sku} - ${p.nome} (Saldo: ${p.quantidade_atual})</option>`)
+      .join("");
+
+  document.getElementById("saida-qtd").value = "1";
+  document.getElementById("saida-obs").value = "";
+  document.getElementById("wrap-saida-lote").style.display = "none";
+
+  modal.classList.add("is-open");
 }
 
+function closeSaidaModal() {
+  document.getElementById("modal-saida")?.classList.remove("is-open");
+}
+
+// ═════════════════════════════════════════════════════════════════════════════
+// 3. VINCULAÇÃO DE EVENTOS E SUBMISSÕES
+// ═════════════════════════════════════════════════════════════════════════════
 function bindEvents() {
-  document.getElementById("busca").addEventListener("input", (event) => {
-    query = event.target.value;
+  // Filtros de busca e período
+  document.getElementById("busca")?.addEventListener("input", (e) => {
+    query = e.target.value;
     renderTable();
   });
 
-  const selectCanal = document.getElementById("filtro-mov-canal");
-  if (selectCanal) {
-    selectCanal.addEventListener("change", (e) => {
-      filterCanal = e.target.value;
-      renderTable();
-    });
-  }
-
-  const selectPeriodo = document.getElementById("filtro-mov-periodo");
-  if (selectPeriodo) {
-    selectPeriodo.addEventListener("change", (e) => {
-      filterPeriodo = e.target.value;
-      renderKPIs();
-      renderTable();
-    });
-  }
-
-  document.getElementById("btn-nova-movimentacao").addEventListener("click", openModal);
-  document.getElementById("btn-cancelar").addEventListener("click", closeModal);
-  document.getElementById("modal").addEventListener("click", (event) => {
-    if (event.target.id === "modal") closeModal();
+  document.getElementById("filtro-mov-canal")?.addEventListener("change", (e) => {
+    filterCanal = e.target.value;
+    renderTable();
   });
 
-  const modalVenda = document.getElementById("modal-detalhes-venda");
-  const btnFecharVenda = document.getElementById("btn-fechar-modal-venda");
-  if (btnFecharVenda && modalVenda) {
-    btnFecharVenda.addEventListener("click", () => modalVenda.classList.remove("is-open"));
-    modalVenda.addEventListener("click", (event) => {
-      if (event.target.id === "modal-detalhes-venda") modalVenda.classList.remove("is-open");
-    });
-  }
-
-  document.getElementById("tipo").addEventListener("change", updateMotivosOptions);
-  document.getElementById("motivo").addEventListener("change", updateModalFieldsVisibility);
-  document.getElementById("id_produto").addEventListener("change", () => {
-    const idProduto = Number(document.getElementById("id_produto").value);
-    const product = products.find((p) => p.id_produto === idProduto);
-    if (product && product.preco) {
-      document.getElementById("preco_unitario").value = product.preco;
-    }
-    updateModalFieldsVisibility();
-  });
-
-  document.getElementById("form-movimentacao").addEventListener("submit", (event) => {
-    event.preventDefault();
-    const idProduto = Number(document.getElementById("id_produto").value);
-    const tipo = document.getElementById("tipo").value;
-    const motivo = document.getElementById("motivo").value;
-    const qtd = Number(document.getElementById("quantidade").value);
-    const precoUnit = Number(document.getElementById("preco_unitario").value) || 0;
-
-    if (!idProduto) {
-      document.getElementById("form-error").textContent = "Selecione um produto.";
-      return;
-    }
-    if (!Number.isInteger(qtd) || qtd < 1) {
-      document.getElementById("form-error").textContent = "Quantidade deve ser um número inteiro maior que zero.";
-      return;
-    }
-
-    const product = products.find((p) => p.id_produto === idProduto);
-    if (!product) {
-      document.getElementById("form-error").textContent = "Produto não encontrado.";
-      return;
-    }
-
-    if (tipo === "Saída" && product.quantidade_atual < qtd) {
-      document.getElementById("form-error").textContent = `Estoque insuficiente. Quantidade atual disponível: ${product.quantidade_atual} un.`;
-      return;
-    }
-
-    // Dados de Venda
-    const isVenda = motivo === "Venda Mercado Livre" || motivo === "Venda Direta";
-    let canal = "Operação";
-    let codigoPedido = "";
-    let cliente = "RezFire Interno";
-    let uf = "SP";
-    let tipoEnvio = "Envio Padrão";
-
-    if (isVenda) {
-      canal = motivo === "Venda Mercado Livre" ? "Mercado Livre" : "Venda Direta";
-      codigoPedido = document.getElementById("codigo_pedido").value.trim() || (canal === "Mercado Livre" ? `MLB-28${Date.now().toString().slice(-6)}` : `DIR-${Date.now().toString().slice(-4)}`);
-      cliente = document.getElementById("cliente_nome").value.trim() || (canal === "Mercado Livre" ? "Cliente Mercado Livre" : "Cliente Venda Direta");
-      uf = document.getElementById("cliente_uf").value || "SP";
-      tipoEnvio = document.getElementById("tipo_envio").value || "Mercado Envios Full";
-    }
-
-    // Coleta detalhes da remessa caso seja extintor e entrada
-    let detalhes_remessa = null;
-    if (tipo === "Entrada" && isExtintorProduct(product)) {
-      const lote = document.getElementById("lote_serie").value.trim();
-      const inmetro = document.getElementById("lote_inmetro").value.trim();
-      const fabricacao = document.getElementById("lote_fabricacao").value;
-      const validade = document.getElementById("lote_validade").value;
-      const lacre = document.getElementById("lote_lacre").value.trim();
-
-      if (lote || inmetro || fabricacao || validade || lacre) {
-        detalhes_remessa = { lote, inmetro, fabricacao, validade, lacre };
-
-        const chkUpdate = document.getElementById("atualizar_produto_extintor");
-        if (chkUpdate && chkUpdate.checked) {
-          if (!product.detalhes_extintor) product.detalhes_extintor = {};
-          if (validade) product.detalhes_extintor.data_validade = validade;
-          if (fabricacao) product.detalhes_extintor.data_fabricacao = fabricacao;
-          if (lacre) product.detalhes_extintor.numero_lacre = lacre;
-          if (inmetro) product.detalhes_extintor.registro_inmetro = inmetro;
-        }
-      }
-    }
-
-    const dataIso = new Date().toISOString();
-
-    // 1. Registra a Movimentação
-    const newMov = {
-      id_movimentacao: Date.now(),
-      id_pedido: isVenda ? Date.now() : null,
-      codigo_pedido: codigoPedido,
-      canal,
-      tipo_envio: tipoEnvio,
-      cliente,
-      uf,
-      status_pedido: "Entregue",
-      id_produto: idProduto,
-      sku: product.sku,
-      nome_produto: product.nome,
-      tipo,
-      motivo,
-      quantidade: qtd,
-      preco_unitario: precoUnit || product.preco,
-      valor_total: (precoUnit || product.preco) * qtd,
-      data: dataIso,
-      responsavel: canal === "Mercado Livre" ? "Mercado Livre API" : "Gestor RezFire",
-      detalhes_remessa,
-    };
-
-    movements.unshift(newMov);
-    RezFireData.saveMovements(movements);
-
-    // 2. Se for Venda, sincroniza também na base de Pedidos de Venda
-    if (isVenda) {
-      try {
-        const orders = RezFireData.loadOrders();
-        const custoUnit = product.custo || (product.preco * 0.5);
-        orders.unshift({
-          id_pedido: newMov.id_pedido,
-          codigo_pedido: codigoPedido,
-          canal,
-          tipo_envio: tipoEnvio,
-          data_pedido: dataIso,
-          cliente,
-          uf,
-          status: "Entregue",
-          itens: [
-            {
-              id_produto: product.id_produto,
-              sku: product.sku,
-              nome: product.nome,
-              categoria: product.sku.startsWith("EXT") ? "Extintores" : (product.sku.startsWith("PLA") ? "Sinalização" : "Acessórios"),
-              quantidade: qtd,
-              preco_unitario: precoUnit || product.preco,
-              custo_unitario: custoUnit,
-              subtotal: (precoUnit || product.preco) * qtd,
-              custo_total: custoUnit * qtd,
-            },
-          ],
-          valor_total: (precoUnit || product.preco) * qtd,
-          custo_total: custoUnit * qtd,
-          lucro_bruto: ((precoUnit || product.preco) - custoUnit) * qtd,
-        });
-        localStorage.setItem("rezfire.pedidos", JSON.stringify(orders));
-      } catch (err) {
-        console.error("Erro ao sincronizar venda com pedidos:", err);
-      }
-    }
-
-    // 3. Atualiza saldo de estoque do produto
-    if (tipo === "Entrada") {
-      product.quantidade_atual += qtd;
-    } else {
-      product.quantidade_atual -= qtd;
-    }
-    RezFireData.saveProducts(products);
-
-    closeModal();
+  document.getElementById("filtro-mov-periodo")?.addEventListener("change", (e) => {
+    filterPeriodo = e.target.value;
     renderKPIs();
     renderTable();
+  });
+
+  // Botões de abertura de modal
+  document.getElementById("btn-nova-entrada")?.addEventListener("click", openEntradaModal);
+  document.getElementById("btn-cancelar-entrada")?.addEventListener("click", closeEntradaModal);
+  document.getElementById("modal-entrada")?.addEventListener("click", (e) => {
+    if (e.target.id === "modal-entrada") closeEntradaModal();
+  });
+
+  document.getElementById("btn-add-nf-item")?.addEventListener("click", () => {
+    nfItems.push({});
+    renderNfItems();
+  });
+
+  document.getElementById("btn-nova-saida")?.addEventListener("click", openSaidaModal);
+  document.getElementById("btn-cancelar-saida")?.addEventListener("click", closeSaidaModal);
+  document.getElementById("modal-saida")?.addEventListener("click", (e) => {
+    if (e.target.id === "modal-saida") closeSaidaModal();
+  });
+
+  // Atualizar lotes no modal de saída se o produto for extintor
+  document.getElementById("saida-produto")?.addEventListener("change", (e) => {
+    const pId = Number(e.target.value);
+    const prod = products.find((p) => p.id_produto === pId);
+    const wrapLote = document.getElementById("wrap-saida-lote");
+    const loteSelect = document.getElementById("saida-lote");
+
+    if (prod && isExtintorProduct(prod)) {
+      const lotes = window.RezFireData ? window.RezFireData.loadLotes().filter((l) => l.id_produto === pId) : [];
+      loteSelect.innerHTML = `<option value="">— Selecione o lote afetado —</option>` +
+        lotes.map((l) => `<option value="${l.id_lote}">${l.id_lote} (Disp: ${l.quantidade_disponivel} un. · Val: ${l.validade})</option>`).join("");
+      wrapLote.style.display = "block";
+    } else {
+      wrapLote.style.display = "none";
+    }
+  });
+
+  // Submissão do Formulário de Entrada (Nota Fiscal)
+  document.getElementById("form-entrada")?.addEventListener("submit", (e) => {
+    e.preventDefault();
+    const errorEl = document.getElementById("form-entrada-error");
+    errorEl.textContent = "";
+
+    const nfNumero = document.getElementById("nf-numero").value.trim();
+    const fornecedor = document.getElementById("nf-fornecedor").value.trim();
+    const dataIso = new Date(document.getElementById("nf-data").value).toISOString();
+
+    const container = document.getElementById("nf-itens-container");
+    const itemRows = container.querySelectorAll(".nf-item-row");
+
+    const itensParaSalvar = [];
+    for (const row of itemRows) {
+      const idx = row.getAttribute("data-item-idx");
+      const prodId = Number(row.querySelector(".nf-item-prod")?.value);
+      const qtd = Number(row.querySelector(".nf-item-qtd")?.value);
+      const custo = Number(row.querySelector(".nf-item-custo")?.value || 0);
+
+      if (!prodId) {
+        errorEl.textContent = "Selecione o produto para todos os itens da Nota Fiscal.";
+        return;
+      }
+      if (!qtd || qtd <= 0) {
+        errorEl.textContent = "A quantidade deve ser maior que zero em todos os itens.";
+        return;
+      }
+
+      const prod = products.find((p) => p.id_produto === prodId);
+      const isExt = prod && isExtintorProduct(prod);
+
+      let lote = null;
+      let lacre = null;
+      let validade = null;
+
+      if (isExt) {
+        lote = row.querySelector(".nf-item-lote")?.value.trim() || `LT-${new Date().getFullYear()}/${Math.floor(10 + Math.random() * 90)}`;
+        lacre = row.querySelector(".nf-item-lacre")?.value.trim() || `INM-${Math.floor(100000 + Math.random() * 900000)}`;
+        validade = row.querySelector(".nf-item-validade")?.value || new Date(new Date().setFullYear(new Date().getFullYear() + 5)).toISOString().split("T")[0];
+      }
+
+      itensParaSalvar.push({
+        id_produto: prodId,
+        sku: prod.sku,
+        nome_produto: prod.nome,
+        quantidade: qtd,
+        custo,
+        isExt,
+        lote,
+        lacre,
+        validade,
+      });
+    }
+
+    // Processa a Entrada: atualiza produtos, lotes e gera movimentações
+    let lotesAtuais = window.RezFireData ? window.RezFireData.loadLotes() : [];
+    let nextMovId = movements.length > 0 ? Math.max(...movements.map((m) => m.id_movimentacao || 0)) + 1 : 1;
+
+    itensParaSalvar.forEach((item, i) => {
+      // 1. Atualiza quantidade no cadastro do produto
+      products = products.map((p) => {
+        if (p.id_produto === item.id_produto) {
+          return {
+            ...p,
+            quantidade_atual: Number(p.quantidade_atual || 0) + item.quantidade,
+            custo: item.custo > 0 ? item.custo : p.custo,
+          };
+        }
+        return p;
+      });
+
+      // 2. Se for extintor, cadastra ou incrementa o lote
+      if (item.isExt && item.lote) {
+        const loteExistente = lotesAtuais.find((l) => l.id_lote === item.lote);
+        if (loteExistente) {
+          loteExistente.quantidade_disponivel += item.quantidade;
+        } else {
+          lotesAtuais.unshift({
+            id_lote: item.lote,
+            id_produto: item.id_produto,
+            sku: item.sku,
+            nome: item.nome_produto,
+            lacre: item.lacre,
+            data_fabricacao: dataIso.split("T")[0],
+            validade: item.validade,
+            quantidade_disponivel: item.quantidade,
+            quantidade_inicial: item.quantidade,
+          });
+        }
+      }
+
+      // 3. Registra a movimentação de Entrada
+      movements.unshift({
+        id_movimentacao: nextMovId + i,
+        id_produto: item.id_produto,
+        sku: item.sku,
+        nome_produto: item.nome_produto,
+        tipo: "Entrada",
+        motivo: `Entrada por Nota Fiscal - ${nfNumero}`,
+        quantidade: item.quantidade,
+        preco_unitario: item.custo,
+        valor_total: item.custo * item.quantidade,
+        data: dataIso,
+        responsavel: "Gestor RezFire (Reabastecimento)",
+        fornecedor,
+        codigo_pedido: nfNumero,
+        detalhes_remessa: item.isExt ? {
+          lote: item.lote,
+          lacre: item.lacre,
+          validade: item.validade,
+        } : null,
+      });
+    });
+
+    RezFireData.saveProducts(products);
+    RezFireData.saveMovements(movements);
+    if (window.RezFireData && typeof window.RezFireData.saveLotes === "function") {
+      window.RezFireData.saveLotes(lotesAtuais);
+    }
+
+    closeEntradaModal();
+    renderKPIs();
+    renderTable();
+    alert(`Entrada de ${itensParaSalvar.length} produto(s) pela ${nfNumero} registrada com sucesso!`);
+  });
+
+  // Submissão do Formulário de Saída Avulsa
+  document.getElementById("form-saida")?.addEventListener("submit", (e) => {
+    e.preventDefault();
+    const errorEl = document.getElementById("form-saida-error");
+    errorEl.textContent = "";
+
+    const prodId = Number(document.getElementById("saida-produto").value);
+    const motivo = document.getElementById("saida-motivo").value;
+    const qtd = Number(document.getElementById("saida-qtd").value);
+    const idLote = document.getElementById("saida-lote")?.value;
+    const obs = document.getElementById("saida-obs").value.trim();
+
+    if (!prodId) {
+      errorEl.textContent = "Selecione o produto.";
+      return;
+    }
+    if (!qtd || qtd <= 0) {
+      errorEl.textContent = "A quantidade deve ser maior que zero.";
+      return;
+    }
+
+    const prod = products.find((p) => p.id_produto === prodId);
+    if (prod && Number(prod.quantidade_atual || 0) < qtd) {
+      errorEl.textContent = `Saldo insuficiente para baixa! Disponível: ${prod.quantidade_atual}.`;
+      return;
+    }
+
+    const agoraIso = new Date().toISOString();
+    let nextMovId = movements.length > 0 ? Math.max(...movements.map((m) => m.id_movimentacao || 0)) + 1 : 1;
+
+    // Atualiza saldo do produto
+    products = products.map((p) => {
+      if (p.id_produto === prodId) {
+        return {
+          ...p,
+          quantidade_atual: Math.max(0, Number(p.quantidade_atual || 0) - qtd),
+        };
+      }
+      return p;
+    });
+
+    // Se tiver lote especificado, baixa do lote
+    let lotesAtuais = window.RezFireData ? window.RezFireData.loadLotes() : [];
+    if (idLote) {
+      const loteObj = lotesAtuais.find((l) => l.id_lote === idLote);
+      if (loteObj) {
+        loteObj.quantidade_disponivel = Math.max(0, Number(loteObj.quantidade_disponivel || 0) - qtd);
+      }
+    }
+
+    // Registra movimentação de saída
+    movements.unshift({
+      id_movimentacao: nextMovId,
+      id_produto: prodId,
+      sku: prod.sku,
+      nome_produto: prod.nome,
+      tipo: "Saída",
+      motivo: `Baixa Operacional: ${motivo}`,
+      quantidade: qtd,
+      preco_unitario: prod.custo || 0,
+      valor_total: (prod.custo || 0) * qtd,
+      data: agoraIso,
+      responsavel: "Gestor RezFire",
+      fornecedor: null,
+      codigo_pedido: obs ? `Obs: ${obs}` : "Baixa Interna",
+      detalhes_remessa: idLote ? { lote: idLote } : null,
+    });
+
+    RezFireData.saveProducts(products);
+    RezFireData.saveMovements(movements);
+    if (window.RezFireData && typeof window.RezFireData.saveLotes === "function") {
+      window.RezFireData.saveLotes(lotesAtuais);
+    }
+
+    closeSaidaModal();
+    renderKPIs();
+    renderTable();
+    alert(`Saída de ${qtd} un. do produto ${prod.sku} registrada com sucesso.`);
   });
 }
 
@@ -661,33 +656,15 @@ function init() {
   products = RezFireData.loadProducts();
   movements = RezFireData.loadMovements();
 
-  // Deeplink: lê parâmetros ?busca= ou ?pedido= passados pelo Dashboard de Vendas
-  const urlParams = new URLSearchParams(window.location.search);
-  const paramBusca = urlParams.get("busca") || urlParams.get("pedido");
-  if (paramBusca) {
-    query = paramBusca;
-    filterPeriodo = "todos"; // garante que o pedido apareça mesmo se for de meses atrás
-    const inputBusca = document.getElementById("busca");
-    if (inputBusca) inputBusca.value = paramBusca;
-    const selectPeriodo = document.getElementById("filtro-mov-periodo");
-    if (selectPeriodo) selectPeriodo.value = "todos";
-  }
-
   bindEvents();
   renderKPIs();
   renderTable();
 
-  // Sincronização em tempo real caso nova venda ou pedido seja registrado
-  window.addEventListener("storage", (e) => {
-    if (e.key === "rezfire.movimentacoes" || e.key === "rezfire.pedidos" || e.key === "rezfire.produtos") {
-      products = RezFireData.loadProducts();
-      movements = RezFireData.loadMovements();
-      renderKPIs();
-      renderTable();
-    }
-  });
+  // Verifica se veio da tela de Estoque com atalho de entrada (?action=entrada)
+  const params = new URLSearchParams(window.location.search);
+  if (params.get("action") === "entrada") {
+    openEntradaModal();
+  }
 }
 
 init();
-
-

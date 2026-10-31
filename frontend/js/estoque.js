@@ -1,8 +1,40 @@
+/**
+ * estoque.js
+ * Gerenciamento de Estoque Consolidado e Controle de Lotes & Validades (FEFO).
+ * RezFire Manager.
+ */
+
 const pencilIcon = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>`;
 
+// ─── Estado da Página ─────────────────────────────────────────────────────────
+let currentTab = "produtos"; // "produtos" | "lotes"
 let products = [];
-let query = "";
+let lotes = [];
 
+let queryProdutos = "";
+let queryLotes = "";
+let filtroValidadeStatus = "todos"; // "todos" | "regular" | "alerta" | "bloqueado" | "vencido"
+let ordemLotes = "val_asc"; // "val_asc" (FEFO) | "val_desc" | "qtd_desc" | "qtd_asc" | "lote_asc"
+
+// ─── Helpers de Formatação e Escape ───────────────────────────────────────────
+function escapeHtml(value) {
+  return String(value ?? "")
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;");
+}
+
+function formatDate(isoDate) {
+  if (!isoDate) return "—";
+  const [year, month, day] = isoDate.split("-");
+  if (!year || !month || !day) return isoDate;
+  return `${day}/${month}/${year}`;
+}
+
+// ═════════════════════════════════════════════════════════════════════════════
+// 1. ABA DE PRODUTOS (SALDO CONSOLIDADO)
+// ═════════════════════════════════════════════════════════════════════════════
 function saldoClass(product) {
   const qty = Number(product.quantidade_atual);
   if (qty <= 0) return "zero";
@@ -11,7 +43,7 @@ function saldoClass(product) {
 }
 
 function filteredProducts() {
-  const term = query.trim().toLowerCase();
+  const term = queryProdutos.trim().toLowerCase();
   if (!term) return products;
   return products.filter(
     (p) =>
@@ -20,36 +52,59 @@ function filteredProducts() {
   );
 }
 
-function renderTable() {
+function renderProdutosTable() {
   const body = document.getElementById("estoque-body");
+  const countEl = document.getElementById("estoque-count");
+  const infoEl = document.getElementById("produtos-filtro-info");
+  if (!body) return;
+
   const rows = filteredProducts();
-  document.getElementById("estoque-count").textContent = `${products.length} produtos monitorados`;
+  if (countEl) countEl.textContent = `${products.length} produtos monitorados`;
+  if (infoEl) infoEl.textContent = `Exibindo ${rows.length} de ${products.length} produtos`;
 
   if (!rows.length) {
-    body.innerHTML = `<tr class="empty-row"><td colspan="6">Nenhum produto encontrado.</td></tr>`;
+    body.innerHTML = `<tr class="empty-row"><td colspan="6" style="text-align:center;padding:32px;color:var(--muted)">Nenhum produto encontrado.</td></tr>`;
     return;
   }
 
   body.innerHTML = rows
     .map((p) => {
-      const chip = saldoClass(p);
+      let isCombo = p.tipo === "Combo";
+      let qtdDisplay = p.quantidade_atual;
+      let comboDet = "";
+
+      if (isCombo && p.combo_items && p.combo_items.length > 0) {
+        const possiveis = p.combo_items.map((ci) => {
+          const itemReal = products.find((x) => x.id_produto === ci.id_produto);
+          if (!itemReal || !ci.quantidade) return 0;
+          return Math.floor(Number(itemReal.quantidade_atual || 0) / Number(ci.quantidade));
+        });
+        qtdDisplay = Math.min(...possiveis);
+        comboDet = `<span style="font-size:0.7rem;color:var(--muted);display:block">Kit dinâmico (${p.combo_items.length} componentes)</span>`;
+      }
+
+      const chip = isCombo ? (qtdDisplay > 0 ? "ok" : "zero") : saldoClass(p);
       const statusText = chip === "zero" ? "Sem Estoque" : (chip === "low" ? "Estoque Baixo" : "Normal");
-      // using the same style logic from the original design
+
       return `
         <tr>
-          <td>
-            <span class="sku-main">${escapeHtml(p.sku)}</span>
+          <td><span class="sku-main">${escapeHtml(p.sku)}</span></td>
+          <td class="prod-name">
+            ${escapeHtml(p.nome)}
+            ${comboDet}
           </td>
-          <td class="prod-name">${escapeHtml(p.nome)}</td>
-          <td><span class="saldo-chip ${chip}">${p.quantidade_atual}</span></td>
+          <td>
+            <span class="saldo-chip ${chip}">${qtdDisplay}</span>
+            ${isCombo ? `<span style="font-size:0.68rem;color:var(--accent);font-weight:700;display:block">Combo</span>` : ""}
+          </td>
           <td>${p.estoque_minimo}</td>
           <td><span class="status-pill ${chip === 'ok' ? 'on' : ''}">${statusText}</span></td>
-          <td>
-            <div class="flex gap-2">
-              <button class="icon-btn" type="button" data-edit="${p.id_produto}" title="Ajustar Estoque">
+          <td style="text-align:right">
+            ${!isCombo ? `
+              <button class="icon-btn" type="button" data-edit-product="${p.id_produto}" title="Ajuste de Balanço / Inventário">
                 ${pencilIcon}
               </button>
-            </div>
+            ` : `<span style="font-size:0.72rem;color:var(--muted)">Dinâmico</span>`}
           </td>
         </tr>
       `;
@@ -57,15 +112,7 @@ function renderTable() {
     .join("");
 }
 
-function escapeHtml(value) {
-  return String(value)
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;")
-    .replaceAll('"', "&quot;");
-}
-
-function openModal(product) {
+function openProductModal(product) {
   const modal = document.getElementById("modal");
   document.getElementById("form-error").textContent = "";
   document.getElementById("id_produto").value = product.id_produto;
@@ -75,32 +122,296 @@ function openModal(product) {
   document.getElementById("quantidade_atual").focus();
 }
 
-function closeModal() {
+function closeProductModal() {
   document.getElementById("modal").classList.remove("is-open");
 }
 
+// ═════════════════════════════════════════════════════════════════════════════
+// 2. ABA DE LOTES & VALIDADES (FEFO)
+// ═════════════════════════════════════════════════════════════════════════════
+function getFilteredAndSortedLotes() {
+  const term = queryLotes.trim().toLowerCase();
+
+  let list = lotes.map((lote) => {
+    const statusInfo = window.RezFireData.computeLoteStatus(lote.validade);
+    return { ...lote, ...statusInfo };
+  });
+
+  // Filtro de busca textual
+  if (term) {
+    list = list.filter(
+      (l) =>
+        l.id_lote.toLowerCase().includes(term) ||
+        l.sku.toLowerCase().includes(term) ||
+        (l.nome && l.nome.toLowerCase().includes(term)) ||
+        (l.lacre && l.lacre.toLowerCase().includes(term))
+    );
+  }
+
+  // Filtro de situação de validade
+  if (filtroValidadeStatus !== "todos") {
+    list = list.filter((l) => l.statusKey === filtroValidadeStatus);
+  }
+
+  // Ordenação (FEFO por padrão: val_asc)
+  list.sort((a, b) => {
+    if (ordemLotes === "val_asc") {
+      return a.diasRestantes - b.diasRestantes;
+    }
+    if (ordemLotes === "val_desc") {
+      return b.diasRestantes - a.diasRestantes;
+    }
+    if (ordemLotes === "qtd_desc") {
+      return Number(b.quantidade_disponivel || 0) - Number(a.quantidade_disponivel || 0);
+    }
+    if (ordemLotes === "qtd_asc") {
+      return Number(a.quantidade_disponivel || 0) - Number(b.quantidade_disponivel || 0);
+    }
+    if (ordemLotes === "lote_asc") {
+      return a.id_lote.localeCompare(b.id_lote);
+    }
+    return 0;
+  });
+
+  return list;
+}
+
+function renderLotesKPIs() {
+  const el = document.getElementById("kpis-lotes");
+  if (!el) return;
+
+  const lotesCalculados = lotes.map((l) => ({
+    ...l,
+    ...window.RezFireData.computeLoteStatus(l.validade),
+  }));
+
+  const total = lotesCalculados.length;
+  const regulares = lotesCalculados.filter((l) => l.statusKey === "regular").length;
+  const alerta = lotesCalculados.filter((l) => l.statusKey === "alerta").length;
+  const bloqueados = lotesCalculados.filter((l) => l.statusKey === "bloqueado").length;
+  const vencidos = lotesCalculados.filter((l) => l.statusKey === "vencido").length;
+
+  el.innerHTML = `
+    <div class="card kpi-card" style="cursor:pointer" data-kpi-val="todos" title="Ver todos os lotes">
+      <p class="kpi-label">TOTAL DE LOTES</p>
+      <p class="kpi-value">${total}</p>
+      <p class="kpi-hint">armazenados no galpão</p>
+    </div>
+    <div class="card kpi-card" style="cursor:pointer" data-kpi-val="regular" title="Filtrar regulares">
+      <p class="kpi-label">🟢 REGULARES (&gt; 1 ANO)</p>
+      <p class="kpi-value" style="color:#166534">${regulares}</p>
+      <p class="kpi-hint">condição ideal de venda</p>
+    </div>
+    <div class="card kpi-card" style="cursor:pointer" data-kpi-val="alerta" title="Filtrar em alerta FEFO">
+      <p class="kpi-label">🟡 EM ALERTA (&le; 1 ANO)</p>
+      <p class="kpi-value" style="color:#854d0e">${alerta}</p>
+      <p class="kpi-hint">prioridade máxima FEFO</p>
+    </div>
+    <div class="card kpi-card" style="cursor:pointer" data-kpi-val="bloqueado" title="Filtrar bloqueados">
+      <p class="kpi-label">🔴 BLOQUEADOS (&le; 6 MESES)</p>
+      <p class="kpi-value" style="color:#991b1b">${bloqueados}</p>
+      <p class="kpi-hint">inaptos p/ envio ao cliente</p>
+    </div>
+    <div class="card kpi-card" style="cursor:pointer" data-kpi-val="vencido" title="Filtrar vencidos">
+      <p class="kpi-label">⛔ VENCIDOS</p>
+      <p class="kpi-value" style="color:#4b5563">${vencidos}</p>
+      <p class="kpi-hint">exigem recarga / descarte</p>
+    </div>
+  `;
+
+  // Clique rápido nos KPIs para filtrar
+  el.querySelectorAll("[data-kpi-val]").forEach((card) => {
+    card.addEventListener("click", () => {
+      const v = card.getAttribute("data-kpi-val");
+      const sel = document.getElementById("filtro-val-status");
+      if (sel) {
+        sel.value = v;
+        filtroValidadeStatus = v;
+        renderLotesTable();
+      }
+    });
+  });
+}
+
+function renderLotesTable() {
+  const body = document.getElementById("lotes-body");
+  const countEl = document.getElementById("lotes-contador");
+  const btnLimpar = document.getElementById("btn-limpar-lotes-filtros");
+  if (!body) return;
+
+  const rows = getFilteredAndSortedLotes();
+  if (countEl) countEl.textContent = `${rows.length} de ${lotes.length} lotes`;
+
+  const temFiltroAtivo = queryLotes || filtroValidadeStatus !== "todos" || ordemLotes !== "val_asc";
+  if (btnLimpar) btnLimpar.style.display = temFiltroAtivo ? "inline-block" : "none";
+
+  if (!rows.length) {
+    body.innerHTML = `
+      <tr>
+        <td colspan="8" style="text-align:center;padding:40px;color:var(--muted)">
+          <div style="font-weight:700;color:var(--ink);margin-bottom:4px">Nenhum lote encontrado</div>
+          <p style="margin:0;font-size:0.85rem">Tente ajustar a busca ou o filtro de validade.</p>
+        </td>
+      </tr>
+    `;
+    return;
+  }
+
+  body.innerHTML = rows
+    .map((l) => {
+      let badgeClass = "badge-val-regular";
+      if (l.statusKey === "alerta") badgeClass = "badge-val-alerta";
+      if (l.statusKey === "bloqueado") badgeClass = "badge-val-bloqueado";
+      if (l.statusKey === "vencido") badgeClass = "badge-val-vencido";
+
+      return `
+        <tr>
+          <td>
+            <strong style="font-family:monospace;color:var(--ink);font-size:0.92rem">${escapeHtml(l.id_lote)}</strong>
+          </td>
+          <td>
+            <span class="prod-name" style="font-size:0.88rem">${escapeHtml(l.nome)}</span>
+            <span class="sku-sub" style="font-size:0.75rem">${escapeHtml(l.sku)}</span>
+          </td>
+          <td>
+            <span style="font-family:monospace;font-size:0.82rem;color:var(--muted)">${escapeHtml(l.lacre || "—")}</span>
+          </td>
+          <td style="text-align:center">
+            <strong style="font-size:0.95rem;color:var(--ink)">${l.quantidade_disponivel}</strong> un.
+          </td>
+          <td>
+            <span style="font-size:0.85rem;font-weight:600;color:var(--ink)">${formatDate(l.validade)}</span>
+          </td>
+          <td>
+            <span style="font-size:0.82rem;color:${l.podeDespachar ? "var(--ink)" : "var(--down)"};font-weight:${l.statusKey === 'alerta' ? '700' : '500'}">
+              ${escapeHtml(l.textoTempo)}
+            </span>
+          </td>
+          <td>
+            <span class="badge-val ${badgeClass}">
+              ${l.statusKey === "regular" ? "🟢" : l.statusKey === "alerta" ? "🟡" : l.statusKey === "bloqueado" ? "🔴" : "⛔"}
+              ${escapeHtml(l.label)}
+            </span>
+          </td>
+          <td style="text-align:right">
+            <button class="icon-btn" type="button" data-edit-lote="${l.id_lote}" title="Editar Lote">
+              ${pencilIcon}
+            </button>
+          </td>
+        </tr>
+      `;
+    })
+    .join("");
+}
+
+// ─── Modal de Lotes (Cadastro / Edição) ────────────────────────────────────────
+function populateProdutosSelect() {
+  const sel = document.getElementById("lote-produto");
+  if (!sel) return;
+  sel.innerHTML = products
+    .filter((p) => p.sku.startsWith("EXT")) // Foco em extintores
+    .map((p) => `<option value="${p.id_produto}">${escapeHtml(p.nome)} (${escapeHtml(p.sku)})</option>`)
+    .join("");
+}
+
+function openLoteModal(lote = null) {
+  const modal = document.getElementById("modal-lote");
+  const title = document.getElementById("modal-lote-title");
+  const errorEl = document.getElementById("form-lote-error");
+  if (!modal) return;
+
+  errorEl.textContent = "";
+  populateProdutosSelect();
+
+  if (lote) {
+    title.textContent = `Editar Lote ${lote.id_lote}`;
+    document.getElementById("lote-edit-id").value = lote.id_lote;
+    document.getElementById("lote-produto").value = lote.id_produto;
+    document.getElementById("lote-numero").value = lote.id_lote;
+    document.getElementById("lote-numero").readOnly = true;
+    document.getElementById("lote-lacre").value = lote.lacre || "";
+    document.getElementById("lote-fabricacao").value = lote.data_fabricacao || "";
+    document.getElementById("lote-validade").value = lote.validade || "";
+    document.getElementById("lote-qtd").value = lote.quantidade_disponivel;
+  } else {
+    title.textContent = "Cadastrar Novo Lote";
+    document.getElementById("lote-edit-id").value = "";
+    document.getElementById("lote-numero").value = `LT-2026/${String(lotes.length + 1).padStart(2, "0")}`;
+    document.getElementById("lote-numero").readOnly = false;
+    document.getElementById("lote-lacre").value = `INM-${Math.floor(100000 + Math.random() * 900000)}`;
+    
+    // Sugestão padrão: fabricação hoje, validade daqui a 5 anos (1825 dias)
+    const hoje = new Date().toISOString().split("T")[0];
+    const dVal = new Date();
+    dVal.setFullYear(dVal.getFullYear() + 5);
+    const valSugerida = dVal.toISOString().split("T")[0];
+
+    document.getElementById("lote-fabricacao").value = hoje;
+    document.getElementById("lote-validade").value = valSugerida;
+    document.getElementById("lote-qtd").value = "20";
+  }
+
+  modal.classList.add("is-open");
+}
+
+function closeLoteModal() {
+  document.getElementById("modal-lote")?.classList.remove("is-open");
+}
+
+// ═════════════════════════════════════════════════════════════════════════════
+// 3. VINCULAÇÃO DE EVENTOS E NAVEGAÇÃO
+// ═════════════════════════════════════════════════════════════════════════════
+function switchTab(tab) {
+  currentTab = tab;
+  const btnProd = document.getElementById("btn-tab-produtos");
+  const btnLotes = document.getElementById("btn-tab-lotes");
+  const viewProd = document.getElementById("view-produtos");
+  const viewLotes = document.getElementById("view-lotes");
+
+  if (tab === "produtos") {
+    btnProd?.classList.add("is-active");
+    btnLotes?.classList.remove("is-active");
+    if (viewProd) viewProd.style.display = "block";
+    if (viewLotes) viewLotes.style.display = "none";
+    renderProdutosTable();
+  } else {
+    btnProd?.classList.remove("is-active");
+    btnLotes?.classList.add("is-active");
+    if (viewProd) viewProd.style.display = "none";
+    if (viewLotes) viewLotes.style.display = "block";
+    renderLotesKPIs();
+    renderLotesTable();
+  }
+}
+
 function bindEvents() {
-  document.getElementById("busca").addEventListener("input", (event) => {
-    query = event.target.value;
-    renderTable();
+  // Troca de abas
+  document.getElementById("btn-tab-produtos")?.addEventListener("click", () => switchTab("produtos"));
+  document.getElementById("btn-tab-lotes")?.addEventListener("click", () => switchTab("lotes"));
+
+  // Busca na aba de produtos
+  document.getElementById("busca")?.addEventListener("input", (e) => {
+    queryProdutos = e.target.value;
+    renderProdutosTable();
   });
 
-  document.getElementById("btn-cancelar").addEventListener("click", closeModal);
-  document.getElementById("modal").addEventListener("click", (event) => {
-    if (event.target.id === "modal") closeModal();
+  // Modal de ajuste de produto
+  document.getElementById("btn-cancelar")?.addEventListener("click", closeProductModal);
+  document.getElementById("modal")?.addEventListener("click", (e) => {
+    if (e.target.id === "modal") closeProductModal();
   });
 
-  document.getElementById("estoque-body").addEventListener("click", (event) => {
-    const editBtn = event.target.closest("[data-edit]");
+  document.getElementById("estoque-body")?.addEventListener("click", (e) => {
+    const editBtn = e.target.closest("[data-edit-product]");
     if (editBtn) {
-      const id = Number(editBtn.getAttribute("data-edit"));
+      const id = Number(editBtn.getAttribute("data-edit-product"));
       const product = products.find((p) => p.id_produto === id);
-      if (product) openModal(product);
+      if (product) openProductModal(product);
     }
   });
 
-  document.getElementById("form-estoque").addEventListener("submit", (event) => {
-    event.preventDefault();
+  document.getElementById("form-estoque")?.addEventListener("submit", (e) => {
+    e.preventDefault();
     const editingId = Number(document.getElementById("id_produto").value);
     const qtdAtual = Number(document.getElementById("quantidade_atual").value);
     const estqMin = Number(document.getElementById("estoque_minimo").value);
@@ -114,21 +425,150 @@ function bindEvents() {
       return;
     }
 
+    const prodOld = products.find((p) => p.id_produto === editingId);
+    const oldQty = prodOld ? Number(prodOld.quantidade_atual || 0) : 0;
+    const diff = qtdAtual - oldQty;
+
     products = products.map((p) =>
       p.id_produto === editingId ? { ...p, quantidade_atual: qtdAtual, estoque_minimo: estqMin } : p
     );
 
     RezFireData.saveProducts(products);
-    closeModal();
-    renderTable();
+
+    // Regra de Ouro: Registra movimentação de ajuste no histórico
+    if (diff !== 0 && RezFireData.loadMovements && RezFireData.saveMovements) {
+      const movements = RezFireData.loadMovements();
+      const nextMovId = movements.length > 0 ? Math.max(...movements.map((m) => m.id_movimentacao || 0)) + 1 : 1;
+      movements.unshift({
+        id_movimentacao: nextMovId,
+        id_produto: editingId,
+        sku: prodOld ? prodOld.sku : "PROD",
+        nome_produto: prodOld ? prodOld.nome : "Produto",
+        tipo: diff > 0 ? "Entrada" : "Saída",
+        motivo: "Ajuste de Balanço / Inventário Físico",
+        quantidade: Math.abs(diff),
+        preco_unitario: prodOld ? (prodOld.custo || 0) : 0,
+        valor_total: (prodOld ? (prodOld.custo || 0) : 0) * Math.abs(diff),
+        data: new Date().toISOString(),
+        responsavel: "Gestor RezFire (Inventário Físico)",
+        fornecedor: null,
+        codigo_pedido: `Balanço (${diff > 0 ? '+' : ''}${diff})`,
+        detalhes_remessa: null,
+      });
+      RezFireData.saveMovements(movements);
+    }
+
+    closeProductModal();
+    renderProdutosTable();
+  });
+
+  // ── Filtros da aba de Lotes ──
+  document.getElementById("busca-lote")?.addEventListener("input", (e) => {
+    queryLotes = e.target.value;
+    renderLotesTable();
+  });
+
+  document.getElementById("filtro-val-status")?.addEventListener("change", (e) => {
+    filtroValidadeStatus = e.target.value;
+    renderLotesTable();
+  });
+
+  document.getElementById("ordem-lote")?.addEventListener("change", (e) => {
+    ordemLotes = e.target.value;
+    renderLotesTable();
+  });
+
+  document.getElementById("btn-limpar-lotes-filtros")?.addEventListener("click", () => {
+    queryLotes = "";
+    filtroValidadeStatus = "todos";
+    ordemLotes = "val_asc";
+    const b = document.getElementById("busca-lote");
+    const f = document.getElementById("filtro-val-status");
+    const o = document.getElementById("ordem-lote");
+    if (b) b.value = "";
+    if (f) f.value = "todos";
+    if (o) o.value = "val_asc";
+    renderLotesTable();
+  });
+
+  // Modal de Lotes
+  document.getElementById("btn-novo-lote")?.addEventListener("click", () => openLoteModal());
+  document.getElementById("btn-cancelar-lote")?.addEventListener("click", closeLoteModal);
+  document.getElementById("modal-lote")?.addEventListener("click", (e) => {
+    if (e.target.id === "modal-lote") closeLoteModal();
+  });
+
+  document.getElementById("lotes-body")?.addEventListener("click", (e) => {
+    const editBtn = e.target.closest("[data-edit-lote]");
+    if (editBtn) {
+      const idLote = editBtn.getAttribute("data-edit-lote");
+      const lote = lotes.find((l) => l.id_lote === idLote);
+      if (lote) openLoteModal(lote);
+    }
+  });
+
+  document.getElementById("form-lote")?.addEventListener("submit", (e) => {
+    e.preventDefault();
+    const editId = document.getElementById("lote-edit-id").value;
+    const prodId = Number(document.getElementById("lote-produto").value);
+    const prod = products.find((p) => p.id_produto === prodId);
+    const id_lote = document.getElementById("lote-numero").value.trim();
+    const lacre = document.getElementById("lote-lacre").value.trim();
+    const data_fabricacao = document.getElementById("lote-fabricacao").value;
+    const validade = document.getElementById("lote-validade").value;
+    const qtd = Number(document.getElementById("lote-qtd").value);
+
+    if (!id_lote || !validade || isNaN(qtd) || qtd < 0) {
+      document.getElementById("form-lote-error").textContent = "Preencha todos os campos obrigatórios corretamente.";
+      return;
+    }
+
+    if (editId) {
+      // Edição de lote existente
+      const idx = lotes.findIndex((l) => l.id_lote === editId);
+      if (idx >= 0) {
+        lotes[idx].id_produto = prodId;
+        lotes[idx].sku = prod ? prod.sku : lotes[idx].sku;
+        lotes[idx].nome = prod ? prod.nome : lotes[idx].nome;
+        lotes[idx].lacre = lacre;
+        lotes[idx].data_fabricacao = data_fabricacao;
+        lotes[idx].validade = validade;
+        lotes[idx].quantidade_disponivel = qtd;
+      }
+    } else {
+      // Criação de novo lote
+      if (lotes.some((l) => l.id_lote.toUpperCase() === id_lote.toUpperCase())) {
+        document.getElementById("form-lote-error").textContent = `O lote ${id_lote} já está cadastrado.`;
+        return;
+      }
+
+      lotes.unshift({
+        id_lote,
+        id_produto: prodId,
+        sku: prod ? prod.sku : "EXT-GEN",
+        nome: prod ? prod.nome : "Extintor",
+        lacre,
+        data_fabricacao,
+        validade,
+        quantidade_disponivel: qtd,
+        quantidade_inicial: qtd,
+      });
+    }
+
+    RezFireData.saveLotes(lotes);
+    closeLoteModal();
+    renderLotesKPIs();
+    renderLotesTable();
   });
 }
 
 function init() {
   RezFireLayout.renderSidebar("estoque");
   products = RezFireData.loadProducts();
+  lotes = RezFireData.loadLotes();
+
   bindEvents();
-  renderTable();
+  renderProdutosTable();
 }
 
 init();

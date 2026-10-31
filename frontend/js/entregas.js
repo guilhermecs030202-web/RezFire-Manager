@@ -680,12 +680,15 @@ function renderFormSeparacao(entrega) {
       <div class="lote-row" data-sku="${item.sku}" data-lote-idx="${li}">
         <select class="search-input lote-select" data-sku="${item.sku}" data-lote-idx="${li}"
           style="flex:2;font-size:0.82rem" ${conf ? "disabled" : ""}>
-          <option value="">— Selecionar lote —</option>
-          ${lotesDisponiveis.map((ld) =>
-            `<option value="${ld.id_lote}" ${ld.id_lote === l.id_lote ? "selected" : ""}>
-              ${ld.id_lote} · Val: ${formatDateOnly(ld.validade)} · Disp: ${ld.quantidade_disponivel}
-            </option>`
-          ).join("")}
+          <option value="">— Selecionar lote (Ordem FEFO) —</option>
+          ${lotesDisponiveis.map((ld) => {
+            const st = window.RezFireData ? window.RezFireData.computeLoteStatus(ld.validade) : { podeDespachar: true, label: "" };
+            const prefix = st.statusKey === "bloqueado" ? "🔴 [BLOQUEADO < 6m] " : st.statusKey === "vencido" ? "⛔ [VENCIDO] " : st.statusKey === "alerta" ? "🟡 [PRIORIDADE FEFO] " : "🟢 ";
+            const isDisabled = !st.podeDespachar ? "disabled" : "";
+            return `<option value="${ld.id_lote}" ${ld.id_lote === l.id_lote ? "selected" : ""} ${isDisabled}>
+              ${prefix}${ld.id_lote} · Val: ${formatDateOnly(ld.validade)} (${st.textoTempo}) · Disp: ${ld.quantidade_disponivel}
+            </option>`;
+          }).join("")}
         </select>
         <input type="number" class="search-input lote-qty" data-sku="${item.sku}" data-lote-idx="${li}"
           min="1" value="${l.quantidade}" style="width:80px;font-size:0.82rem;text-align:center" ${conf ? "disabled" : ""} />
@@ -695,10 +698,26 @@ function renderFormSeparacao(entrega) {
       </div>
     `).join("");
 
-    const validadeAlert = (item.lotes || []).some((l) => {
-      if (!l.validade) return false;
-      return new Date(l.validade).getTime() < new Date("2025-01-01").getTime();
-    }) ? `<div class="detalhe-alerta alerta-aviso" style="margin-top:8px;font-size:0.78rem">⚠ Produto com data de validade próxima ou vencida. Confirme antes de prosseguir.</div>` : "";
+    const hasBlocked = (item.lotes || []).some((l) => {
+      const ld = lotesDisponiveis.find((x) => x.id_lote === l.id_lote);
+      if (!ld || !ld.validade) return false;
+      const st = window.RezFireData.computeLoteStatus(ld.validade);
+      return !st.podeDespachar;
+    });
+
+    const hasAlert = (item.lotes || []).some((l) => {
+      const ld = lotesDisponiveis.find((x) => x.id_lote === l.id_lote);
+      if (!ld || !ld.validade) return false;
+      const st = window.RezFireData.computeLoteStatus(ld.validade);
+      return st.statusKey === "alerta";
+    });
+
+    let validadeAlert = "";
+    if (hasBlocked) {
+      validadeAlert = `<div class="detalhe-alerta alerta-erro" style="margin-top:8px;font-size:0.78rem">⛔ Lote bloqueado para expedição! Validade inferior a 6 meses exigidos pelo cliente. Troque de lote.</div>`;
+    } else if (hasAlert) {
+      validadeAlert = `<div class="detalhe-alerta alerta-aviso" style="margin-top:8px;font-size:0.78rem">🟡 Lote com validade &le; 1 ano (priorizado corretamente por FEFO).</div>`;
+    }
 
     return `
       <div class="sep-item${conf ? " sep-item-conferido" : ""}" data-sku="${item.sku}">
@@ -899,6 +918,18 @@ function conferirItem(entrega, sku) {
         showToast("Informe uma quantidade válida para cada lote.", "erro");
         return;
       }
+      // Regra de Validade RezFire: Bloqueio para lotes <= 180 dias ou vencidos
+      if (window.RezFireData && typeof window.RezFireData.computeLoteStatus === "function") {
+        const lotesDisp = window.RezFireEntregas.getLotesPorProduto(item.id_produto);
+        const ld = lotesDisp.find((x) => x.id_lote === l.id_lote);
+        if (ld && ld.validade) {
+          const st = window.RezFireData.computeLoteStatus(ld.validade);
+          if (!st.podeDespachar) {
+            showToast(`Lote ${l.id_lote} bloqueado! Validade inferior ao prazo mínimo de 6 meses exigido.`, "erro");
+            return;
+          }
+        }
+      }
     }
     // Buscar validade dos lotes
     lotesSelecionados = lotesSelecionados.map((l) => {
@@ -1056,11 +1087,35 @@ function registrarEntrega(entrega) {
   });
 
   window.RezFireEntregas.saveEntregas(state.entregas);
+
+  // Sincroniza e atualiza o pedido correspondente no módulo comercial para "Concluído"
+  if (window.RezFireData && typeof window.RezFireData.loadOrders === "function") {
+    let orders = window.RezFireData.loadOrders();
+    let orderUpdated = false;
+    orders = orders.map((ord) => {
+      if (ord.id_pedido === e.id_pedido_interno || ord.codigo_pedido === e.codigo_pedido_ml || ord.codigo_pedido === e.codigo_pedido_direto) {
+        ord.status = "Concluído";
+        ord.historico = ord.historico || [];
+        ord.historico.push({
+          data: REF().toISOString(),
+          evento: "Pedido Concluído",
+          descricao: "Mercadoria entregue com sucesso conforme módulo de entregas.",
+          usuario: "Gestor RezFire (Logística)",
+        });
+        orderUpdated = true;
+      }
+      return ord;
+    });
+    if (orderUpdated) {
+      window.RezFireData.saveOrders(orders);
+    }
+  }
+
   renderKPIs();
   renderTable();
   renderDetalhe(e);
   renderDetalheAcoes(e);
-  showToast("Entrega concluída registrada (simulação).", "sucesso");
+  showToast("Entrega concluída registrada e pedido finalizado no módulo comercial!", "sucesso");
 }
 
 function cancelarPedidoComEstorno(entrega) {
@@ -1118,6 +1173,30 @@ function cancelarPedidoComEstorno(entrega) {
         });
       });
       window.RezFireData.saveMovements(movements);
+    }
+
+    // Atualiza o status do pedido para "Cancelado" no módulo comercial
+    if (typeof window.RezFireData.loadOrders === "function" && typeof window.RezFireData.saveOrders === "function") {
+      let orders = window.RezFireData.loadOrders();
+      let orderUpdated = false;
+      orders = orders.map((ord) => {
+        if (ord.id_pedido === e.id_pedido_interno || ord.codigo_pedido === e.codigo_pedido_ml || ord.codigo_pedido === e.codigo_pedido_direto) {
+          ord.status = "Cancelado";
+          ord.motivo_cancelamento = "Cancelamento operacional no módulo de entregas.";
+          ord.historico = ord.historico || [];
+          ord.historico.push({
+            data: REF().toISOString(),
+            evento: "Cancelamento Operacional",
+            descricao: "Cancelado na tela de entregas com estorno de estoque.",
+            usuario: "Gestor RezFire",
+          });
+          orderUpdated = true;
+        }
+        return ord;
+      });
+      if (orderUpdated) {
+        window.RezFireData.saveOrders(orders);
+      }
     }
   }
 

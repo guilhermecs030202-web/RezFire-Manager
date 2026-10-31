@@ -64,21 +64,50 @@ function escapeHtml(val) {
 // ─── Badges de Status Comercial ───────────────────────────────────────────────
 function getBadgeStatusComercial(status) {
   const map = {
-    "Pendente de confirmação": { cls: "badge-pendente", label: "Pendente" },
-    "Confirmado":              { cls: "badge-confirmado", label: "Confirmado" },
-    "Em preparação":           { cls: "badge-preparacao", label: "Em preparação" },
-    "Concluído":               { cls: "badge-concluido", label: "Concluído" },
-    "Cancelado":               { cls: "badge-cancelado", label: "Cancelado" },
+    "Confirmado": { cls: "badge-confirmado", label: "Confirmado" },
+    "Concluído":  { cls: "badge-concluido", label: "Concluído" },
+    "Cancelado":  { cls: "badge-cancelado", label: "Cancelado" },
   };
-  const cfg = map[status] || { cls: "badge-cancelado", label: status };
+  const cfg = map[status] || { cls: "badge-confirmado", label: status };
   return `<span class="status-comercial ${cfg.cls}"><span class="status-dot"></span>${cfg.label}</span>`;
+}
+
+// ─── Badge de Status Logístico Vinculado ──────────────────────────────────────
+function getLogisticsBadgeForPedido(pedido) {
+  if (!window.RezFireEntregas || typeof window.RezFireEntregas.loadEntregas !== "function") return "";
+  const entregas = window.RezFireEntregas.loadEntregas();
+  const ent = entregas.find(
+    (e) => e.id_pedido_interno === pedido.id_pedido ||
+           e.codigo_pedido_ml === pedido.codigo_pedido ||
+           e.codigo_pedido_direto === pedido.codigo_pedido
+  );
+  if (!ent) return "";
+
+  const { isAtrasadoDespacho, isAtrasadoEntrega, STATUS_LOGISTICO } = window.RezFireEntregas;
+  const sl = ent.status_logistico;
+
+  if (isAtrasadoDespacho && isAtrasadoDespacho(ent)) {
+    return `<span class="entrega-badge badge-atraso" style="font-size:0.68rem;padding:2px 7px;border-radius:6px;display:inline-flex;align-items:center;margin-top:4px">⚠ Despacho Atrasado</span>`;
+  }
+  if (isAtrasadoEntrega && isAtrasadoEntrega(ent)) {
+    return `<span class="entrega-badge badge-atraso" style="font-size:0.68rem;padding:2px 7px;border-radius:6px;display:inline-flex;align-items:center;margin-top:4px">⚠ Entrega Atrasada</span>`;
+  }
+
+  const map = {
+    [STATUS_LOGISTICO.AGUARDANDO_ENVIO]: `<span class="entrega-badge badge-aguardando" style="font-size:0.68rem;padding:2px 7px;border-radius:6px;display:inline-flex;align-items:center;margin-top:4px">Aguardando Envio</span>`,
+    [STATUS_LOGISTICO.ENVIADO]:          `<span class="entrega-badge badge-enviado" style="font-size:0.68rem;padding:2px 7px;border-radius:6px;display:inline-flex;align-items:center;margin-top:4px">Enviado</span>`,
+    [STATUS_LOGISTICO.EM_TRANSITO]:      `<span class="entrega-badge badge-transito" style="font-size:0.68rem;padding:2px 7px;border-radius:6px;display:inline-flex;align-items:center;margin-top:4px">Em Trânsito</span>`,
+    [STATUS_LOGISTICO.SAIU_ENTREGA]:     `<span class="entrega-badge badge-saiu" style="font-size:0.68rem;padding:2px 7px;border-radius:6px;display:inline-flex;align-items:center;margin-top:4px">Saiu p/ Entrega</span>`,
+    [STATUS_LOGISTICO.ENTREGUE]:         `<span class="entrega-badge badge-entregue" style="font-size:0.68rem;padding:2px 7px;border-radius:6px;display:inline-flex;align-items:center;margin-top:4px">Entregue</span>`,
+    [STATUS_LOGISTICO.CANCELADO]:        `<span class="entrega-badge badge-cancelado" style="font-size:0.68rem;padding:2px 7px;border-radius:6px;display:inline-flex;align-items:center;margin-top:4px">Cancelado</span>`,
+  };
+  return map[sl] || "";
 }
 
 // ─── Cálculo dos Indicadores do Topo ──────────────────────────────────────────
 function computePedidosKPIs(pedidos) {
   const total = pedidos.length;
-  const pendentes = pedidos.filter((p) => p.status === "Pendente de confirmação").length;
-  const emAndamento = pedidos.filter((p) => ["Confirmado", "Em preparação"].includes(p.status)).length;
+  const confirmados = pedidos.filter((p) => p.status === "Confirmado").length;
   const concluidos = pedidos.filter((p) => p.status === "Concluído").length;
   const cancelados = pedidos.filter((p) => p.status === "Cancelado").length;
 
@@ -92,8 +121,7 @@ function computePedidosKPIs(pedidos) {
 
   return {
     total,
-    pendentes,
-    emAndamento,
+    confirmados,
     concluidos,
     cancelados,
     valorTotalValidos,
@@ -112,20 +140,20 @@ function renderKPIs() {
       <p class="kpi-value">${kpis.total}</p>
       <p class="kpi-hint">histórico completo cadastrado</p>
     </div>
-    <div class="card kpi-card" style="cursor:pointer" data-kpi-filter="Pendente de confirmação" title="Clique para filtrar pendentes">
-      <p class="kpi-label">PENDENTES DE CONFIRMAÇÃO</p>
-      <p class="kpi-value" style="color:${kpis.pendentes > 0 ? "#d97706" : "var(--ink)"}">${kpis.pendentes}</p>
-      <p class="kpi-hint">aguardando validação comercial</p>
-    </div>
-    <div class="card kpi-card" style="cursor:pointer" data-kpi-filter="Em preparação" title="Clique para filtrar em andamento">
-      <p class="kpi-label">EM ANDAMENTO</p>
-      <p class="kpi-value" style="color:#2563eb">${kpis.emAndamento}</p>
-      <p class="kpi-hint">confirmados ou em preparação</p>
+    <div class="card kpi-card" style="cursor:pointer" data-kpi-filter="Confirmado" title="Clique para filtrar confirmados (em expedição)">
+      <p class="kpi-label">CONFIRMADOS</p>
+      <p class="kpi-value" style="color:#2563eb">${kpis.confirmados}</p>
+      <p class="kpi-hint">pagos / aguardando entrega</p>
     </div>
     <div class="card kpi-card" style="cursor:pointer" data-kpi-filter="Concluído" title="Clique para filtrar concluídos">
       <p class="kpi-label">CONCLUÍDOS</p>
       <p class="kpi-value" style="color:var(--up)">${kpis.concluidos}</p>
-      <p class="kpi-hint">vendas finalizadas com sucesso</p>
+      <p class="kpi-hint">vendas entregues com sucesso</p>
+    </div>
+    <div class="card kpi-card" style="cursor:pointer" data-kpi-filter="Cancelado" title="Clique para filtrar cancelados">
+      <p class="kpi-label">CANCELADOS</p>
+      <p class="kpi-value" style="color:var(--down)">${kpis.cancelados}</p>
+      <p class="kpi-hint">estornados do estoque</p>
     </div>
     <div class="card kpi-card">
       <p class="kpi-label">VALOR TOTAL VÁLIDO</p>
@@ -296,6 +324,7 @@ function renderTable() {
         </td>
         <td>
           ${getBadgeStatusComercial(p.status)}
+          <div>${getLogisticsBadgeForPedido(p)}</div>
         </td>
         <td style="text-align:right" onclick="event.stopPropagation()">
           <div style="display:inline-flex;gap:4px">
@@ -350,6 +379,7 @@ function openDetalhePanel(pedidoId) {
           <div style="display:flex;align-items:center;gap:8px">
             <h2 style="margin:0;font-size:1.2rem;font-weight:800;color:var(--ink)">${escapeHtml(pedido.codigo_pedido)}</h2>
             ${getBadgeStatusComercial(pedido.status)}
+            ${getLogisticsBadgeForPedido(pedido)}
           </div>
           <span style="font-size:0.78rem;color:var(--muted)">Registrado em ${formatDate(pedido.data_pedido)}</span>
         </div>
@@ -794,44 +824,86 @@ function executarCancelamento() {
   // Cancelamento pós-aprovação estorna o estoque e gera movimentação de Entrada
   if (window.RezFireData) {
     let produtos = window.RezFireData.loadProducts();
-    (p.itens || []).forEach((item) => {
-      produtos = produtos.map((prod) => {
-        if (prod.id_produto === item.id_produto || prod.sku === item.sku) {
-          return {
-            ...prod,
-            quantidade_atual: Number(prod.quantidade_atual || 0) + Number(item.quantidade || 0),
-          };
-        }
-        return prod;
-      });
-    });
-    window.RezFireData.saveProducts(produtos);
-
     const movements = window.RezFireData.loadMovements();
-    const nextMovId = movements.length > 0 ? Math.max(...movements.map((m) => m.id_movimentacao || 0)) + 1 : 1;
-    (p.itens || []).forEach((item, idx) => {
-      movements.unshift({
-        id_movimentacao: nextMovId + idx,
-        id_pedido: p.id_pedido,
-        codigo_pedido: p.codigo_pedido,
-        canal: p.canal,
-        tipo_envio: p.tipo_envio,
-        cliente: p.cliente,
-        uf: p.uf,
-        status_pedido: "Cancelado",
-        id_produto: item.id_produto,
-        sku: item.sku,
-        nome_produto: item.nome,
-        tipo: "Entrada",
-        motivo: "Estorno de Cancelamento de Pedido",
-        quantidade: item.quantidade,
-        preco_unitario: item.preco_unitario,
-        valor_total: item.subtotal || (item.quantidade * item.preco_unitario),
-        data: dataCanc,
-        responsavel: "Gestor RezFire (Estorno Comercial)",
-        detalhes_remessa: null,
-      });
+    let nextMovId = movements.length > 0 ? Math.max(...movements.map((m) => m.id_movimentacao || 0)) + 1 : 1;
+
+    (p.itens || []).forEach((item) => {
+      const prodCadastrado = produtos.find((pr) => pr.id_produto === item.id_produto || pr.sku === item.sku);
+      const isCombo = prodCadastrado && prodCadastrado.tipo === "Combo" && Array.isArray(prodCadastrado.combo_items) && prodCadastrado.combo_items.length > 0;
+
+      if (isCombo) {
+        prodCadastrado.combo_items.forEach((ci) => {
+          const qtdComp = Number(ci.quantidade || 1) * Number(item.quantidade || 1);
+          const compProd = produtos.find((pr) => pr.id_produto === ci.id_produto);
+
+          produtos = produtos.map((prod) => {
+            if (prod.id_produto === ci.id_produto) {
+              return {
+                ...prod,
+                quantidade_atual: Number(prod.quantidade_atual || 0) + qtdComp,
+              };
+            }
+            return prod;
+          });
+
+          movements.unshift({
+            id_movimentacao: nextMovId++,
+            id_pedido: p.id_pedido,
+            codigo_pedido: p.codigo_pedido,
+            canal: p.canal,
+            tipo_envio: p.tipo_envio,
+            cliente: p.cliente,
+            uf: p.uf,
+            status_pedido: "Cancelado",
+            id_produto: ci.id_produto,
+            sku: compProd ? compProd.sku : "COMP",
+            nome_produto: compProd ? compProd.nome : "Componente",
+            tipo: "Entrada",
+            motivo: `Estorno de Cancelamento (Componente do Combo: ${item.nome})`,
+            quantidade: qtdComp,
+            preco_unitario: compProd ? compProd.preco : 0,
+            valor_total: (compProd ? compProd.preco : 0) * qtdComp,
+            data: dataCanc,
+            responsavel: "Gestor RezFire (Estorno de Combo)",
+            detalhes_remessa: null,
+          });
+        });
+      } else {
+        produtos = produtos.map((prod) => {
+          if (prod.id_produto === item.id_produto || prod.sku === item.sku) {
+            return {
+              ...prod,
+              quantidade_atual: Number(prod.quantidade_atual || 0) + Number(item.quantidade || 0),
+            };
+          }
+          return prod;
+        });
+
+        movements.unshift({
+          id_movimentacao: nextMovId++,
+          id_pedido: p.id_pedido,
+          codigo_pedido: p.codigo_pedido,
+          canal: p.canal,
+          tipo_envio: p.tipo_envio,
+          cliente: p.cliente,
+          uf: p.uf,
+          status_pedido: "Cancelado",
+          id_produto: item.id_produto,
+          sku: item.sku,
+          nome_produto: item.nome,
+          tipo: "Entrada",
+          motivo: "Estorno de Cancelamento de Pedido",
+          quantidade: item.quantidade,
+          preco_unitario: item.preco_unitario,
+          valor_total: item.subtotal || (item.quantidade * item.preco_unitario),
+          data: dataCanc,
+          responsavel: "Gestor RezFire (Estorno Comercial)",
+          detalhes_remessa: null,
+        });
+      }
     });
+
+    window.RezFireData.saveProducts(produtos);
     window.RezFireData.saveMovements(movements);
   }
 
@@ -1115,6 +1187,24 @@ function bindEvents() {
           descricao: `Alterações salvas comercialmente. Total: ${money(total)}.`,
           usuario: "Gestor RezFire",
         });
+
+        // Se o pedido foi concluído na edição, sincroniza com entregas
+        if (status === "Concluído" && window.RezFireEntregas && typeof window.RezFireEntregas.loadEntregas === "function") {
+          let entregas = window.RezFireEntregas.loadEntregas();
+          let entUpdated = false;
+          entregas = entregas.map((ent) => {
+            if (ent.id_pedido_interno === ped.id_pedido || ent.codigo_pedido_ml === ped.codigo_pedido || ent.codigo_pedido_direto === ped.codigo_pedido) {
+              ent.status_logistico = window.RezFireEntregas.STATUS_LOGISTICO.ENTREGUE;
+              ent.status_interno = window.RezFireEntregas.STATUS_INTERNO.DESPACHO_REGISTRADO;
+              ent.data_entrega = agoraIso;
+              entUpdated = true;
+            }
+            return ent;
+          });
+          if (entUpdated) {
+            window.RezFireEntregas.saveEntregas(entregas);
+          }
+        }
       }
       showToast(`Pedido ${codigo_pedido} atualizado com sucesso!`, "sucesso");
     } else {
@@ -1146,46 +1236,138 @@ function bindEvents() {
       // Regra Seção 7 AGENTS.md: Débito de estoque físico na aprovação/confirmação
       if (status !== "Pendente de confirmação" && status !== "Cancelado") {
         let produtos = window.RezFireData.loadProducts();
-        (novoPedido.itens || []).forEach((item) => {
-          produtos = produtos.map((p) => {
-            if (p.id_produto === item.id_produto || p.sku === item.sku) {
-              return {
-                ...p,
-                quantidade_atual: Math.max(0, Number(p.quantidade_atual || 0) - Number(item.quantidade || 0)),
-              };
-            }
-            return p;
-          });
-        });
-        window.RezFireData.saveProducts(produtos);
-
-        // Movimentação de Saída
         const movements = window.RezFireData.loadMovements();
-        const nextMovId = movements.length > 0 ? Math.max(...movements.map((m) => m.id_movimentacao || 0)) + 1 : 1;
-        (novoPedido.itens || []).forEach((item, idx) => {
-          movements.unshift({
-            id_movimentacao: nextMovId + idx,
-            id_pedido: novoId,
-            codigo_pedido,
-            canal,
-            tipo_envio: novoPedido.tipo_envio,
-            cliente,
-            uf,
-            status_pedido: status,
-            id_produto: item.id_produto,
-            sku: item.sku,
-            nome_produto: item.nome,
-            tipo: "Saída",
-            motivo: canal === "Mercado Livre" ? "Venda Mercado Livre" : "Venda Direta",
-            quantidade: item.quantidade,
-            preco_unitario: item.preco_unitario,
-            valor_total: item.subtotal,
-            data: dataPedidoIso,
-            responsavel: "Gestor RezFire",
-            detalhes_remessa: null,
-          });
+        let nextMovId = movements.length > 0 ? Math.max(...movements.map((m) => m.id_movimentacao || 0)) + 1 : 1;
+
+        (novoPedido.itens || []).forEach((item) => {
+          const prodCadastrado = produtos.find((p) => p.id_produto === item.id_produto || p.sku === item.sku);
+          const isCombo = prodCadastrado && prodCadastrado.tipo === "Combo" && Array.isArray(prodCadastrado.combo_items) && prodCadastrado.combo_items.length > 0;
+
+          if (isCombo) {
+            // Desmembra o combo e debita cada componente físico proporcionalmente
+            prodCadastrado.combo_items.forEach((ci) => {
+              const qtdComponente = Number(ci.quantidade || 1) * Number(item.quantidade || 1);
+              const compProd = produtos.find((p) => p.id_produto === ci.id_produto);
+
+              produtos = produtos.map((p) => {
+                if (p.id_produto === ci.id_produto) {
+                  return {
+                    ...p,
+                    quantidade_atual: Math.max(0, Number(p.quantidade_atual || 0) - qtdComponente),
+                  };
+                }
+                return p;
+              });
+
+              movements.unshift({
+                id_movimentacao: nextMovId++,
+                id_pedido: novoId,
+                codigo_pedido,
+                canal,
+                tipo_envio: novoPedido.tipo_envio,
+                cliente,
+                uf,
+                status_pedido: status,
+                id_produto: ci.id_produto,
+                sku: compProd ? compProd.sku : "COMP",
+                nome_produto: compProd ? compProd.nome : "Componente",
+                tipo: "Saída",
+                motivo: `${canal === "Mercado Livre" ? "Venda ML" : "Venda Direta"} (Componente do Combo: ${item.nome})`,
+                quantidade: qtdComponente,
+                preco_unitario: compProd ? (compProd.preco || 0) : 0,
+                valor_total: (compProd ? (compProd.preco || 0) : 0) * qtdComponente,
+                data: dataPedidoIso,
+                responsavel: "Gestor RezFire (Desmembramento de Combo)",
+                detalhes_remessa: null,
+              });
+            });
+          } else {
+            // Produto simples avulso
+            produtos = produtos.map((p) => {
+              if (p.id_produto === item.id_produto || p.sku === item.sku) {
+                return {
+                  ...p,
+                  quantidade_atual: Math.max(0, Number(p.quantidade_atual || 0) - Number(item.quantidade || 0)),
+                };
+              }
+              return p;
+            });
+
+            movements.unshift({
+              id_movimentacao: nextMovId++,
+              id_pedido: novoId,
+              codigo_pedido,
+              canal,
+              tipo_envio: novoPedido.tipo_envio,
+              cliente,
+              uf,
+              status_pedido: status,
+              id_produto: item.id_produto,
+              sku: item.sku,
+              nome_produto: item.nome,
+              tipo: "Saída",
+              motivo: canal === "Mercado Livre" ? "Venda Mercado Livre" : "Venda Direta",
+              quantidade: item.quantidade,
+              preco_unitario: item.preco_unitario,
+              valor_total: item.subtotal,
+              data: dataPedidoIso,
+              responsavel: "Gestor RezFire",
+              detalhes_remessa: null,
+            });
+          }
         });
+
+        window.RezFireData.saveProducts(produtos);
         window.RezFireData.saveMovements(movements);
+      }
+
+      // Integração com a Tela de Entregas:
+      // Todo pedido Confirmado é imediatamente enviado para a fila de entregas com status interno "A separar" e status logístico "Aguardando envio"
+      if (status === "Confirmado" && window.RezFireEntregas && typeof window.RezFireEntregas.loadEntregas === "function") {
+        const entregas = window.RezFireEntregas.loadEntregas();
+        const nextEntId = "ENT-" + String(novoId).padStart(3, "0");
+        const prazoDespacho = new Date(new Date(dataPedidoIso).getTime() + 24 * 3600 * 1000).toISOString();
+        const previsaoEntrega = new Date(new Date(dataPedidoIso).getTime() + 5 * 24 * 3600 * 1000).toISOString();
+
+        entregas.unshift({
+          id_entrega: nextEntId,
+          id_pedido_interno: novoId,
+          codigo_pedido_ml: canal === "Mercado Livre" ? (codigo_externo_ml || codigo_pedido) : null,
+          codigo_pedido_direto: canal !== "Mercado Livre" ? codigo_pedido : null,
+          canal: canal,
+          cliente: cliente,
+          uf: uf,
+          data_venda: dataPedidoIso,
+          prazo_despacho: prazoDespacho,
+          modalidade_envio: novoPedido.tipo_envio,
+          id_envio_ml: null,
+          codigo_rastreio: null,
+          data_despacho: null,
+          previsao_entrega: previsaoEntrega,
+          data_entrega: null,
+          status_interno: window.RezFireEntregas.STATUS_INTERNO.A_SEPARAR,
+          status_logistico: window.RezFireEntregas.STATUS_LOGISTICO.AGUARDANDO_ENVIO,
+          ocorrencias: [],
+          itens: novoPedido.itens.map((i) => ({
+            id_produto: i.id_produto,
+            sku: i.sku,
+            nome: i.nome,
+            quantidade: i.quantidade,
+            preco_unitario: i.preco_unitario,
+            subtotal: i.subtotal,
+          })),
+          valor_total: total,
+          separacao: null,
+          historico: [
+            {
+              data: agoraIso,
+              evento: "Pedido Registrado para Expedição",
+              descricao: "Aguardando separação física dos extintores no galpão.",
+              tipo: "info",
+            },
+          ],
+        });
+        window.RezFireEntregas.saveEntregas(entregas);
       }
 
       state.pedidos.unshift(novoPedido);

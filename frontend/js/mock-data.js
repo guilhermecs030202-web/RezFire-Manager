@@ -304,13 +304,11 @@ function generateMockOrders() {
     const preset = orderPresets[idx % orderPresets.length];
     const dateObj = new Date(now - daysAgo * dayMs);
     
-    // Status comercial do pedido
-    // "Pendente de confirmação" | "Confirmado" | "Em preparação" | "Concluído" | "Cancelado"
+    // Status comercial exclusivo do pedido:
+    // "Confirmado" (pago/confirmado aguardando entrega) | "Concluído" (entregue) | "Cancelado"
     let status = "Concluído";
-    if (daysAgo < 1.5) {
-      status = (idx % 2 === 0) ? "Pendente de confirmação" : "Confirmado";
-    } else if (daysAgo < 4) {
-      status = (idx % 2 === 0) ? "Em preparação" : "Confirmado";
+    if (daysAgo < 3) {
+      status = "Confirmado";
     }
     // Poucos cancelamentos simulados (aprox 4%)
     if (idx === 14 || idx === 43 || idx === 68) {
@@ -656,7 +654,17 @@ function loadOrders() {
     }
     const parsed = JSON.parse(raw);
     if (Array.isArray(parsed) && parsed.length > 0) {
-      // Se tiver versão antiga (sem subtotal_itens ou com status antigo "Aprovado"), migra para a base rica
+      // Normaliza status para os 3 status canônicos: Confirmado, Concluído, Cancelado
+      let modified = false;
+      parsed.forEach((o) => {
+        if (o.status !== "Cancelado" && o.status !== "Concluído" && o.status !== "Confirmado") {
+          o.status = "Confirmado";
+          modified = true;
+        }
+      });
+      if (modified) {
+        localStorage.setItem(ORDERS_KEY, JSON.stringify(parsed));
+      }
       if (parsed[0].subtotal_itens !== undefined) {
         return parsed;
       }
@@ -783,11 +791,10 @@ function computeSalesMetrics(orders, filterDays = 30, filterChannel = "") {
   });
   const ufs = Object.values(ufMap).sort((a, b) => b.faturamento - a.faturamento);
 
-  // Status dos Pedidos no período
+  // Status dos Pedidos no período (Unificado: Confirmado, Concluído, Cancelado)
   const statusCount = {
-    Entregue: periodOrders.filter((o) => o.status === "Entregue").length,
-    "Em trânsito": periodOrders.filter((o) => o.status === "Em trânsito").length,
-    Aprovado: periodOrders.filter((o) => o.status === "Aprovado").length,
+    Concluido: periodOrders.filter((o) => o.status === "Concluído" || o.status === "Entregue").length,
+    Confirmado: periodOrders.filter((o) => o.status === "Confirmado" || o.status === "Aprovado" || o.status === "Em preparação" || o.status === "Pendente de confirmação").length,
     Cancelado: cancelOrders.length,
   };
 
@@ -1372,6 +1379,224 @@ function saveFinancialSettings(settings) {
   }
 }
 
+// ─── Controle de Lotes e Validades (FEFO) ──────────────────────────────────
+const LOTES_KEY = "rezfire.lotes_estoque";
+
+function offsetDaysDate(days) {
+  const d = new Date();
+  d.setDate(d.getDate() + days);
+  return d.toISOString().split("T")[0];
+}
+
+const DEFAULT_LOTES = [
+  // 🟢 Regulares (> 1 ano de validade restante)
+  {
+    id_lote: "LT-2026/01",
+    id_produto: 7,
+    sku: "EXT-PQS-4KG",
+    nome: "Extintor Pó Químico ABC 4kg",
+    lacre: "INM-948201",
+    data_fabricacao: offsetDaysDate(-60),
+    validade: offsetDaysDate(1400), // ~3.8 anos
+    quantidade_disponivel: 45,
+    quantidade_inicial: 50,
+  },
+  {
+    id_lote: "LT-2026/02",
+    id_produto: 2,
+    sku: "EXT-H2O-10L",
+    nome: "Extintor Água Pressurizada 10L",
+    lacre: "INM-849202",
+    data_fabricacao: offsetDaysDate(-90),
+    validade: offsetDaysDate(1100), // ~3 anos
+    quantidade_disponivel: 32,
+    quantidade_inicial: 40,
+  },
+  {
+    id_lote: "LT-2026/03",
+    id_produto: 5,
+    sku: "EXT-CO2-6KG",
+    nome: "Extintor CO2 6kg",
+    lacre: "INM-773041",
+    data_fabricacao: offsetDaysDate(-30),
+    validade: offsetDaysDate(1500), // ~4 anos
+    quantidade_disponivel: 28,
+    quantidade_inicial: 30,
+  },
+  {
+    id_lote: "LT-2025/11",
+    id_produto: 8,
+    sku: "EXT-PQS-6KG",
+    nome: "Extintor Pó Químico ABC 6kg",
+    lacre: "INM-332945",
+    data_fabricacao: offsetDaysDate(-200),
+    validade: offsetDaysDate(600), // ~1.6 anos
+    quantidade_disponivel: 25,
+    quantidade_inicial: 35,
+  },
+
+  // 🟡 Alerta de Validade (181 a 365 dias restantes - prioridade máxima FEFO)
+  {
+    id_lote: "LT-2024/09",
+    id_produto: 7,
+    sku: "EXT-PQS-4KG",
+    nome: "Extintor Pó Químico ABC 4kg",
+    lacre: "INM-662910",
+    data_fabricacao: offsetDaysDate(-800),
+    validade: offsetDaysDate(260), // ~8.5 meses (Alerta)
+    quantidade_disponivel: 18,
+    quantidade_inicial: 40,
+  },
+  {
+    id_lote: "LT-2024/07",
+    id_produto: 6,
+    sku: "EXT-PQS-2KG",
+    nome: "Extintor PQS 2kg",
+    lacre: "INM-440192",
+    data_fabricacao: offsetDaysDate(-750),
+    validade: offsetDaysDate(210), // ~7 meses (Alerta)
+    quantidade_disponivel: 12,
+    quantidade_inicial: 25,
+  },
+
+  // 🔴 Bloqueado para Envio (≤ 180 dias / < 6 meses - abaixo do prazo mínimo exigido)
+  {
+    id_lote: "LT-2023/12",
+    id_produto: 8,
+    sku: "EXT-PQS-6KG",
+    nome: "Extintor Pó Químico ABC 6kg",
+    lacre: "INM-221094",
+    data_fabricacao: offsetDaysDate(-1100),
+    validade: offsetDaysDate(115), // ~3.8 meses (Bloqueado)
+    quantidade_disponivel: 14,
+    quantidade_inicial: 30,
+  },
+  {
+    id_lote: "LT-2024/01",
+    id_produto: 2,
+    sku: "EXT-H2O-10L",
+    nome: "Extintor Água Pressurizada 10L",
+    lacre: "INM-119283",
+    data_fabricacao: offsetDaysDate(-1200),
+    validade: offsetDaysDate(45), // 1.5 mês (Bloqueado)
+    quantidade_disponivel: 8,
+    quantidade_inicial: 20,
+  },
+
+  // ⛔ Vencido (≤ 0 dias - carga expirada, descarte/recarga)
+  {
+    id_lote: "LT-2022/05",
+    id_produto: 9,
+    sku: "EXT-PQS-12KG",
+    nome: "Extintor Pó Químico BC 12kg",
+    lacre: "INM-008172",
+    data_fabricacao: offsetDaysDate(-1550),
+    validade: offsetDaysDate(-25), // Vencido há 25 dias
+    quantidade_disponivel: 6,
+    quantidade_inicial: 15,
+  },
+];
+
+function computeLoteStatus(validadeStr) {
+  if (!validadeStr) {
+    return {
+      diasRestantes: 9999,
+      statusKey: "regular",
+      label: "Sem Validade",
+      cls: "badge-regular",
+      podeDespachar: true,
+      textoTempo: "Indeterminado",
+    };
+  }
+
+  const hoje = new Date();
+  hoje.setHours(0, 0, 0, 0);
+  const dataVal = new Date(validadeStr + "T00:00:00");
+  const diffMs = dataVal.getTime() - hoje.getTime();
+  const diasRestantes = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
+
+  let textoTempo = "";
+  if (diasRestantes < 0) {
+    const dPos = Math.abs(diasRestantes);
+    textoTempo = `Vencido há ${dPos} dia(s)`;
+  } else if (diasRestantes === 0) {
+    textoTempo = "Vence hoje!";
+  } else if (diasRestantes > 365) {
+    const anos = (diasRestantes / 365).toFixed(1);
+    textoTempo = `${diasRestantes} dias (~${anos} anos)`;
+  } else if (diasRestantes > 30) {
+    const meses = Math.floor(diasRestantes / 30);
+    const dias = diasRestantes % 30;
+    textoTempo = `${diasRestantes} dias (~${meses}m ${dias}d)`;
+  } else {
+    textoTempo = `${diasRestantes} dia(s)`;
+  }
+
+  if (diasRestantes <= 0) {
+    return {
+      diasRestantes,
+      statusKey: "vencido",
+      label: "Vencido",
+      cls: "badge-vencido",
+      podeDespachar: false,
+      textoTempo,
+    };
+  }
+
+  if (diasRestantes <= 180) {
+    return {
+      diasRestantes,
+      statusKey: "bloqueado",
+      label: "Bloqueado (< 6 meses)",
+      cls: "badge-bloqueado",
+      podeDespachar: false,
+      textoTempo,
+    };
+  }
+
+  if (diasRestantes <= 365) {
+    return {
+      diasRestantes,
+      statusKey: "alerta",
+      label: "Alerta (≤ 1 ano)",
+      cls: "badge-alerta",
+      podeDespachar: true,
+      textoTempo,
+    };
+  }
+
+  return {
+    diasRestantes,
+    statusKey: "regular",
+    label: "Regular (> 1 ano)",
+    cls: "badge-regular",
+    podeDespachar: true,
+    textoTempo,
+  };
+}
+
+function loadLotes() {
+  try {
+    const raw = localStorage.getItem(LOTES_KEY);
+    if (!raw) {
+      localStorage.setItem(LOTES_KEY, JSON.stringify(DEFAULT_LOTES));
+      return DEFAULT_LOTES;
+    }
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) && parsed.length > 0 ? parsed : DEFAULT_LOTES;
+  } catch {
+    return DEFAULT_LOTES;
+  }
+}
+
+function saveLotes(lotes) {
+  try {
+    localStorage.setItem(LOTES_KEY, JSON.stringify(lotes));
+  } catch (err) {
+    console.error("Erro ao salvar lotes:", err);
+  }
+}
+
 window.RezFireData = {
   loadProducts,
   saveProducts,
@@ -1393,6 +1618,9 @@ window.RezFireData = {
   computeFinancialDashboardMetrics,
   loadFinancialSettings,
   saveFinancialSettings,
+  loadLotes,
+  saveLotes,
+  computeLoteStatus,
 };
 
 

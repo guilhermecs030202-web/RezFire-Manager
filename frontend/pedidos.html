@@ -43,9 +43,7 @@
       border-radius: 50%;
       background: currentColor;
     }
-    .badge-pendente    { background: #fef3c7; color: #92400e; border: 1px solid #fde68a; }
     .badge-confirmado  { background: #dbeafe; color: #1e40af; border: 1px solid #bfdbfe; }
-    .badge-preparacao  { background: #fff7ed; color: #c2410c; border: 1px solid #fed7aa; }
     .badge-concluido   { background: #e8f8ee; color: #1f9d5c; border: 1px solid #a7f3d0; }
     .badge-cancelado   { background: #f3f4f6; color: #6b7280; border: 1px solid #d1d5db; }
 
@@ -287,9 +285,7 @@
               <label for="filtro-status" style="font-size:0.72rem;font-weight:700;color:var(--muted);letter-spacing:0.05em">Status:</label>
               <select id="filtro-status" class="search-input" style="width:200px">
                 <option value="todos">Todos os status</option>
-                <option value="Pendente de confirmação">Pendente de confirmação</option>
                 <option value="Confirmado">Confirmado</option>
-                <option value="Em preparação">Em preparação</option>
                 <option value="Concluído">Concluído</option>
                 <option value="Cancelado">Cancelado</option>
               </select>
@@ -442,10 +438,9 @@
           <div class="form-field">
             <label for="pedido-status">Status Comercial *</label>
             <select id="pedido-status" required>
-              <option value="Pendente de confirmação">Pendente de confirmação</option>
-              <option value="Confirmado">Confirmado</option>
-              <option value="Em preparação">Em preparação</option>
+              <option value="Confirmado" selected>Confirmado</option>
               <option value="Concluído">Concluído</option>
+              <option value="Cancelado">Cancelado</option>
             </select>
           </div>
         </div>

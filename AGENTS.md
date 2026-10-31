@@ -149,6 +149,27 @@ PRODUTO 1 ───── 1 ESTOQUE
 O sistema considera inicialmente um único estoque por produto. Não criar
 múltiplos depósitos sem requisito real.
 
+### `lotes_estoque`
+
+``` text
+id_lote               PK
+id_produto            FK
+numero_lote
+numero_lacre_inmetro
+data_fabricacao
+data_validade
+quantidade_disponivel
+status                ENUM('Ativo','Bloqueado','Vencido','Esgotado')
+created_at
+updated_at
+```
+
+Relacionamento:
+
+``` text
+PRODUTO 1 ───── N LOTES_ESTOQUE
+```
+
 ### `movimentacoes_estoque`
 
 ``` text
@@ -288,6 +309,26 @@ Pedido aprovado -> estoque diminuído (baixa imediata via movimentação de saí
 - **Cancelamento pós-aprovação:** Caso um pedido aprovado seja posteriormente cancelado, deve ser gerada automaticamente uma movimentação de estoque do tipo **entrada** (estorno/devolução) para repor as quantidades dos itens.
 - **Cancelamento pré-aprovação:** Se o pedido for cancelado antes da aprovação, nenhuma alteração de estoque é realizada.
 
+### Regra de Ouro das Movimentações de Estoque
+
+- **Nenhum saldo é alterado sem movimentação:** Todo e qualquer ajuste de saldo na tabela `estoque` (seja por venda, chegada de mercadoria, perda, avaria ou balanço físico) deve gerar obrigatoriamente um registro em `movimentacoes_estoque`.
+- **Reabastecimento por Nota Fiscal (Entrada):** O reabastecimento é realizado via tela de Movimentações (ou atalho no Estoque), informando Nota Fiscal, fornecedor e itens recebidos. Para extintores já cadastrados no catálogo, o gestor apenas informa lote, lacre INMETRO e validade da remessa, sem necessidade de recadastrar o produto base.
+- **Saídas Avulsas (Não-Comerciais):** Utilizadas para perdas operacionais, avarias no galpão, despressurização/válvula com defeito, extintores vencidos para recarga e amostras.
+- **Ajustes de Inventário / Balanço:** Quando o gestor realiza a contagem física no galpão e ajusta o saldo na tela de Estoque, o sistema gera automaticamente uma movimentação do tipo *Entrada* ou *Saída* com o motivo *"Ajuste de Balanço / Inventário Físico"*.
+
+### Regra de Produtos em Combo / Kit
+
+- **Composição de Itens:** O catálogo permite cadastrar produtos do tipo `Combo` (ex.: 1x Extintor + 1x Suporte + 1x Placa).
+- **Estoque Dinâmico:** O combo não possui estoque físico próprio travado; seu saldo disponível para venda é calculado dinamicamente com base no item componente de menor disponibilidade no galpão.
+- **Baixa Proporcional:** Ao vender 1 unidade de um combo (no Mercado Livre ou Venda Direta), o sistema debita automaticamente cada um dos itens físicos individuais e seus respectivos lotes.
+
+### Regra de Validade de Extintores (FEFO - First Expired, First Out)
+
+- **Critério de Alerta de Validade:** Lotes com validade restante inferior ou igual a **365 dias (1 ano)** geram alerta operacional no sistema e entram com prioridade máxima de expedição pelo método FEFO.
+- **Critério de Bloqueio de Expedição (Prazo mínimo de 6 meses):** Lotes com validade restante inferior ou igual a **180 dias (6 meses)** ficam **automaticamente bloqueados para venda e despacho**, garantindo que nenhum cliente receba um extintor com tempo útil inferior a 6 meses.
+- **Extintor Vencido:** Validade $\le 0$ dias gera bloqueio total imediato e notificação de perda/revisão necessária.
+- **Ordenação Padrão:** O estoque com controle de lote é ordenado por padrão pela data de validade mais próxima (ascendente).
+
 ## 8. Telas planejadas
 
 ### Acesso
@@ -379,6 +420,24 @@ Regras:
 -   Registrar a última sincronização.
 -   Não assumir disponibilidade de endpoints/dados sem verificar a
     documentação atual do Mercado Livre.
+
+### Estratégia de Sincronização (Webhooks + Processamento Assíncrono + Cron)
+
+1. **Endpoint de Webhook (Push / Rápido):**
+   - O endpoint que recebe notificações do Mercado Livre apenas valida a autenticidade, registra o evento recebido em uma tabela (ou fila de eventos) e responde status `200 OK` imediatamente.
+   - Isso evita *timeouts* e reenvios desnecessários pela plataforma do Mercado Livre.
+
+2. **Processamento Assíncrono Idempotente:**
+   - Um worker/job interno consome os eventos da fila/tabela, consulta o recurso detalhado na API do Mercado Livre e persiste no banco.
+   - O processamento deve ser **estritamente idempotente**, garantindo que o reenvio de um mesmo evento não gere duplicidade de pedidos, movimentações ou baixas de estoque.
+   - Apenas pedidos com status de pagamento aprovado são importados como `Confirmado`.
+
+3. **Cron de Reconciliação (Rede de Segurança):**
+   - Rotina agendada (ex.: a cada 15 a 60 minutos, ou diária/noturna) que busca pedidos e recursos alterados no Mercado Livre desde a última sincronização registrada.
+   - Serve como redundância para cobrir eventuais falhas temporárias na entrega dos webhooks pelo ML ou instabilidade de rede.
+
+4. **Registro de Última Sincronização por Recurso:**
+   - O sistema mantém registrado o *timestamp* da última sincronização bem-sucedida para cada recurso (pedidos, anúncios, envios), permitindo consultas incrementais otimizadas no Cron (buscando apenas o que mudou).
 
 ## 11. Backlog
 
@@ -541,6 +600,11 @@ Decisões já tomadas:
 -   Mercado Livre: integração planejada como diferencial
 -   Multiusuário: fora do escopo atual
 -   Autenticação: obrigatória
+-   Status comercial de pedidos: exclusivamente `Confirmado`, `Concluido` e `Cancelado` (vendas diretas nascem como `Confirmado`)
+-   Tela de entregas (expedição): pedidos confirmados entram como `A separar`, avançam para `Pronto p/ despacho`, `Despachado` e concluem como `Entregue`
+-   Badges logísticas: `Aguardando Envio`, `Despacho Atrasado`, `Em trânsito` e `Entregue`
+-   Integração Mercado Livre: webhook rápido com persistência em fila/tabela (resposta 200 imediata), processamento assíncrono idempotente e Cron de reconciliação periódica com timestamp da última sincronização por recurso
+-   Controle de validade de extintores: FEFO prioritário, alerta com $\le$ 365 dias (1 ano), bloqueio operacional de expedição com $\le$ 180 dias (prazo mínimo de 6 meses para o cliente) e bloqueio total se vencido
 
 ## 16. Próximo passo para o Cursor
 

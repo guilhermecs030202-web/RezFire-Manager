@@ -4,7 +4,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Estoque · RezFire Manager</title>
+  <title>Estoque & Validades · RezFire Manager</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
@@ -24,46 +24,242 @@
     };
   </script>
   <link rel="stylesheet" href="css/app.css" />
+  <style>
+    /* ── Sub-navegação por Abas ──────────────────────────────── */
+    .tab-nav {
+      display: flex;
+      gap: 8px;
+      border-bottom: 2px solid var(--line);
+      margin-bottom: 20px;
+    }
+    .tab-button {
+      padding: 10px 18px;
+      font-size: 0.88rem;
+      font-weight: 700;
+      color: var(--muted);
+      background: none;
+      border: none;
+      border-bottom: 3px solid transparent;
+      margin-bottom: -2px;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      transition: color 0.15s, border-color 0.15s;
+    }
+    .tab-button:hover {
+      color: var(--ink);
+    }
+    .tab-button.is-active {
+      color: var(--accent);
+      border-bottom-color: var(--accent);
+    }
+
+    /* ── Badges de Validade de Lotes ────────────────────────── */
+    .badge-val {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      font-size: 0.72rem;
+      font-weight: 700;
+      padding: 3px 9px;
+      border-radius: 999px;
+      letter-spacing: 0.02em;
+      white-space: nowrap;
+    }
+    .badge-val-regular {
+      background: #dcfce7;
+      color: #166534;
+      border: 1px solid #86efac;
+    }
+    .badge-val-alerta {
+      background: #fef9c3;
+      color: #854d0e;
+      border: 1px solid #fde047;
+    }
+    .badge-val-bloqueado {
+      background: #fee2e2;
+      color: #991b1b;
+      border: 1px solid #fca5a5;
+    }
+    .badge-val-vencido {
+      background: #f3f4f6;
+      color: #374151;
+      border: 1px solid #d1d5db;
+    }
+
+    /* ── Card de Informativo FEFO ────────────────────────────── */
+    .fefo-banner {
+      background: #eff6ff;
+      border: 1px solid #bfdbfe;
+      border-radius: 10px;
+      padding: 12px 18px;
+      margin-bottom: 18px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 14px;
+      font-size: 0.84rem;
+      color: #1e40af;
+    }
+  </style>
 </head>
 
 <body>
   <div class="app-shell" id="app-shell">
     <main class="app-main">
+
+      <!-- Cabeçalho Principal -->
       <div class="page-toolbar">
         <div>
-          <h1 class="page-title">ESTOQUE</h1>
-          <p class="page-subtitle" id="estoque-count"></p>
+          <h1 class="page-title">ESTOQUE &amp; VALIDADES</h1>
+          <p class="page-subtitle" id="estoque-count">Acompanhamento de saldos físicos e controle rigoroso de validades (FEFO).</p>
         </div>
-        <div class="flex items-center gap-3">
-          <input id="busca" class="search-input" type="search" placeholder="Buscar SKU, nome..." />
-          <a href="dashboard.html?tab=estoque" class="btn-primary" style="text-decoration: none; font-size: 0.88rem; padding: 10px 16px;">
+        <div class="flex items-center gap-3 flex-wrap">
+          <a href="movimentacoes.html?action=entrada" class="btn-primary" style="text-decoration: none; font-size: 0.88rem; padding: 10px 16px; background:#1f9d5c; border-color:#166534; display: inline-flex; align-items: center; gap: 6px;">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+            + Entrada por Nota Fiscal
+          </a>
+          <a href="dashboard.html?tab=estoque" class="btn-ghost" style="text-decoration: none; font-size: 0.88rem; padding: 10px 16px; display: inline-flex; align-items: center; gap: 6px;">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
             Ver Dashboards de Estoque
           </a>
         </div>
       </div>
 
-      <section class="card table-wrap">
-        <table class="products-table">
-          <thead>
-            <tr>
-              <th>SKU</th>
-              <th>PRODUTO</th>
-              <th>QTD ATUAL</th>
-              <th>ESTOQUE MÍNIMO</th>
-              <th>STATUS</th>
-              <th></th>
-            </tr>
-          </thead>
-          <tbody id="estoque-body"></tbody>
-        </table>
-      </section>
+      <!-- Abas de Navegação -->
+      <div class="tab-nav">
+        <button class="tab-button is-active" id="btn-tab-produtos" type="button">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"/><path d="m3.3 7 8.7 5 8.7-5"/><path d="M12 22V12"/></svg>
+          1. Saldo Consolidado por Produto
+        </button>
+        <button class="tab-button" id="btn-tab-lotes" type="button">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+          2. Controle de Lotes &amp; Validades (FEFO)
+        </button>
+      </div>
+
+      <!-- ═══════════════════════════════════════════════════════ -->
+      <!-- ABA 1: PRODUTOS (SALDO CONSOLIDADO)                     -->
+      <!-- ═══════════════════════════════════════════════════════ -->
+      <div id="view-produtos">
+        <div class="card" style="padding:14px;margin-bottom:16px;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap">
+          <input id="busca" class="search-input" type="search" placeholder="Buscar por SKU ou nome de produto..." style="width:360px" />
+          <span style="font-size:0.84rem;color:var(--muted)" id="produtos-filtro-info"></span>
+        </div>
+
+        <section class="card table-wrap" style="padding:0;overflow:hidden">
+          <table class="products-table" style="margin:0">
+            <thead>
+              <tr>
+                <th style="width:140px">SKU</th>
+                <th>PRODUTO</th>
+                <th style="width:130px">QTD ATUAL</th>
+                <th style="width:150px">ESTOQUE MÍNIMO</th>
+                <th style="width:160px">STATUS</th>
+                <th style="text-align:right;width:100px">AÇÃO</th>
+              </tr>
+            </thead>
+            <tbody id="estoque-body"></tbody>
+          </table>
+        </section>
+      </div>
+
+      <!-- ═══════════════════════════════════════════════════════ -->
+      <!-- ABA 2: CONTROLE DE LOTES & VALIDADES (FEFO)             -->
+      <!-- ═══════════════════════════════════════════════════════ -->
+      <div id="view-lotes" style="display:none">
+
+        <!-- Banner Informativo da Regra Operacional -->
+        <div class="fefo-banner">
+          <div style="display:flex;align-items:center;gap:10px">
+            <span style="font-size:1.3rem">🛡️</span>
+            <div>
+              <strong>Regra Operacional RezFire (FEFO):</strong> Extintores com <strong>menos de 1 ano (&le; 365d)</strong> entram em prioridade de saída. Lotes com <strong>menos de 6 meses (&le; 180d)</strong> têm expedição bloqueada pelo sistema para proteger o cliente.
+            </div>
+          </div>
+          <button class="btn-primary" id="btn-novo-lote" style="padding:6px 14px;font-size:0.82rem;white-space:nowrap;display:inline-flex;align-items:center;gap:6px">
+            + Novo Lote
+          </button>
+        </div>
+
+        <!-- Indicadores de Validade (KPIs) -->
+        <section class="kpi-grid" id="kpis-lotes" style="margin-bottom:20px;grid-template-columns:repeat(auto-fit,minmax(180px,1fr))">
+          <!-- Gerado via JS -->
+        </section>
+
+        <!-- Barra de Busca, Filtros e Ordenação de Lotes -->
+        <div class="card" style="padding:14px;margin-bottom:16px">
+          <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;justify-content:space-between">
+            <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;flex:1">
+
+              <!-- Busca de Lote -->
+              <input id="busca-lote" class="search-input" type="search" placeholder="Buscar por Lote, SKU, produto ou lacre..." style="width:280px" />
+
+              <!-- Filtro de Situação de Validade -->
+              <div style="display:flex;align-items:center;gap:6px">
+                <label for="filtro-val-status" style="font-size:0.72rem;font-weight:700;color:var(--muted);text-transform:uppercase">Situação:</label>
+                <select id="filtro-val-status" class="search-input" style="width:200px">
+                  <option value="todos">Todas as situações</option>
+                  <option value="regular">🟢 Regulares (&gt; 1 ano)</option>
+                  <option value="alerta">🟡 Em Alerta (&le; 1 ano)</option>
+                  <option value="bloqueado">🔴 Bloqueados (&le; 6 meses)</option>
+                  <option value="vencido">⛔ Vencidos</option>
+                </select>
+              </div>
+
+              <!-- Ordenação com FEFO Padrão -->
+              <div style="display:flex;align-items:center;gap:6px">
+                <label for="ordem-lote" style="font-size:0.72rem;font-weight:700;color:var(--muted);text-transform:uppercase">Ordenar por:</label>
+                <select id="ordem-lote" class="search-input" style="width:230px">
+                  <option value="val_asc" selected>Validade (Mais próxima / FEFO)</option>
+                  <option value="val_desc">Validade (Mais distante)</option>
+                  <option value="qtd_desc">Quantidade (Maior)</option>
+                  <option value="qtd_asc">Quantidade (Menor)</option>
+                  <option value="lote_asc">Código do Lote</option>
+                </select>
+              </div>
+
+              <button class="btn-ghost" id="btn-limpar-lotes-filtros" style="font-size:0.8rem;padding:6px 12px;display:none">
+                Limpar filtros
+              </button>
+            </div>
+
+            <span style="font-size:0.84rem;color:var(--muted)" id="lotes-contador"></span>
+          </div>
+        </div>
+
+        <!-- Tabela de Lotes e Validades -->
+        <section class="card table-wrap" style="padding:0;overflow:hidden">
+          <table class="products-table" style="margin:0">
+            <thead>
+              <tr>
+                <th style="width:130px">LOTE</th>
+                <th>PRODUTO / SKU</th>
+                <th style="width:140px">LACRE / INMETRO</th>
+                <th style="text-align:center;width:110px">QTD DISP.</th>
+                <th style="width:130px">DATA VALIDADE</th>
+                <th style="width:160px">PRAZO RESTANTE</th>
+                <th style="width:180px">STATUS VALIDADE</th>
+                <th style="text-align:right;width:90px">AÇÃO</th>
+              </tr>
+            </thead>
+            <tbody id="lotes-body"></tbody>
+          </table>
+        </section>
+
+      </div>
+
     </main>
   </div>
 
+  <!-- Modal 1: Ajustar Saldo de Produto (Ajuste de Balanço / Inventário) -->
   <div class="modal-backdrop" id="modal" role="dialog" aria-modal="true" aria-labelledby="modal-title">
     <form class="modal" id="form-estoque">
-      <h2 id="modal-title">Ajustar Estoque</h2>
+      <h2 id="modal-title">Ajuste de Balanço / Inventário Físico</h2>
+      <p style="font-size:0.8rem;color:var(--muted);margin-bottom:12px">
+        Informe a contagem física real do galpão. Uma movimentação de ajuste será gerada automaticamente no extrato histórico.
+      </p>
       <input type="hidden" id="id_produto" />
       <div class="form-grid">
         <div class="form-field">
@@ -79,6 +275,47 @@
       <div class="modal-actions">
         <button class="btn-ghost" type="button" id="btn-cancelar">Cancelar</button>
         <button class="btn-primary" type="submit">Salvar</button>
+      </div>
+    </form>
+  </div>
+
+  <!-- Modal 2: Novo / Editar Lote de Extintor (Novo) -->
+  <div class="modal-backdrop" id="modal-lote" role="dialog" aria-modal="true" aria-labelledby="modal-lote-title">
+    <form class="modal" id="form-lote" style="width:min(560px,94vw)">
+      <h2 id="modal-lote-title">Cadastrar Novo Lote</h2>
+      <input type="hidden" id="lote-edit-id" />
+      <div class="form-grid">
+        <div class="form-field span-2">
+          <label for="lote-produto">Produto / Extintor *</label>
+          <select id="lote-produto" class="search-input" required style="width:100%">
+            <!-- Preenchido via JS -->
+          </select>
+        </div>
+        <div class="form-field">
+          <label for="lote-numero">Código do Lote *</label>
+          <input id="lote-numero" placeholder="Ex: LT-2026/05" required maxlength="25" />
+        </div>
+        <div class="form-field">
+          <label for="lote-lacre">Selo / Lacre INMETRO</label>
+          <input id="lote-lacre" placeholder="Ex: INM-948205" maxlength="25" />
+        </div>
+        <div class="form-field">
+          <label for="lote-fabricacao">Data de Fabricação / Carga *</label>
+          <input id="lote-fabricacao" type="date" required />
+        </div>
+        <div class="form-field">
+          <label for="lote-validade">Data de Validade *</label>
+          <input id="lote-validade" type="date" required />
+        </div>
+        <div class="form-field">
+          <label for="lote-qtd">Quantidade Disponível *</label>
+          <input id="lote-qtd" type="number" min="0" step="1" required />
+        </div>
+      </div>
+      <p class="form-error" id="form-lote-error"></p>
+      <div class="modal-actions">
+        <button class="btn-ghost" type="button" id="btn-cancelar-lote">Cancelar</button>
+        <button class="btn-primary" type="submit">Salvar Lote</button>
       </div>
     </form>
   </div>

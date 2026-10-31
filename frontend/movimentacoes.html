@@ -24,6 +24,15 @@
     };
   </script>
   <link rel="stylesheet" href="css/app.css" />
+  <style>
+    .nf-item-row {
+      background: #faf7f4;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 12px;
+      margin-bottom: 10px;
+    }
+  </style>
 </head>
 
 <body>
@@ -31,15 +40,22 @@
     <main class="app-main">
       <div class="page-toolbar">
         <div>
-          <h1 class="page-title">MOVIMENTAÇÕES DE ESTOQUE & VENDAS</h1>
-          <p class="page-subtitle" id="movimentacoes-count">Carregando histórico e sincronização com vendas...</p>
+          <h1 class="page-title">MOVIMENTAÇÕES DE ESTOQUE</h1>
+          <p class="page-subtitle" id="movimentacoes-count">Histórico completo de entradas (NFs), saídas por pedidos e baixas operacionais.</p>
         </div>
-        <div class="flex items-center gap-3">
+        <div class="flex items-center gap-3 flex-wrap">
           <a href="dashboard.html" class="btn-ghost" style="padding: 10px 16px; font-size: 0.88rem; text-decoration: none; display: inline-flex; align-items: center; gap: 6px;">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
             Painel de Vendas
           </a>
-          <button class="btn-primary" id="btn-nova-movimentacao" type="button">+ Nova Movimentação / Venda</button>
+          <button class="btn-ghost" id="btn-nova-saida" type="button" style="padding: 10px 14px; font-size: 0.88rem; color: var(--down); border-color: #fca5a5; display: inline-flex; align-items: center; gap: 6px;">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="5" y1="12" x2="19" y2="12"/></svg>
+            - Saída Avulsa (Perda / Avaria)
+          </button>
+          <button class="btn-primary" id="btn-nova-entrada" type="button" style="padding: 10px 16px; font-size: 0.88rem; background: #1f9d5c; border-color: #166534; display: inline-flex; align-items: center; gap: 6px;">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+            + Entrada (Nota Fiscal / Compra)
+          </button>
         </div>
       </div>
 
@@ -50,15 +66,17 @@
       <div class="card" style="padding: 16px; margin-bottom: 16px;">
         <div class="flex items-center justify-between gap-3 flex-wrap">
           <div class="flex items-center gap-3 flex-wrap flex-1">
-            <input id="busca" class="search-input" type="search" placeholder="Buscar por SKU, nome, código MLB, cliente..." style="width: 320px;" />
+            <input id="busca" class="search-input" type="search" placeholder="Buscar por SKU, produto, NF, lote, cliente..." style="width: 320px;" />
 
             <div class="flex items-center gap-2">
-              <label for="filtro-mov-canal" class="text-xs font-bold text-stone-500 uppercase">Canal / Tipo:</label>
-              <select id="filtro-mov-canal" class="search-input" style="width: 210px;">
-                <option value="todos" selected>Todos os Tipos e Canais</option>
-                <option value="Mercado Livre">Vendas Mercado Livre</option>
-                <option value="Venda Direta">Vendas Diretas / B2B</option>
-                <option value="Entrada">Entradas (Abastecimento / NF)</option>
+              <label for="filtro-mov-canal" class="text-xs font-bold text-stone-500 uppercase">Tipo / Origem:</label>
+              <select id="filtro-mov-canal" class="search-input" style="width: 230px;">
+                <option value="todos" selected>Todos os Tipos e Origens</option>
+                <option value="Entrada">Entradas (Nota Fiscal / Compra)</option>
+                <option value="Mercado Livre">Saídas (Mercado Livre)</option>
+                <option value="Venda Direta">Saídas (Venda Direta)</option>
+                <option value="Perda">Saídas Avulsas (Perda / Avaria)</option>
+                <option value="Ajuste">Ajustes de Inventário / Balanço</option>
               </select>
             </div>
 
@@ -75,23 +93,23 @@
 
           <div class="text-xs text-stone-500 font-medium">
             <span class="inline-block w-2 h-2 rounded-full bg-emerald-500 mr-1.5"></span>
-            <span>Sincronizado com os Pedidos de Venda</span>
+            <span>Integrado com Vendas &amp; Estoque</span>
           </div>
         </div>
       </div>
 
-      <!-- Tabela Completa de Movimentações e Vendas -->
+      <!-- Tabela Completa de Movimentações -->
       <section class="card table-wrap">
         <table class="products-table">
           <thead>
             <tr>
-              <th>DATA & HORA</th>
-              <th>PRODUTO / EXTINTOR</th>
-              <th>CANAL & TIPO</th>
-              <th>PEDIDO / CLIENTE / DESTINO</th>
+              <th>DATA &amp; HORA</th>
+              <th>PRODUTO / ITEM</th>
+              <th>OPERAÇÃO &amp; MOTIVO</th>
+              <th>DOC / NF / PEDIDO / ORIGEM</th>
               <th>QUANTIDADE</th>
-              <th>VALOR UNIT. / TOTAL</th>
-              <th>STATUS / ORIGEM</th>
+              <th>VALOR TOTAL</th>
+              <th>RESPONSÁVEL</th>
             </tr>
           </thead>
           <tbody id="movimentacoes-body"></tbody>
@@ -100,145 +118,114 @@
     </main>
   </div>
 
-  <div class="modal-backdrop" id="modal" role="dialog" aria-modal="true" aria-labelledby="modal-title">
-    <form class="modal" id="form-movimentacao">
-      <h2 id="modal-title">Registrar Movimentação de Estoque</h2>
-      
-      <div class="form-grid">
-        <div class="form-field span-2">
-          <label for="id_produto">Produto</label>
-          <select id="id_produto" name="id_produto" required>
-            <option value="">Selecione o produto...</option>
-          </select>
-        </div>
-        <div class="form-field">
-          <label for="tipo">Tipo de Operação</label>
-          <select id="tipo" name="tipo" required>
-            <option value="Saída">Saída (Venda ou Baixa de Estoque)</option>
-            <option value="Entrada">Entrada (Abastecimento ou Devolução)</option>
-          </select>
-        </div>
-        <div class="form-field">
-          <label for="motivo">Motivo da Movimentação</label>
-          <select id="motivo" name="motivo" required>
-            <!-- Preenchido via JS conforme o Tipo -->
-          </select>
-        </div>
+  <!-- ═══════════════════════════════════════════════════════════ -->
+  <!-- MODAL 1: REGISTRAR ENTRADA POR NOTA FISCAL                  -->
+  <!-- ═══════════════════════════════════════════════════════════ -->
+  <div class="modal-backdrop" id="modal-entrada" role="dialog" aria-modal="true" aria-labelledby="modal-entrada-title">
+    <form class="modal" id="form-entrada" style="width: min(820px, 96vw); max-height: 90vh; overflow-y: auto;">
+      <h2 id="modal-entrada-title">Registrar Entrada de Mercadoria (Nota Fiscal)</h2>
+      <p style="font-size:0.82rem;color:var(--muted);margin-bottom:14px">
+        Reabasteça o estoque a partir de compras com fornecedores. Para extintores já catalogados, cadastre apenas as informações do novo lote e validade recebidos.
+      </p>
 
-        <div class="form-field">
-          <label for="quantidade">Quantidade</label>
-          <input id="quantidade" name="quantidade" type="number" min="1" step="1" value="1" required />
-        </div>
-
-        <div class="form-field" id="campo-preco-venda">
-          <label for="preco_unitario">Preço Unitário (R$)</label>
-          <input id="preco_unitario" name="preco_unitario" type="number" step="0.01" min="0" placeholder="R$ 0,00" />
-        </div>
-
-        <!-- Seção de Venda (Mercado Livre ou Venda Direta) -->
-        <div id="secao-dados-venda" class="form-field span-2" style="border-top: 1px dashed #e4ddd4; padding-top: 14px; margin-top: 4px;">
-          <div class="modal-info-box" style="margin-bottom: 12px;">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0; margin-top: 1px;">
-              <circle cx="12" cy="12" r="10"></circle>
-              <line x1="12" y1="16" x2="12" y2="12"></line>
-              <line x1="12" y1="8" x2="12.01" y2="8"></line>
-            </svg>
-            <div>
-              <strong>Informações do Pedido / Venda:</strong> Esta movimentação será registrada no histórico e sincronizada com os relatórios de vendas.
-            </div>
+      <!-- Dados da Nota Fiscal -->
+      <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:12px;margin-bottom:14px">
+        <div class="form-grid">
+          <div class="form-field">
+            <label for="nf-numero">Número da Nota Fiscal (NF-e) *</label>
+            <input id="nf-numero" placeholder="Ex: NF-e 184920" required maxlength="40" />
           </div>
-
-          <div class="form-grid">
-            <div class="form-field">
-              <label for="codigo_pedido">Código do Pedido / ID</label>
-              <input id="codigo_pedido" name="codigo_pedido" placeholder="Ex: MLB-28940120 ou DIR-2024-050" />
-            </div>
-            <div class="form-field">
-              <label for="cliente_nome">Nome do Cliente / Empresa</label>
-              <input id="cliente_nome" name="cliente_nome" placeholder="Ex: Condomínio Solar das Palmeiras" />
-            </div>
-            <div class="form-field">
-              <label for="cliente_uf">Estado (UF)</label>
-              <select id="cliente_uf" name="cliente_uf">
-                <option value="SP" selected>SP</option>
-                <option value="RJ">RJ</option>
-                <option value="MG">MG</option>
-                <option value="PR">PR</option>
-                <option value="SC">SC</option>
-                <option value="RS">RS</option>
-                <option value="BA">BA</option>
-                <option value="GO">GO</option>
-                <option value="Outro">Outro</option>
-              </select>
-            </div>
-            <div class="form-field">
-              <label for="tipo_envio">Modalidade de Envio</label>
-              <select id="tipo_envio" name="tipo_envio">
-                <option value="Mercado Envios Full">Mercado Envios Full</option>
-                <option value="Mercado Envios Coleta">Mercado Envios Coleta / Flex</option>
-                <option value="Transportadora Própria">Transportadora / Retirada</option>
-              </select>
-            </div>
+          <div class="form-field">
+            <label for="nf-fornecedor">Fornecedor / Fabricante *</label>
+            <input id="nf-fornecedor" placeholder="Ex: Resil, Mocelin, Extang..." required maxlength="80" />
           </div>
-        </div>
-
-        <!-- Seção de Rastreabilidade para Extintores (Entrada de Lote/Remessa) -->
-        <div id="extintor-lote-section" class="form-field span-2" style="display: none; border-top: 1px dashed #e4ddd4; padding-top: 14px; margin-top: 6px;">
-          <div class="modal-info-box" style="margin-bottom: 12px;">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0; margin-top: 1px;">
-              <circle cx="12" cy="12" r="10"></circle>
-              <line x1="12" y1="16" x2="12" y2="12"></line>
-              <line x1="12" y1="8" x2="12.01" y2="8"></line>
-            </svg>
-            <div>
-              <strong>Rastreabilidade desta Remessa de Extintores:</strong> Identifique a validade, lote e lacres específicos deste novo abastecimento sem precisar cadastrar um novo SKU.
-            </div>
-          </div>
-
-          <div class="form-grid">
-            <div class="form-field">
-              <label for="lote_serie">Lote / Identificador</label>
-              <input id="lote_serie" name="lote_serie" maxlength="40" placeholder="Ex: LT-2024/02" />
-            </div>
-            <div class="form-field">
-              <label for="lote_inmetro">Selo / Inmetro da Remessa</label>
-              <input id="lote_inmetro" name="lote_inmetro" maxlength="50" placeholder="Ex: INM-994120" />
-            </div>
-            <div class="form-field">
-              <label for="lote_fabricacao">Data de Fabricação</label>
-              <input id="lote_fabricacao" name="lote_fabricacao" type="date" />
-            </div>
-            <div class="form-field">
-              <label for="lote_validade">Data de Validade / Carga</label>
-              <input id="lote_validade" name="lote_validade" type="date" />
-            </div>
-            <div class="form-field span-2">
-              <label for="lote_lacre">Número do Lacre</label>
-              <input id="lote_lacre" name="lote_lacre" maxlength="50" placeholder="Ex: L-849201 ou faixa de lacres" />
-            </div>
-            <div class="form-field span-2">
-              <label class="flex items-center gap-2 cursor-pointer font-normal text-xs text-gray-700">
-                <input type="checkbox" id="atualizar_produto_extintor" checked style="width: auto; margin: 0;" />
-                <span>Atualizar cadastro principal do produto com as informações desta remessa</span>
-              </label>
-            </div>
+          <div class="form-field span-2">
+            <label for="nf-data">Data de Chegada / Entrada *</label>
+            <input id="nf-data" type="datetime-local" required />
           </div>
         </div>
       </div>
 
-      <p class="form-error" id="form-error"></p>
-      <div class="modal-actions">
-        <button class="btn-ghost" type="button" id="btn-cancelar">Cancelar</button>
-        <button class="btn-primary" type="submit">Salvar Movimentação</button>
+      <!-- Itens da Nota Fiscal -->
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+        <strong style="font-size:0.86rem;color:var(--ink);text-transform:uppercase;letter-spacing:0.04em">Itens Recebidos nesta Nota</strong>
+        <button type="button" id="btn-add-nf-item" class="btn-ghost" style="font-size:0.8rem;padding:4px 10px;color:var(--accent);border-color:var(--accent)">
+          + Adicionar Outro Produto
+        </button>
+      </div>
+
+      <div id="nf-itens-container">
+        <!-- Linhas de produtos geradas via JS -->
+      </div>
+
+      <p class="form-error" id="form-entrada-error"></p>
+      <div class="modal-actions" style="margin-top:16px">
+        <button class="btn-ghost" type="button" id="btn-cancelar-entrada">Cancelar</button>
+        <button class="btn-primary" type="submit" style="background:#1f9d5c;border-color:#166534">Concluir Entrada no Estoque</button>
       </div>
     </form>
   </div>
 
-  <!-- Modal de Detalhes da Venda & Baixa de Estoque -->
+  <!-- ═══════════════════════════════════════════════════════════ -->
+  <!-- MODAL 2: REGISTRAR SAÍDA AVULSA (PERDA / AVARIA / DESCARTE) -->
+  <!-- ═══════════════════════════════════════════════════════════ -->
+  <div class="modal-backdrop" id="modal-saida" role="dialog" aria-modal="true" aria-labelledby="modal-saida-title">
+    <form class="modal" id="form-saida" style="width: min(580px, 94vw);">
+      <h2 id="modal-saida-title">Registrar Saída Avulsa (Baixa Operacional)</h2>
+      <p style="font-size:0.82rem;color:var(--muted);margin-bottom:14px">
+        Utilize para perdas físicas, cilindros avariados, extintores vencidos ou amostras. Vendas comerciais devem ser registradas no módulo de Pedidos.
+      </p>
+
+      <div class="form-grid">
+        <div class="form-field span-2">
+          <label for="saida-produto">Produto *</label>
+          <select id="saida-produto" class="search-input" required style="width:100%">
+            <!-- Preenchido via JS -->
+          </select>
+        </div>
+
+        <div class="form-field span-2" id="wrap-saida-lote" style="display:none">
+          <label for="saida-lote">Lote Afetado (Extintores)</label>
+          <select id="saida-lote" class="search-input" style="width:100%">
+            <!-- Preenchido via JS -->
+          </select>
+        </div>
+
+        <div class="form-field">
+          <label for="saida-motivo">Motivo da Saída *</label>
+          <select id="saida-motivo" class="search-input" required>
+            <option value="Avaria / Cilindro Danificado">Avaria / Cilindro Danificado</option>
+            <option value="Perda de Pressão / Válvula Defeituosa">Perda de Pressão / Válvula Defeituosa</option>
+            <option value="Extintor Vencido / Descarte">Extintor Vencido / Descarte</option>
+            <option value="Amostra para Demonstração / Teste">Amostra para Demonstração / Teste</option>
+            <option value="Ajuste de Balanço / Perda no Galpão">Ajuste de Balanço / Perda no Galpão</option>
+          </select>
+        </div>
+
+        <div class="form-field">
+          <label for="saida-qtd">Quantidade Baixada *</label>
+          <input id="saida-qtd" type="number" min="1" step="1" value="1" required />
+        </div>
+
+        <div class="form-field span-2">
+          <label for="saida-obs">Observações / Justificativa</label>
+          <textarea id="saida-obs" rows="2" placeholder="Detalhe o ocorrido (ex: queda da prateleira na separação)..." maxlength="200"></textarea>
+        </div>
+      </div>
+
+      <p class="form-error" id="form-saida-error"></p>
+      <div class="modal-actions" style="margin-top:16px">
+        <button class="btn-ghost" type="button" id="btn-cancelar-saida">Cancelar</button>
+        <button class="btn-primary" type="submit" style="background:var(--down);border-color:#b91c1c">Confirmar Baixa de Estoque</button>
+      </div>
+    </form>
+  </div>
+
+  <!-- Modal 3: Detalhes da Venda & Baixa de Estoque (Existente) -->
   <div class="modal-backdrop" id="modal-detalhes-venda" role="dialog" aria-modal="true" aria-labelledby="modal-venda-titulo">
     <div class="modal" style="width: min(720px, 100%);">
       <div class="modal-header">
-        <h2 id="modal-venda-titulo">Detalhes da Venda & Estoque</h2>
+        <h2 id="modal-venda-titulo">Detalhes da Venda &amp; Estoque</h2>
         <button class="icon-btn" id="btn-fechar-modal-venda" type="button" aria-label="Fechar">✕</button>
       </div>
       <div id="modal-venda-conteudo"></div>

@@ -4,6 +4,18 @@ let query = "";
 let filterCanal = "todos";
 let filterPeriodo = "30";
 
+let _backendDisponivel = null;
+async function _testarBackend() {
+  if (_backendDisponivel !== null) return _backendDisponivel;
+  try {
+    const resp = await fetch(`${API_BASE_URL}/health`, { method: "GET" });
+    _backendDisponivel = resp.ok;
+  } catch {
+    _backendDisponivel = false;
+  }
+  return _backendDisponivel;
+}
+
 function formatDate(isoString) {
   if (!isoString) return "-";
   const date = new Date(isoString);
@@ -510,7 +522,7 @@ function bindEvents() {
     updateModalFieldsVisibility();
   });
 
-  document.getElementById("form-movimentacao").addEventListener("submit", (event) => {
+  document.getElementById("form-movimentacao").addEventListener("submit", async (event) => {
     event.preventDefault();
     const idProduto = Number(document.getElementById("id_produto").value);
     const tipo = document.getElementById("tipo").value;
@@ -578,6 +590,101 @@ function bindEvents() {
     }
 
     const dataIso = new Date().toISOString();
+
+    const apiAtiva = await _testarBackend();
+    if (apiAtiva) {
+      try {
+        const payload = {
+          id_produto: idProduto,
+          tipo,
+          quantidade: qtd,
+          motivo,
+          data_movimentacao: dataIso,
+          preco_unitario: precoUnit || (tipo === "Entrada" ? product.custo : product.preco),
+          codigo_pedido: codigoPedido || null,
+          canal,
+          tipo_envio: tipoEnvio || null,
+          cliente: cliente || null,
+          uf: uf || null,
+          detalhes_remessa,
+          atualizar_produto_extintor: document.getElementById("atualizar_produto_extintor")?.checked || false,
+        };
+
+        const resApi = await RezFireAPI.createMovimentacao(payload);
+        product.quantidade_atual = resApi.novo_saldo;
+
+        const newMov = {
+          id_movimentacao: resApi.id_movimentacao,
+          id_pedido: isVenda ? Date.now() : null,
+          codigo_pedido: codigoPedido,
+          canal,
+          tipo_envio: tipoEnvio,
+          cliente,
+          uf,
+          status_pedido: "Entregue",
+          id_produto: idProduto,
+          sku: product.sku,
+          nome_produto: product.nome,
+          tipo,
+          motivo,
+          quantidade: qtd,
+          preco_unitario: resApi.preco_unitario,
+          valor_total: resApi.valor_total,
+          data: resApi.data || dataIso,
+          responsavel: resApi.responsavel || "Gestor RezFire",
+          detalhes_remessa,
+        };
+
+        movements.unshift(newMov);
+        RezFireData.saveMovements(movements);
+        RezFireData.saveProducts(products);
+
+        // Se for Venda, sincroniza também na base de Pedidos de Venda
+        if (isVenda) {
+          try {
+            const orders = RezFireData.loadOrders();
+            const custoUnit = product.custo || (product.preco * 0.5);
+            orders.unshift({
+              id_pedido: newMov.id_pedido,
+              codigo_pedido: codigoPedido,
+              canal,
+              tipo_envio: tipoEnvio,
+              data_pedido: dataIso,
+              cliente,
+              uf,
+              status: "Entregue",
+              itens: [
+                {
+                  id_produto: product.id_produto,
+                  sku: product.sku,
+                  nome: product.nome,
+                  categoria: product.sku.startsWith("EXT") ? "Extintores" : (product.sku.startsWith("PLA") ? "Sinalização" : "Acessórios"),
+                  quantidade: qtd,
+                  preco_unitario: precoUnit || product.preco,
+                  custo_unitario: custoUnit,
+                  subtotal: (precoUnit || product.preco) * qtd,
+                  custo_total: custoUnit * qtd,
+                },
+              ],
+              valor_total: (precoUnit || product.preco) * qtd,
+              custo_total: custoUnit * qtd,
+              lucro_bruto: ((precoUnit || product.preco) - custoUnit) * qtd,
+            });
+            localStorage.setItem("rezfire.pedidos", JSON.stringify(orders));
+          } catch (err) {
+            console.error("Erro ao sincronizar venda com pedidos:", err);
+          }
+        }
+
+        closeModal();
+        renderKPIs();
+        renderTable();
+        return;
+      } catch (err) {
+        document.getElementById("form-error").textContent = err.message || "Erro ao registrar movimentação na API.";
+        return;
+      }
+    }
 
     // 1. Registra a Movimentação
     const newMov = {
@@ -656,10 +763,29 @@ function bindEvents() {
   });
 }
 
-function init() {
+async function init() {
   RezFireLayout.renderSidebar("movimentacoes");
-  products = RezFireData.loadProducts();
-  movements = RezFireData.loadMovements();
+  const apiAtiva = await _testarBackend();
+  if (apiAtiva) {
+    try {
+      products = await RezFireAPI.getProdutos();
+      RezFireData.saveProducts(products);
+
+      const apiMovs = await RezFireAPI.getMovimentacoes();
+      if (Array.isArray(apiMovs) && apiMovs.length > 0) {
+        movements = apiMovs;
+        RezFireData.saveMovements(movements);
+      } else {
+        movements = RezFireData.loadMovements();
+      }
+    } catch {
+      products = RezFireData.loadProducts();
+      movements = RezFireData.loadMovements();
+    }
+  } else {
+    products = RezFireData.loadProducts();
+    movements = RezFireData.loadMovements();
+  }
 
   // Deeplink: lê parâmetros ?busca= ou ?pedido= passados pelo Dashboard de Vendas
   const urlParams = new URLSearchParams(window.location.search);

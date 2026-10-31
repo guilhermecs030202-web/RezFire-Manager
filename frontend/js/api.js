@@ -100,4 +100,51 @@ const RezFireAPI = {
     });
     return this._handleResponse(response);
   },
+
+  /**
+   * Lista movimentações de estoque (com filtros opcionais).
+   * @param {Object} [filters] - { id_produto, tipo, limite }
+   * @returns {Promise<Array>}
+   */
+  async getMovimentacoes(filters = {}) {
+    const params = new URLSearchParams();
+    if (filters.id_produto) params.append('id_produto', filters.id_produto);
+    if (filters.tipo) params.append('tipo', filters.tipo);
+    if (filters.limite) params.append('limite', filters.limite);
+
+    const qs = params.toString() ? `?${params.toString()}` : '';
+    const response = await fetch(`${API_BASE_URL}/movimentacoes${qs}`, {
+      method: 'GET',
+      headers: this._headers(),
+    });
+    return this._handleResponse(response);
+  },
+
+  /**
+   * Consulta histórico de movimentações de um produto específico.
+   * @param {number} id_produto
+   * @returns {Promise<Array>}
+   */
+  async getMovimentacoesPorProduto(id_produto) {
+    const response = await fetch(`${API_BASE_URL}/movimentacoes/produto/${id_produto}`, {
+      method: 'GET',
+      headers: this._headers(),
+    });
+    return this._handleResponse(response);
+  },
+
+  /**
+   * Registra uma nova movimentação de estoque (entrada ou saída).
+   * Recalcula automaticamente o saldo no backend.
+   * @param {Object} data - Dados da movimentação
+   * @returns {Promise<Object>}
+   */
+  async createMovimentacao(data) {
+    const response = await fetch(`${API_BASE_URL}/movimentacoes`, {
+      method: 'POST',
+      headers: this._headers(),
+      body: JSON.stringify(data),
+    });
+    return this._handleResponse(response);
+  },
 };

@@ -5,8 +5,10 @@ import {
   CreateDateColumn,
   UpdateDateColumn,
   OneToOne,
+  OneToMany,
 } from 'typeorm';
 import { Estoque } from './Estoque';
+import { MovimentacaoEstoque } from './MovimentacaoEstoque';
 
 @Entity('produtos')
 export class Produto {
@@ -51,4 +53,7 @@ export class Produto {
 
   @OneToOne(() => Estoque, (estoque) => estoque.produto)
   estoque!: Estoque;
+
+  @OneToMany(() => MovimentacaoEstoque, (mov) => mov.produto)
+  movimentacoes!: MovimentacaoEstoque[];
 }

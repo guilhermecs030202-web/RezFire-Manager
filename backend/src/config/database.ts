@@ -2,6 +2,8 @@ import 'reflect-metadata';
 import { DataSource } from 'typeorm';
 import { Produto } from '../entities/Produto';
 import { Estoque } from '../entities/Estoque';
+import { Usuario } from '../entities/Usuario';
+import { MovimentacaoEstoque } from '../entities/MovimentacaoEstoque';
 import * as dotenv from 'dotenv';
 
 dotenv.config();
@@ -15,7 +17,7 @@ export const AppDataSource = new DataSource({
   database: process.env.DB_NAME || 'rezfire',
   synchronize: true, // Em desenvolvimento: cria/atualiza tabelas automaticamente
   logging: false,
-  entities: [Produto, Estoque],
+  entities: [Produto, Estoque, Usuario, MovimentacaoEstoque],
   migrations: [],
   subscribers: [],
 });

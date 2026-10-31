@@ -133,6 +133,44 @@ function updateModalFieldsVisibility() {
       secaoExtintor.style.display = "none";
     }
   }
+  atualizarIndicadorSaldo();
+}
+
+function atualizarIndicadorSaldo() {
+  const tipo = document.getElementById("tipo") ? document.getElementById("tipo").value : "";
+  const idProduto = Number(document.getElementById("id_produto") ? document.getElementById("id_produto").value : 0);
+  const qtdInput = document.getElementById("quantidade");
+  const qtd = qtdInput ? Number(qtdInput.value) || 0 : 0;
+  const product = products.find((p) => p.id_produto === idProduto);
+
+  const badgeEl = document.getElementById("saldo-disponivel-badge");
+  const avisoEl = document.getElementById("saldo-aviso-bloqueio");
+  const errorEl = document.getElementById("form-error");
+
+  if (!badgeEl || !avisoEl || !qtdInput) return;
+
+  if (tipo === "Saída" && product) {
+    const saldoAtual = Number(product.quantidade_atual !== undefined ? product.quantidade_atual : 0);
+    badgeEl.style.display = "inline";
+    badgeEl.textContent = `Saldo disponível: ${saldoAtual} un.`;
+    badgeEl.style.color = saldoAtual > 0 ? "#1f9d5c" : "#dc2626";
+
+    if (qtd > saldoAtual) {
+      qtdInput.style.borderColor = "#dc2626";
+      avisoEl.style.display = "block";
+      avisoEl.textContent = `Bloqueado: quantidade maior que o saldo atual (${saldoAtual} un.)`;
+    } else {
+      qtdInput.style.borderColor = "";
+      avisoEl.style.display = "none";
+      if (errorEl && errorEl.textContent.includes("Estoque insuficiente")) {
+        errorEl.textContent = "";
+      }
+    }
+  } else {
+    badgeEl.style.display = "none";
+    avisoEl.style.display = "none";
+    qtdInput.style.borderColor = "";
+  }
 }
 
 function updateMotivosOptions() {
@@ -520,7 +558,9 @@ function bindEvents() {
       document.getElementById("preco_unitario").value = product.preco;
     }
     updateModalFieldsVisibility();
+    atualizarIndicadorSaldo();
   });
+  document.getElementById("quantidade")?.addEventListener("input", atualizarIndicadorSaldo);
 
   document.getElementById("form-movimentacao").addEventListener("submit", async (event) => {
     event.preventDefault();

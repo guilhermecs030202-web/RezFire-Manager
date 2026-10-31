@@ -168,8 +168,12 @@ export class MovimentacaoController {
           throw new Error('PRODUTO_NAO_ENCONTRADO');
         }
 
-        // Recupera ou cria registro de estoque
-        let estoque = produto.estoque;
+        // Recupera ou cria registro de estoque com bloqueio pessimista de escrita
+        let estoque = await estoqueRepo.findOne({
+          where: { produto: { id_produto: numIdProduto } },
+          lock: { mode: 'pessimistic_write' },
+        });
+
         if (!estoque) {
           estoque = estoqueRepo.create({
             produto,
@@ -185,6 +189,10 @@ export class MovimentacaoController {
         if (tipoNormalizado === 'Entrada') {
           novoSaldo = saldoAnterior + numQtd;
         } else {
+          // SCRUM-8: Bloquear saída quando a quantidade solicitada for maior que o saldo atual
+          if (numQtd > saldoAnterior) {
+            throw new Error(`ESTOQUE_INSUFICIENTE:${saldoAnterior}`);
+          }
           novoSaldo = saldoAnterior - numQtd;
         }
 
@@ -263,6 +271,15 @@ export class MovimentacaoController {
     } catch (err: any) {
       if (err.message === 'PRODUTO_NAO_ENCONTRADO') {
         res.status(404).json({ error: 'Produto informado não foi encontrado.' });
+        return;
+      }
+      if (typeof err.message === 'string' && err.message.startsWith('ESTOQUE_INSUFICIENTE:')) {
+        const saldoDisponivel = Number(err.message.split(':')[1]);
+        res.status(400).json({
+          error: `Operação bloqueada: a quantidade solicitada (${req.body.quantidade} un.) é maior que o saldo atual disponível (${saldoDisponivel} un.).`,
+          saldo_disponivel: saldoDisponivel,
+          quantidade_solicitada: Number(req.body.quantidade),
+        });
         return;
       }
       console.error('[MovimentacaoController.criar]', err);

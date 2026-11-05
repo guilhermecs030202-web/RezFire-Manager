@@ -1029,8 +1029,21 @@ function bindEvents() {
   });
 
   // Atualizar
-  document.getElementById("btn-atualizar")?.addEventListener("click", () => {
-    state.pedidos = window.RezFireData.loadOrders();
+  document.getElementById("btn-atualizar")?.addEventListener("click", async () => {
+    try {
+      if (window.RezFireAPI) {
+        const res = await window.RezFireAPI.pedidos.listar();
+        if (res && res.sucesso && Array.isArray(res.pedidos)) {
+          state.pedidos = res.pedidos;
+        } else {
+          state.pedidos = window.RezFireData.loadOrders();
+        }
+      } else {
+        state.pedidos = window.RezFireData.loadOrders();
+      }
+    } catch (e) {
+      state.pedidos = window.RezFireData.loadOrders();
+    }
     renderKPIs();
     renderTable();
     showToast("Dados de pedidos atualizados.", "info");
@@ -1415,10 +1428,43 @@ function bindEvents() {
 }
 
 // ─── Inicialização da Página ──────────────────────────────────────────────────
-function init() {
+async function init() {
   window.RezFireLayout.renderSidebar("pedidos");
-  state.pedidos = window.RezFireData.loadOrders();
-  state.produtos = window.RezFireData.loadProducts();
+
+  try {
+    if (window.RezFireAPI) {
+      const [resPedidos, resProdutos] = await Promise.all([
+        window.RezFireAPI.pedidos.listar().catch(() => null),
+        window.RezFireAPI.produtos.listar().catch(() => null),
+      ]);
+
+      if (resPedidos && resPedidos.sucesso && Array.isArray(resPedidos.pedidos) && resPedidos.pedidos.length > 0) {
+        state.pedidos = resPedidos.pedidos.map(p => ({
+          ...p,
+          itens: Array.isArray(p.itens) ? p.itens.map(it => ({
+            ...it,
+            sku: it.produto?.sku || it.sku,
+            nome: it.produto?.nome || it.nome,
+          })) : []
+        }));
+      } else {
+        state.pedidos = window.RezFireData.loadOrders();
+      }
+
+      if (resProdutos && resProdutos.sucesso && Array.isArray(resProdutos.produtos)) {
+        state.produtos = resProdutos.produtos;
+      } else {
+        state.produtos = window.RezFireData.loadProducts();
+      }
+    } else {
+      state.pedidos = window.RezFireData.loadOrders();
+      state.produtos = window.RezFireData.loadProducts();
+    }
+  } catch (err) {
+    console.warn("[Pedidos] Carregando dados locais:", err);
+    state.pedidos = window.RezFireData.loadOrders();
+    state.produtos = window.RezFireData.loadProducts();
+  }
 
   bindEvents();
   renderKPIs();

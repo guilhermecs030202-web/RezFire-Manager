@@ -61,15 +61,43 @@ function renderSidebar(active) {
       </span>
     </nav>
     <div class="sidebar-footer">
-      <div class="sidebar-user">Gestor RezFire</div>
+      <div class="sidebar-user" id="sidebar-user-name">Gestor RezFire</div>
       <div class="sidebar-role">GESTOR</div>
-      <button class="sidebar-logout" type="button" title="Login ainda não implementado">
+      <button class="sidebar-logout" id="btn-sidebar-logout" type="button" title="Encerrar sessão com segurança">
         ${icon("logout")} Sair
       </button>
     </div>
   `;
 
   root.prepend(sidebar);
+
+  // Carrega nome do usuário da sessão se disponível
+  try {
+    const rawUser = localStorage.getItem('rezfire_user');
+    if (rawUser) {
+      const u = JSON.parse(rawUser);
+      if (u.nome) {
+        const nameEl = document.getElementById("sidebar-user-name");
+        if (nameEl) nameEl.textContent = u.nome;
+      }
+    }
+  } catch (e) {}
+
+  // Ação de Logout
+  const btnLogout = document.getElementById("btn-sidebar-logout");
+  if (btnLogout) {
+    btnLogout.addEventListener("click", () => {
+      if (confirm("Deseja realmente sair do sistema RezFire Manager?")) {
+        if (window.RezFireAPI && window.RezFireAPI.auth) {
+          window.RezFireAPI.auth.logout();
+        } else {
+          localStorage.removeItem('rezfire_auth_token');
+          localStorage.removeItem('rezfire_user');
+          window.location.href = 'login.html';
+        }
+      }
+    });
+  }
 }
 
 window.RezFireLayout = { renderSidebar };

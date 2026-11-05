@@ -18,6 +18,12 @@ window.RezFireAPI = {
       defaultHeaders['Content-Type'] = 'application/json';
     }
 
+    // Token JWT salvo como contingência ou para requests entre origens
+    const token = localStorage.getItem('rezfire_auth_token');
+    if (token) {
+      defaultHeaders['Authorization'] = `Bearer ${token}`;
+    }
+
     const config = {
       ...options,
       credentials: 'include', // Envia cookies HttpOnly da sessão
@@ -29,6 +35,16 @@ window.RezFireAPI = {
 
     try {
       const response = await fetch(url, config);
+
+      if (response.status === 401 && !endpoint.includes('/auth/login')) {
+        localStorage.removeItem('rezfire_auth_token');
+        localStorage.removeItem('rezfire_user');
+        if (!window.location.pathname.endsWith('login.html')) {
+          window.location.href = 'login.html';
+        }
+        throw new Error('Sessão expirada ou não autenticada. Redirecionando...');
+      }
+
       const data = await response.json();
 
       if (!response.ok) {
@@ -45,13 +61,26 @@ window.RezFireAPI = {
   // Módulo de Autenticação
   auth: {
     async login(email, senha) {
-      return window.RezFireAPI.request('/auth/login', {
+      const data = await window.RezFireAPI.request('/auth/login', {
         method: 'POST',
         body: JSON.stringify({ email, senha }),
       });
+      if (data && data.sucesso && data.token) {
+        localStorage.setItem('rezfire_auth_token', data.token);
+        if (data.usuario) {
+          localStorage.setItem('rezfire_user', JSON.stringify(data.usuario));
+        }
+      }
+      return data;
     },
     async logout() {
-      return window.RezFireAPI.request('/auth/logout', { method: 'POST' });
+      try {
+        await window.RezFireAPI.request('/auth/logout', { method: 'POST' });
+      } finally {
+        localStorage.removeItem('rezfire_auth_token');
+        localStorage.removeItem('rezfire_user');
+        window.location.href = 'login.html';
+      }
     },
     async me() {
       return window.RezFireAPI.request('/auth/me');

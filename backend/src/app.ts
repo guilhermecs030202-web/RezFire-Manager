@@ -38,9 +38,9 @@ app.use('/api', routes);
 const frontendPath = path.resolve(__dirname, '../../frontend');
 app.use(express.static(frontendPath));
 
-// Redireciona a raiz para o Dashboard
+// Redireciona a raiz para a tela de Login
 app.get('/', (req, res) => {
-  res.sendFile(path.join(frontendPath, 'dashboard.html'));
+  res.sendFile(path.join(frontendPath, 'login.html'));
 });
 
 // Arquivos de Certificação Inmetro (Acesso seguro no disco local do gestor)

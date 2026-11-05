@@ -651,10 +651,42 @@ function bindEvents() {
   });
 }
 
-function init() {
+async function init() {
   RezFireLayout.renderSidebar("movimentacoes");
-  products = RezFireData.loadProducts();
-  movements = RezFireData.loadMovements();
+
+  try {
+    if (window.RezFireAPI) {
+      const [resMovs, resProds] = await Promise.all([
+        window.RezFireAPI.movimentacoes.listar().catch(() => null),
+        window.RezFireAPI.produtos.listar().catch(() => null),
+      ]);
+
+      if (resMovs && resMovs.sucesso && Array.isArray(resMovs.movimentacoes)) {
+        movements = resMovs.movimentacoes.map(m => ({
+          ...m,
+          sku: m.produto?.sku || m.sku,
+          nome: m.produto?.nome || m.nome,
+          data: m.data_movimentacao || m.data,
+          usuario: m.usuario?.nome || "Gestor RezFire",
+        }));
+      } else {
+        movements = RezFireData.loadMovements();
+      }
+
+      if (resProds && resProds.sucesso && Array.isArray(resProds.produtos)) {
+        products = resProds.produtos;
+      } else {
+        products = RezFireData.loadProducts();
+      }
+    } else {
+      products = RezFireData.loadProducts();
+      movements = RezFireData.loadMovements();
+    }
+  } catch (e) {
+    console.warn("[Movimentações] Carregando dados locais:", e);
+    products = RezFireData.loadProducts();
+    movements = RezFireData.loadMovements();
+  }
 
   bindEvents();
   renderKPIs();

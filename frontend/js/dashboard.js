@@ -9,12 +9,38 @@ function kpiCard(label, value, hint) {
 }
 window.kpiCard = kpiCard;
 
-function renderDashboard() {
+async function renderDashboard() {
   RezFireLayout.renderSidebar("dashboard");
 
-  const products = RezFireData.loadProducts();
-  const metrics = RezFireData.computeDashboard(products);
+  let products = RezFireData.loadProducts();
+  let metrics = RezFireData.computeDashboard(products);
   const money = RezFireData.formatMoney;
+
+  if (window.RezFireAPI) {
+    try {
+      const res = await window.RezFireAPI.dashboard.kpis(180);
+      if (res && res.sucesso && res.kpis) {
+        const k = res.kpis;
+        if (k.estoque) {
+          if (typeof k.estoque.total_unidades === 'number') metrics.quantidadeTotal = k.estoque.total_unidades;
+          if (typeof k.estoque.valor_total_venda === 'number') metrics.valorTotal = k.estoque.valor_total_venda;
+          if (typeof k.estoque.produtos_estoque_baixo === 'number') metrics.abaixoMinimo = k.estoque.produtos_estoque_baixo;
+          if (typeof k.estoque.cobertura_dias === 'number' && k.estoque.cobertura_dias > 0) metrics.coberturaDias = k.estoque.cobertura_dias;
+          if (typeof k.estoque.giro_estoque === 'number' && k.estoque.giro_estoque > 0) metrics.giroAno = k.estoque.giro_estoque;
+        }
+        if (k.movimentacoes) {
+          if (typeof k.movimentacoes.total_entradas === 'number') metrics.entradas = k.movimentacoes.total_entradas;
+          if (typeof k.movimentacoes.total_saidas === 'number') metrics.saidas = k.movimentacoes.total_saidas;
+          if (k.movimentacoes.total_movimentacoes) metrics.frequenciaMedia = Math.round(k.movimentacoes.total_movimentacoes / 6);
+        }
+        if (k.vendas && typeof k.vendas.ticket_medio === 'number' && k.vendas.ticket_medio > 0) {
+          metrics.ticketMedio = k.vendas.ticket_medio;
+        }
+      }
+    } catch (e) {
+      console.warn("[Dashboard] Usando métricas locais:", e);
+    }
+  }
 
   document.getElementById("kpis-estoque").innerHTML = [
     kpiCard("QUANTIDADE TOTAL", metrics.quantidadeTotal.toLocaleString("pt-BR"), "unidades em produtos ativos"),

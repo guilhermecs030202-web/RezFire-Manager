@@ -1,0 +1,377 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Login | RezFire Manager</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="css/app.css" />
+  <style>
+    body {
+      background: #1a1412;
+      color: #f4efe8;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      margin: 0;
+      font-family: 'Inter', sans-serif;
+      overflow: hidden;
+      position: relative;
+    }
+
+    /* Fundo sutil com gradiente radial quente */
+    .bg-glow {
+      position: absolute;
+      width: 600px;
+      height: 600px;
+      background: radial-gradient(circle, rgba(232, 92, 42, 0.12) 0%, rgba(26, 20, 18, 0) 70%);
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    .login-container {
+      position: relative;
+      z-index: 1;
+      width: 100%;
+      max-width: 420px;
+      padding: 24px;
+    }
+
+    .login-card {
+      background: #231b18;
+      border: 1px solid #322824;
+      border-radius: 16px;
+      padding: 36px 32px;
+      box-shadow: 0 16px 40px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(255, 255, 255, 0.04);
+    }
+
+    .brand-header {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      text-align: center;
+      margin-bottom: 28px;
+    }
+
+    .brand-badge {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 52px;
+      height: 52px;
+      background: rgba(232, 92, 42, 0.12);
+      border: 1px solid rgba(232, 92, 42, 0.25);
+      border-radius: 14px;
+      margin-bottom: 14px;
+    }
+
+    .brand-badge svg {
+      width: 28px;
+      height: 28px;
+    }
+
+    .brand-title {
+      font-size: 1.4rem;
+      font-weight: 800;
+      letter-spacing: 0.08em;
+      color: #f4efe8;
+      margin: 0;
+    }
+
+    .brand-subtitle {
+      font-size: 0.85rem;
+      color: #9c948c;
+      margin-top: 6px;
+    }
+
+    .form-group {
+      margin-bottom: 20px;
+    }
+
+    .form-label {
+      display: block;
+      font-size: 0.78rem;
+      font-weight: 600;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      color: #c4bbb0;
+      margin-bottom: 8px;
+    }
+
+    .input-wrapper {
+      position: relative;
+    }
+
+    .form-control {
+      width: 100%;
+      background: #1a1412;
+      border: 1px solid #3e332e;
+      border-radius: 10px;
+      padding: 12px 14px;
+      font-size: 0.92rem;
+      color: #f4efe8;
+      font-family: inherit;
+      transition: all 0.2s ease;
+      box-sizing: border-box;
+    }
+
+    .form-control:focus {
+      outline: none;
+      border-color: #e85c2a;
+      box-shadow: 0 0 0 3px rgba(232, 92, 42, 0.2);
+    }
+
+    .btn-login {
+      width: 100%;
+      background: #e85c2a;
+      color: #ffffff;
+      border: none;
+      border-radius: 10px;
+      padding: 13px;
+      font-size: 0.95rem;
+      font-weight: 600;
+      letter-spacing: 0.02em;
+      cursor: pointer;
+      transition: background 0.2s ease, transform 0.1s ease;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      margin-top: 24px;
+    }
+
+    .btn-login:hover {
+      background: #d14e20;
+    }
+
+    .btn-login:active {
+      transform: scale(0.99);
+    }
+
+    .btn-login:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
+
+    .quick-fill {
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px dashed #3e332e;
+      border-radius: 8px;
+      padding: 10px 14px;
+      margin-top: 20px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-size: 0.78rem;
+      color: #a89f96;
+    }
+
+    .quick-fill button {
+      background: transparent;
+      border: none;
+      color: #e85c2a;
+      font-size: 0.78rem;
+      font-weight: 600;
+      cursor: pointer;
+      text-decoration: underline;
+      padding: 0;
+    }
+
+    .quick-fill button:hover {
+      color: #ff7847;
+    }
+
+    .alert-box {
+      display: none;
+      background: rgba(226, 75, 75, 0.12);
+      border: 1px solid rgba(226, 75, 75, 0.3);
+      color: #ff8e8e;
+      border-radius: 8px;
+      padding: 10px 14px;
+      font-size: 0.82rem;
+      margin-bottom: 20px;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .spinner {
+      width: 18px;
+      height: 18px;
+      border: 2px solid rgba(255, 255, 255, 0.3);
+      border-top-color: #ffffff;
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+      display: none;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    .footer-note {
+      text-align: center;
+      font-size: 0.75rem;
+      color: #6b635c;
+      margin-top: 20px;
+    }
+  </style>
+</head>
+<body>
+  <div class="bg-glow"></div>
+
+  <div class="login-container">
+    <div class="login-card">
+      <div class="brand-header">
+        <div class="brand-badge">
+          <svg viewBox="0 0 24 24" fill="none">
+            <path fill="#e85c2a" stroke="none" d="M12.9 2.7c.4 2.6 2.2 4 2.6 6.3.2 1.2-.2 2.2-1 2.9.9-.4 1.6-1.2 1.9-2.3.9 1.5 1.4 3.1 1.4 4.6 0 4.1-3.1 7.2-7.8 7.2S2.2 18.3 2.2 14.2c0-3.3 1.9-5.5 3.6-7.5C7.2 5.2 8 4.1 8.2 2.6c1.4 1.2 2.8 3.1 4 2.4-.2-1-.5-1.7.7-2.3z"/>
+            <path fill="#f4efe8" stroke="none" d="M12 18.4c-1.9 0-3.2-1.3-3.2-3.2 0-1.4.8-2.3 1.8-3.1.1 1.3.8 2.2 1.8 2.6.6-1.1.7-2.2.5-3.4 1.4.8 2.3 2.1 2.3 3.9 0 1.9-1.3 3.2-3.2 3.2z"/>
+          </svg>
+        </div>
+        <h1 class="brand-title">REZFIRE MANAGER</h1>
+        <p class="brand-subtitle">Autenticação do Gestor Operacional</p>
+      </div>
+
+      <div class="alert-box" id="error-alert">
+        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
+          <circle cx="12" cy="12" r="10"/>
+          <line x1="12" y1="8" x2="12" y2="12"/>
+          <line x1="12" y1="16" x2="12.01" y2="16"/>
+        </svg>
+        <span id="error-message"></span>
+      </div>
+
+      <form id="form-login">
+        <div class="form-group">
+          <label class="form-label" for="email">E-mail Corporativo</label>
+          <input
+            type="email"
+            id="email"
+            class="form-control"
+            required
+            autocomplete="username"
+            placeholder="gestor@rezfire.com.br"
+            value="gestor@rezfire.com.br"
+          />
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="senha">Senha</label>
+          <input
+            type="password"
+            id="senha"
+            class="form-control"
+            required
+            autocomplete="current-password"
+            placeholder="••••••••"
+            value="rezfire2026"
+          />
+        </div>
+
+        <button type="submit" class="btn-login" id="btn-submit">
+          <span class="spinner" id="spinner"></span>
+          <span id="btn-text">Entrar no Sistema</span>
+        </button>
+      </form>
+
+      <div class="quick-fill">
+        <span>Gestor Padrão: <code>rezfire2026</code></span>
+        <button type="button" id="btn-preencher">Preencher</button>
+      </div>
+
+      <div class="footer-note">
+        RezFire Soluções em Prevenção contra Incêndio &copy; 2026
+      </div>
+    </div>
+  </div>
+
+  <script src="js/api.js"></script>
+  <script>
+    const form = document.getElementById('form-login');
+    const emailInput = document.getElementById('email');
+    const senhaInput = document.getElementById('senha');
+    const btnSubmit = document.getElementById('btn-submit');
+    const btnText = document.getElementById('btn-text');
+    const spinner = document.getElementById('spinner');
+    const errorAlert = document.getElementById('error-alert');
+    const errorMessage = document.getElementById('error-message');
+    const btnPreencher = document.getElementById('btn-preencher');
+
+    btnPreencher.addEventListener('click', () => {
+      emailInput.value = 'gestor@rezfire.com.br';
+      senhaInput.value = 'rezfire2026';
+      hideError();
+    });
+
+    function showError(msg) {
+      errorMessage.textContent = msg;
+      errorAlert.style.display = 'flex';
+    }
+
+    function hideError() {
+      errorAlert.style.display = 'none';
+      errorMessage.textContent = '';
+    }
+
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      hideError();
+
+      const email = emailInput.value.trim();
+      const senha = senhaInput.value;
+
+      if (!email || !senha) {
+        showError('Por favor, informe e-mail e senha.');
+        return;
+      }
+
+      btnSubmit.disabled = true;
+      spinner.style.display = 'inline-block';
+      btnText.textContent = 'Autenticando...';
+
+      try {
+        const res = await window.RezFireAPI.auth.login(email, senha);
+        if (res && res.sucesso) {
+          // Limpa caches antigos de mock para garantir que os dados venham do MySQL
+          localStorage.removeItem('rezfire_products_v1');
+          localStorage.removeItem('rezfire_movimentacoes_v1');
+          localStorage.removeItem('rezfire_pedidos_v1');
+
+          btnText.textContent = 'Conectado! Redirecionando...';
+          setTimeout(() => {
+            window.location.href = 'dashboard.html';
+          }, 350);
+        } else {
+          showError(res.mensagem || 'Credenciais inválidas.');
+          btnSubmit.disabled = false;
+          spinner.style.display = 'none';
+          btnText.textContent = 'Entrar no Sistema';
+        }
+      } catch (err) {
+        showError(err.message || 'Erro ao conectar ao servidor da API.');
+        btnSubmit.disabled = false;
+        spinner.style.display = 'none';
+        btnText.textContent = 'Entrar no Sistema';
+      }
+    });
+
+    // Se já estiver autenticado, pode ir direto para o dashboard
+    (async () => {
+      try {
+        const me = await window.RezFireAPI.auth.me();
+        if (me && me.sucesso && me.usuario) {
+          window.location.href = 'dashboard.html';
+        }
+      } catch (e) {
+        // Não está logado, permanece na tela de login
+      }
+    })();
+  </script>
+</body>
+</html>

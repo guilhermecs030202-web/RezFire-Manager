@@ -34,6 +34,15 @@ app.get('/api/health', (req, res) => {
 // Rotas da API
 app.use('/api', routes);
 
+// Servir arquivos estáticos do Frontend (HTML, CSS, JS)
+const frontendPath = path.resolve(__dirname, '../../frontend');
+app.use(express.static(frontendPath));
+
+// Redireciona a raiz para o Dashboard
+app.get('/', (req, res) => {
+  res.sendFile(path.join(frontendPath, 'dashboard.html'));
+});
+
 // Arquivos de Certificação Inmetro (Acesso seguro no disco local do gestor)
 app.use(
   '/uploads/certificados',

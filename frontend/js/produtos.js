@@ -600,7 +600,7 @@ function bindEvents() {
     }
   });
 
-  document.getElementById("produtos-body").addEventListener("click", (event) => {
+  document.getElementById("produtos-body").addEventListener("click", async (event) => {
     const viewBtn = event.target.closest("[data-view]");
     if (viewBtn) {
       const id = Number(viewBtn.getAttribute("data-view"));

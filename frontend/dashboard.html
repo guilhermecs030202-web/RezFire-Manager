@@ -296,6 +296,131 @@
           </div>
         </div>
 
+        <!-- ABA 5: DASHBOARD DE ENTREGAS -->
+        <div id="tab-entregas" class="tab-content">
+          <!-- Toolbar de Filtros do Dashboard de Entregas -->
+          <div class="page-toolbar" style="margin-top: 12px; margin-bottom: 20px;">
+            <div class="flex items-center gap-3 flex-wrap">
+              <div class="flex items-center gap-2">
+                <label for="filtro-entregas-periodo" class="text-xs font-bold text-stone-500 uppercase">Período:</label>
+                <select id="filtro-entregas-periodo" class="search-input" style="width: 190px;" title="Aplica-se aos indicadores de desempenho (prazos, lead time, ocorrências). A fila operacional sempre mostra todos os pedidos em aberto.">
+                  <option value="7">Últimos 7 dias</option>
+                  <option value="30" selected>Últimos 30 dias</option>
+                  <option value="90">Últimos 90 dias</option>
+                  <option value="0">Todo o histórico</option>
+                </select>
+              </div>
+
+              <div class="flex items-center gap-2">
+                <label for="filtro-entregas-canal" class="text-xs font-bold text-stone-500 uppercase">Canal:</label>
+                <select id="filtro-entregas-canal" class="search-input" style="width: 200px;">
+                  <option value="todos" selected>Todos os Canais</option>
+                  <option value="Mercado Livre">Mercado Livre</option>
+                  <option value="Venda Direta">Venda Direta / B2B</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="flex items-center gap-3 flex-wrap">
+              <a href="entregas.html" class="btn-ghost" style="padding: 8px 14px; font-size: 0.82rem; text-decoration: none; display: inline-flex; align-items: center; gap: 6px;">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 18V6a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2v11a1 1 0 0 0 1 1h2"/><path d="M15 18H9"/><path d="M19 18h2a1 1 0 0 0 1-1v-3.65a1 1 0 0 0-.22-.624l-3.48-4.35A1 1 0 0 0 17.52 8H14"/><circle cx="17" cy="18" r="2"/><circle cx="7" cy="18" r="2"/></svg>
+                Abrir Tela de Entregas
+              </a>
+              <div class="flex items-center gap-2 text-xs text-stone-500 font-medium">
+                <span class="inline-block w-2 h-2 rounded-full bg-emerald-500"></span>
+                <span id="label-entregas-referencia">Referência operacional</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Banner de Ações Prioritárias -->
+          <div id="alerta-entregas-banner" class="stock-alert-banner"></div>
+
+          <!-- Grade de KPIs de Entregas -->
+          <section class="kpi-grid" id="kpis-tab-entregas" style="grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));"></section>
+
+          <!-- Linha 1: Pipeline atual & Agenda de despacho -->
+          <div class="charts-row-equal" style="margin-top: 20px;">
+            <div class="chart-card card">
+              <div class="flex items-center justify-between mb-2">
+                <h2 class="chart-title">Pipeline Logístico Atual</h2>
+                <span class="text-xs text-stone-500 font-medium">Pedidos em aberto por etapa</span>
+              </div>
+              <div id="chart-entregas-pipeline"></div>
+            </div>
+
+            <div class="chart-card card">
+              <div class="flex items-center justify-between mb-2">
+                <h2 class="chart-title">Agenda de Despacho</h2>
+                <span class="text-xs text-stone-500 font-medium">Pendentes por prazo × prontidão</span>
+              </div>
+              <div id="chart-entregas-agenda"></div>
+            </div>
+          </div>
+
+          <!-- Linha 2: Cumprimento de prazos, Modalidade & UF -->
+          <div class="charts-row-3" style="margin-top: 14px;">
+            <div class="chart-card card">
+              <div class="flex items-center justify-between mb-2">
+                <h2 class="chart-title">Cumprimento de Prazos</h2>
+                <span class="text-xs text-stone-500 font-medium">Despacho e entrega no prazo</span>
+              </div>
+              <div id="chart-entregas-prazos"></div>
+            </div>
+
+            <div class="chart-card card">
+              <div class="flex items-center justify-between mb-2">
+                <h2 class="chart-title">Desempenho por Modalidade</h2>
+                <span class="text-xs text-stone-500 font-medium">Volume, problemas e lead time</span>
+              </div>
+              <div id="chart-entregas-modalidade"></div>
+            </div>
+
+            <div class="chart-card card">
+              <div class="flex items-center justify-between mb-2">
+                <h2 class="chart-title">Situação por Estado de Destino</h2>
+                <span class="text-xs text-stone-500 font-medium">Onde estão os problemas</span>
+              </div>
+              <div id="chart-entregas-uf"></div>
+            </div>
+          </div>
+
+          <!-- Tabela: Fila de prioridades -->
+          <div class="card" style="margin-top: 20px; padding: 20px;">
+            <div class="flex items-center justify-between mb-3 flex-wrap gap-3">
+              <div>
+                <h2 class="chart-title" style="margin: 0;">Fila de Prioridades Logísticas</h2>
+                <p class="text-xs text-stone-500 mt-1">Pedidos em aberto ordenados por risco e prazo — o topo da lista é o que precisa de ação primeiro</p>
+              </div>
+              <div class="flex items-center gap-3">
+                <select id="filtro-entregas-fila" class="search-input" style="width: 200px; padding: 6px 12px; font-size: 0.82rem;">
+                  <option value="risco" selected>Somente com risco</option>
+                  <option value="todos">Todos em aberto</option>
+                </select>
+                <span id="label-total-entregas-fila" class="text-xs font-bold text-stone-600 bg-stone-100 px-3 py-1.5 rounded-full"></span>
+              </div>
+            </div>
+
+            <div class="table-wrap">
+              <table class="products-table" id="tabela-entregas-fila">
+                <thead>
+                  <tr>
+                    <th>PEDIDO</th>
+                    <th>CLIENTE / UF</th>
+                    <th>CANAL / MODALIDADE</th>
+                    <th>ETAPA ATUAL</th>
+                    <th>PRAZO DESPACHO</th>
+                    <th>PREVISÃO ENTREGA</th>
+                    <th>RISCO / MOTIVO</th>
+                    <th style="text-align: right;">AÇÃO</th>
+                  </tr>
+                </thead>
+                <tbody id="lista-entregas-fila"></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
         <div id="tab-visao-geral" class="tab-content">
           <div class="section-head">
             <span class="section-num">1</span>
@@ -602,7 +727,9 @@
 
     <script src="https://cdn.jsdelivr.net/npm/apexcharts"></script>
     <script src="js/mock-data.js"></script>
+    <script src="js/mock-entregas.js"></script>
     <script src="js/layout.js"></script>
+    <script src="js/dashboard-entregas.js"></script>
     <script src="js/dashboard.js"></script>
   </body>
 </html>

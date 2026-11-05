@@ -4,6 +4,7 @@ const trashIcon = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" s
 
 let products = [];
 let query = "";
+let filtroCertificado = "todos";
 let currentComboItems = [];
 
 function updateComboVisibility() {
@@ -48,12 +49,22 @@ function renderComboItems() {
 
 function filteredProducts() {
   const term = query.trim().toLowerCase();
-  if (!term) return products;
-  return products.filter(
-    (p) =>
+  return products.filter((p) => {
+    const matchesTerm =
+      !term ||
       p.sku.toLowerCase().includes(term) ||
-      p.nome.toLowerCase().includes(term)
-  );
+      p.nome.toLowerCase().includes(term);
+
+    if (!matchesTerm) return false;
+
+    if (filtroCertificado === "com_cert") {
+      return window.RezFireCertificados ? window.RezFireCertificados.temCertificado("produto", p.id_produto) : false;
+    }
+    if (filtroCertificado === "sem_cert") {
+      return window.RezFireCertificados ? !window.RezFireCertificados.temCertificado("produto", p.id_produto) : true;
+    }
+    return true;
+  });
 }
 
 function renderTable() {
@@ -62,7 +73,7 @@ function renderTable() {
   document.getElementById("produtos-count").textContent = `${products.length} SKUs cadastrados`;
 
   if (!rows.length) {
-    body.innerHTML = `<tr class="empty-row"><td colspan="8">Nenhum produto encontrado.</td></tr>`;
+    body.innerHTML = `<tr class="empty-row"><td colspan="9">Nenhum produto encontrado.</td></tr>`;
     return;
   }
 
@@ -70,6 +81,14 @@ function renderTable() {
     .map((p) => {
       const d = p.detalhes_extintor;
       const temDetalhesExtintor = d && (d.registro_inmetro || d.tipo_extintor || d.capacidade_peso || d.classe_incendio);
+
+      const certStatus = window.RezFireCertificados
+        ? window.RezFireCertificados.obterStatus("produto", p.id_produto)
+        : { possuiCertificado: false, quantidade: 0 };
+
+      const certBadgeHTML = certStatus.possuiCertificado
+        ? `<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-semibold bg-emerald-50 text-emerald-800 border border-emerald-200" title="${certStatus.quantidade} certificado(s) anexado(s)">🛡️ ${certStatus.quantidade} doc${certStatus.quantidade > 1 ? "s" : ""}</span>`
+        : `<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-semibold bg-amber-50 text-amber-800 border border-amber-200" title="Nenhum certificado Inmetro anexado">⚠️ Sem anexo</span>`;
 
       return `
         <tr>
@@ -92,6 +111,7 @@ function renderTable() {
           <td>${p.tipo === "Combo" ? '<span class="status-pill on">Combo</span>' : 'Simples'}</td>
           <td>${RezFireData.formatMoney(Number(p.custo || 0))}</td>
           <td>${RezFireData.formatMoney(Number(p.preco))}</td>
+          <td>${certBadgeHTML}</td>
           <td><span class="status-pill ${p.ativo ? "on" : ""}">${p.ativo ? "Ativo" : "Inativo"}</span></td>
           <td>
             <div class="flex gap-2">
@@ -123,27 +143,67 @@ function escapeHtml(value) {
 function switchModalTab(tabName) {
   const tabBtnGeral = document.getElementById("tab-btn-geral");
   const tabBtnDetalhes = document.getElementById("tab-btn-detalhes");
+  const tabBtnCertificados = document.getElementById("tab-btn-certificados");
   const paneGeral = document.getElementById("tab-pane-geral");
   const paneDetalhes = document.getElementById("tab-pane-detalhes");
+  const paneCertificados = document.getElementById("tab-pane-certificados");
 
-  if (!tabBtnGeral || !tabBtnDetalhes || !paneGeral || !paneDetalhes) return;
+  [tabBtnGeral, tabBtnDetalhes, tabBtnCertificados].forEach((btn) => {
+    if (btn) {
+      btn.classList.remove("is-active");
+      btn.setAttribute("aria-selected", "false");
+    }
+  });
+
+  [paneGeral, paneDetalhes, paneCertificados].forEach((p) => {
+    if (p) p.style.display = "none";
+  });
 
   if (tabName === "detalhes") {
-    tabBtnGeral.classList.remove("is-active");
-    tabBtnGeral.setAttribute("aria-selected", "false");
-    tabBtnDetalhes.classList.add("is-active");
-    tabBtnDetalhes.setAttribute("aria-selected", "true");
+    tabBtnDetalhes?.classList.add("is-active");
+    tabBtnDetalhes?.setAttribute("aria-selected", "true");
+    if (paneDetalhes) paneDetalhes.style.display = "block";
+  } else if (tabName === "certificados") {
+    tabBtnCertificados?.classList.add("is-active");
+    tabBtnCertificados?.setAttribute("aria-selected", "true");
+    if (paneCertificados) paneCertificados.style.display = "block";
 
-    paneGeral.style.display = "none";
-    paneDetalhes.style.display = "block";
+    const prodId = document.getElementById("id_produto").value;
+    const regInm = document.getElementById("registro_inmetro").value;
+    renderizarCertificadosModalEdicao(prodId, regInm);
   } else {
-    tabBtnDetalhes.classList.remove("is-active");
-    tabBtnDetalhes.setAttribute("aria-selected", "false");
-    tabBtnGeral.classList.add("is-active");
-    tabBtnGeral.setAttribute("aria-selected", "true");
+    tabBtnGeral?.classList.add("is-active");
+    tabBtnGeral?.setAttribute("aria-selected", "true");
+    if (paneGeral) paneGeral.style.display = "block";
+  }
+}
 
-    paneDetalhes.style.display = "none";
-    paneGeral.style.display = "block";
+function renderizarCertificadosModalEdicao(productId, registroInmetro) {
+  const container = document.getElementById("modal-certificados-container");
+  if (!container) return;
+
+  if (!productId) {
+    container.innerHTML = `
+      <div style="padding: 24px 16px; text-align: center; background: #fafaf9; border-radius: 10px; border: 1px dashed #d6d3d1; margin-top: 10px;">
+        <span style="font-size: 2.2rem; display: block; margin-bottom: 8px;">💡</span>
+        <strong style="font-size: 0.95rem; color: #1c1917; display: block;">Salve o produto antes de anexar certificados</strong>
+        <p style="font-size: 0.8rem; color: #78716c; max-width: 440px; margin: 6px auto 0; line-height: 1.45;">
+          Para vincular documentos Inmetro a este produto, primeiro conclua e salve o cadastro básico. Em seguida, acerte os arquivos diretamente na edição ou na ficha detalhada.
+        </p>
+      </div>
+    `;
+    return;
+  }
+
+  if (window.RezFireCertificados) {
+    window.RezFireCertificados.renderizarGerenciadorCertificados(container, {
+      tipoEntidade: "produto",
+      entidadeId: productId,
+      titulo: "Certificados Inmetro deste Produto",
+      subtitulo: "Anexe os certificados de homologação e selos em formato PDF ou imagem (JPG/PNG).",
+      registroInmetroPadrao: registroInmetro || "",
+      modo: "completo",
+    });
   }
 }
 
@@ -155,7 +215,8 @@ function openModal(product) {
   // Retorna sempre para a primeira aba por padrão
   switchModalTab("geral");
 
-  document.getElementById("id_produto").value = product ? product.id_produto : "";
+  const prodId = product ? product.id_produto : "";
+  document.getElementById("id_produto").value = prodId;
   document.getElementById("sku").value = product ? product.sku : "";
   document.getElementById("nome").value = product ? product.nome : "";
   document.getElementById("descricao").value = product ? product.descricao : "";
@@ -179,6 +240,17 @@ function openModal(product) {
   document.getElementById("id_lote").value = d.id_lote || "";
   document.getElementById("peso_bruto_kg").value = d.peso_bruto_kg || "";
   document.getElementById("dimensoes").value = d.dimensoes || "";
+
+  // Atualiza badge de quantidade de certificados na aba
+  const badgeCerts = document.getElementById("modal-tab-badge-certs");
+  if (badgeCerts) {
+    if (prodId && window.RezFireCertificados) {
+      const status = window.RezFireCertificados.obterStatus("produto", prodId);
+      badgeCerts.textContent = status.quantidade;
+    } else {
+      badgeCerts.textContent = "0";
+    }
+  }
 
   title.textContent = product ? "Editar produto" : "Novo produto";
   
@@ -392,7 +464,21 @@ function openViewModal(product) {
         </div>
       </div>
     ` : ""}
+    <div id="view-certificados-container" style="margin-top: 14px;"></div>
   `;
+
+  // Renderiza a seção de Certificados Inmetro na ficha de visualização
+  const certContainer = document.getElementById("view-certificados-container");
+  if (certContainer && window.RezFireCertificados) {
+    window.RezFireCertificados.renderizarGerenciadorCertificados(certContainer, {
+      tipoEntidade: "produto",
+      entidadeId: product.id_produto,
+      titulo: "Documentos de Certificação & Selo Inmetro",
+      subtitulo: "Central de documentação de conformidade e homologação deste produto.",
+      registroInmetroPadrao: d.registro_inmetro || "",
+      modo: "completo",
+    });
+  }
 
   modal.classList.add("is-open");
 }
@@ -449,6 +535,11 @@ function bindEvents() {
     renderTable();
   });
 
+  document.getElementById("filtro-certificados")?.addEventListener("change", (event) => {
+    filtroCertificado = event.target.value;
+    renderTable();
+  });
+
   document.getElementById("btn-novo").addEventListener("click", () => openModal(null));
   document.getElementById("btn-cancelar").addEventListener("click", closeModal);
   document.getElementById("modal").addEventListener("click", (event) => {
@@ -459,8 +550,25 @@ function bindEvents() {
   // Eventos de troca de abas no modal
   const tabBtnGeral = document.getElementById("tab-btn-geral");
   const tabBtnDetalhes = document.getElementById("tab-btn-detalhes");
+  const tabBtnCertificados = document.getElementById("tab-btn-certificados");
   if (tabBtnGeral) tabBtnGeral.addEventListener("click", () => switchModalTab("geral"));
   if (tabBtnDetalhes) tabBtnDetalhes.addEventListener("click", () => switchModalTab("detalhes"));
+  if (tabBtnCertificados) tabBtnCertificados.addEventListener("click", () => switchModalTab("certificados"));
+
+  // Listener para sincronização reativa quando certificados são adicionados/removidos
+  window.addEventListener("rezfire:certificados-mudaram", () => {
+    renderTable();
+    const prodId = document.getElementById("id_produto")?.value;
+    const badgeCerts = document.getElementById("modal-tab-badge-certs");
+    if (badgeCerts) {
+      if (prodId && window.RezFireCertificados) {
+        const status = window.RezFireCertificados.obterStatus("produto", prodId);
+        badgeCerts.textContent = status.quantidade;
+      } else {
+        badgeCerts.textContent = "0";
+      }
+    }
+  });
 
   document.getElementById("btn-add-combo-item").addEventListener("click", () => {
     const select = document.getElementById("combo-item-select");
@@ -513,7 +621,14 @@ function bindEvents() {
     if (deleteBtn) {
       const id = Number(deleteBtn.getAttribute("data-delete"));
       const product = products.find((p) => p.id_produto === id);
-      if (product && confirm(`Deseja realmente excluir o produto "${product.nome}" (SKU: ${product.sku})?`)) {
+      if (product && confirm(`Deseja realmente inativar o produto "${product.nome}" (SKU: ${product.sku})?`)) {
+        if (window.RezFireAPI) {
+          try {
+            await window.RezFireAPI.produtos.inativar(id);
+          } catch (e) {
+            console.warn("Falha ao inativar na API:", e);
+          }
+        }
         products = products.filter((p) => p.id_produto !== id);
         RezFireData.saveProducts(products);
         renderTable();
@@ -538,7 +653,7 @@ function bindEvents() {
     }
   });
 
-  document.getElementById("form-produto").addEventListener("submit", (event) => {
+  document.getElementById("form-produto").addEventListener("submit", async (event) => {
     event.preventDefault();
     const editingId = Number(document.getElementById("id_produto").value) || null;
     const payload = readForm();
@@ -552,26 +667,65 @@ function bindEvents() {
       return;
     }
 
-    if (editingId) {
-      products = products.map((p) =>
-        p.id_produto === editingId ? { ...p, ...payload, id_produto: editingId } : p
-      );
-    } else {
-      products = [
-        ...products,
-        { ...payload, quantidade_atual: 0, estoque_minimo: 0, id_produto: RezFireData.nextProductId(products) },
-      ];
-    }
+    try {
+      if (editingId) {
+        if (window.RezFireAPI) {
+          try {
+            const apiRes = await window.RezFireAPI.produtos.atualizar(editingId, payload);
+            if (apiRes && apiRes.sucesso && apiRes.produto) {
+              products = products.map((p) => p.id_produto === editingId ? apiRes.produto : p);
+            } else {
+              products = products.map((p) => p.id_produto === editingId ? { ...p, ...payload, id_produto: editingId } : p);
+            }
+          } catch (e) {
+            products = products.map((p) => p.id_produto === editingId ? { ...p, ...payload, id_produto: editingId } : p);
+          }
+        } else {
+          products = products.map((p) => p.id_produto === editingId ? { ...p, ...payload, id_produto: editingId } : p);
+        }
+      } else {
+        if (window.RezFireAPI) {
+          try {
+            const apiRes = await window.RezFireAPI.produtos.criar(payload);
+            if (apiRes && apiRes.sucesso && apiRes.produto) {
+              products.push(apiRes.produto);
+            } else {
+              products.push({ ...payload, quantidade_atual: 0, estoque_minimo: 0, id_produto: RezFireData.nextProductId(products) });
+            }
+          } catch (e) {
+            products.push({ ...payload, quantidade_atual: 0, estoque_minimo: 0, id_produto: RezFireData.nextProductId(products) });
+          }
+        } else {
+          products.push({ ...payload, quantidade_atual: 0, estoque_minimo: 0, id_produto: RezFireData.nextProductId(products) });
+        }
+      }
 
-    RezFireData.saveProducts(products);
-    closeModal();
-    renderTable();
+      RezFireData.saveProducts(products);
+      closeModal();
+      renderTable();
+    } catch (err) {
+      document.getElementById("form-error").textContent = err.message || "Erro ao salvar produto.";
+    }
   });
 }
 
-function init() {
+async function init() {
   RezFireLayout.renderSidebar("produtos");
-  products = RezFireData.loadProducts();
+  try {
+    if (window.RezFireAPI) {
+      const res = await window.RezFireAPI.produtos.listar();
+      if (res && res.sucesso && Array.isArray(res.produtos) && res.produtos.length > 0) {
+        products = res.produtos;
+      } else {
+        products = RezFireData.loadProducts();
+      }
+    } else {
+      products = RezFireData.loadProducts();
+    }
+  } catch (err) {
+    console.warn("Backend não conectado, carregando dados locais:", err);
+    products = RezFireData.loadProducts();
+  }
   bindEvents();
   renderTable();
 }

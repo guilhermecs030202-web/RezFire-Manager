@@ -35,6 +35,11 @@
           <p class="page-subtitle" id="produtos-count"></p>
         </div>
         <div class="flex items-center gap-3">
+          <select id="filtro-certificados" class="search-input" style="padding-top: 6px; padding-bottom: 6px; font-size: 0.82rem;">
+            <option value="todos">Todos os Certificados</option>
+            <option value="com_cert">🛡️ Com Certificado Anexado</option>
+            <option value="sem_cert">⚠️ Sem Certificado (Pendente)</option>
+          </select>
           <input id="busca" class="search-input" type="search" placeholder="Buscar SKU, nome..." />
           <button class="btn-primary" id="btn-novo" type="button">+ Novo</button>
         </div>
@@ -50,6 +55,7 @@
               <th>TIPO</th>
               <th>CUSTO</th>
               <th>PREÇO</th>
+              <th>CERTIFICAÇÃO</th>
               <th>SITUAÇÃO</th>
               <th></th>
             </tr>
@@ -73,6 +79,9 @@
         </button>
         <button type="button" class="modal-tab-btn" id="tab-btn-detalhes" data-tab="detalhes" role="tab" aria-selected="false">
           Detalhes <span class="modal-tab-badge">Extintor</span>
+        </button>
+        <button type="button" class="modal-tab-btn" id="tab-btn-certificados" data-tab="certificados" role="tab" aria-selected="false">
+          Certificados <span class="modal-tab-badge" id="modal-tab-badge-certs">0</span>
         </button>
       </div>
 
@@ -219,6 +228,13 @@
         </div>
       </div>
 
+      <!-- Aba 3: Certificados Inmetro & Documentação -->
+      <div class="modal-tab-pane" id="tab-pane-certificados" role="tabpanel" style="display: none;">
+        <div id="modal-certificados-container">
+          <!-- Renderizado dinamicamente via RezFireCertificados -->
+        </div>
+      </div>
+
       <p class="form-error" id="form-error"></p>
       <div class="modal-actions">
         <button class="btn-ghost" type="button" id="btn-cancelar">Cancelar</button>
@@ -263,6 +279,8 @@
   </div>
 
   <script src="js/mock-data.js"></script>
+  <script src="js/api.js"></script>
+  <script src="js/certificadosService.js"></script>
   <script src="js/layout.js"></script>
   <script src="js/produtos.js"></script>
 </body>

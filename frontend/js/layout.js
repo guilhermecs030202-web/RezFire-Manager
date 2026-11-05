@@ -15,6 +15,8 @@ function icon(name) {
       '<rect x="1" y="3" width="15" height="13" rx="1"/><path d="M16 8h4l3 4v4h-7V8z"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/>',
     orders:
       '<path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4Z"/><path d="M3 6h18"/><path d="M16 10a4 4 0 0 1-8 0"/>',
+    anuncios:
+      '<rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/><path d="M7 8h10"/><path d="M7 12h6"/>',
   };
 
   return `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${paths[name]}</svg>`;
@@ -49,6 +51,9 @@ function renderSidebar(active) {
       </a>
       <a class="nav-item ${active === "entregas" ? "is-active" : ""}" href="entregas.html">
         ${icon("truck")} Entregas
+      </a>
+      <a class="nav-item ${active === "anuncios" ? "is-active" : ""}" href="anuncios.html">
+        ${icon("anuncios")} Anúncios ML
       </a>
       <span class="nav-item is-static">
         ${icon("alert")} Alertas

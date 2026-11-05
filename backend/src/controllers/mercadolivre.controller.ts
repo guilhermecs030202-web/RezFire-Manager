@@ -1,0 +1,122 @@
+import { Request, Response } from 'express';
+import { MercadoLivreService } from '../services/mercadolivre.service';
+
+const mlService = new MercadoLivreService();
+
+export class MercadoLivreController {
+  /**
+   * Retorna a URL para redirecionamento do gestor para o OAuth 2.0 do Mercado Livre
+   */
+  async getAuthUrl(req: Request, res: Response) {
+    try {
+      const state = req.query.state ? String(req.query.state) : undefined;
+      const info = mlService.gerarUrlAutorizacao(state);
+      return res.json({ sucesso: true, ...info });
+    } catch (error: any) {
+      return res.status(500).json({ sucesso: false, mensagem: error.message });
+    }
+  }
+
+  /**
+   * Recebe o código do OAuth e conclui a troca por tokens seguros
+   */
+  async callback(req: Request, res: Response) {
+    try {
+      const code = req.query.code ? String(req.query.code) : '';
+      const id_usuario = req.usuario?.id_usuario || 1;
+
+      const resultado = await mlService.processarCallback(code, id_usuario);
+      return res.json(resultado);
+    } catch (error: any) {
+      return res.status(400).json({ sucesso: false, mensagem: error.message });
+    }
+  }
+
+  /**
+   * Endpoint de Webhook Rápido (Push):
+   * Responde 200 OK imediatamente e salva o evento para processamento assíncrono idempotente
+   */
+  async webhook(req: Request, res: Response) {
+    // 1. Responde 200 OK imediatamente para evitar timeouts do Mercado Livre
+    res.status(200).json({ received: true, timestamp: new Date().toISOString() });
+
+    // 2. Enfileira o payload em segundo plano
+    try {
+      await mlService.enfileirarWebhook(req.body);
+    } catch (err) {
+      console.error('[Webhook ML] Erro ao enfileirar notificação:', err);
+    }
+  }
+
+  /**
+   * Consulta o status atual da conexão OAuth do gestor
+   */
+  async obterStatusConexao(req: Request, res: Response) {
+    try {
+      const id_usuario = req.usuario?.id_usuario || 1;
+      const conexao = await mlService.obterConexao(id_usuario);
+
+      return res.json({
+        sucesso: true,
+        status: conexao.status,
+        ml_user_id: conexao.ml_user_id || null,
+        expires_at: conexao.expires_at || null,
+        ultima_atualizacao: conexao.updated_at,
+      });
+    } catch (error: any) {
+      return res.status(500).json({ sucesso: false, mensagem: error.message });
+    }
+  }
+
+  /**
+   * Lista anúncios do Mercado Livre com verificação de divergências de estoque
+   */
+  async listarAnuncios(req: Request, res: Response) {
+    try {
+      const anuncios = await mlService.listarAnuncios();
+      return res.json({ sucesso: true, anuncios });
+    } catch (error: any) {
+      return res.status(500).json({ sucesso: false, mensagem: error.message });
+    }
+  }
+
+  /**
+   * Vincula um anúncio a um produto do catálogo interno
+   */
+  async vincularProduto(req: Request, res: Response) {
+    try {
+      const { id_anuncio, id_produto, quantidade_anunciada } = req.body;
+
+      if (!id_anuncio || !id_produto) {
+        return res.status(400).json({
+          sucesso: false,
+          mensagem: 'id_anuncio e id_produto são obrigatórios.',
+        });
+      }
+
+      const resultado = await mlService.vincularAnuncioProduto(
+        Number(id_anuncio),
+        Number(id_produto),
+        quantidade_anunciada ? Number(quantidade_anunciada) : 1
+      );
+
+      return res.json(resultado);
+    } catch (error: any) {
+      return res.status(400).json({ sucesso: false, mensagem: error.message });
+    }
+  }
+
+  /**
+   * Sincronização manual (Reconciliação preventiva)
+   */
+  async sincronizar(req: Request, res: Response) {
+    try {
+      const id_usuario = req.usuario?.id_usuario || 1;
+      const resultado = await mlService.reconciliar(id_usuario);
+      return res.json(resultado);
+    } catch (error: any) {
+      return res.status(500).json({ sucesso: false, mensagem: error.message });
+    }
+  }
+}
+

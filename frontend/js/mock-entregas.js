@@ -15,19 +15,67 @@
 // Estes lotes correspondem às entradas de estoque registradas nas movimentações.
 // Em uma integração real, seriam gerenciados pelo módulo de Estoque.
 const LOTES_SIMULADOS = [
-  { id_lote: "LT-2024/01", id_produto: 2, sku: "EXT-H2O-10L",  validade: "2028-04-10", lacre: "L-849201", quantidade_disponivel: 38 },
-  { id_lote: "LT-2024/02", id_produto: 7, sku: "EXT-PQS-4KG",  validade: "2024-08-10", lacre: "L-332910", quantidade_disponivel: 55 },
-  { id_lote: "LT-2024/03", id_produto: 8, sku: "EXT-PQS-6KG",  validade: "2024-09-01", lacre: "L-332945", quantidade_disponivel: 12 },
-  { id_lote: "LT-2024/05", id_produto: 5, sku: "EXT-CO2-6KG",  validade: "2027-12-05", lacre: "L-993044", quantidade_disponivel: 48 },
-  { id_lote: "LT-2024/06", id_produto: 3, sku: "EXT-K-6L",     validade: "2028-06-15", lacre: "L-220194", quantidade_disponivel: 7  },
-  { id_lote: "LT-2024/08", id_produto: 9, sku: "EXT-PQS-12KG", validade: "2024-03-25", lacre: "L-771029", quantidade_disponivel: 64 },
-  { id_lote: "LT-2024/10", id_produto: 7, sku: "EXT-PQS-4KG",  validade: "2024-08-10", lacre: "L-332910", quantidade_disponivel: 90 },
-  { id_lote: "LT-2024/12", id_produto: 8, sku: "EXT-PQS-6KG",  validade: "2024-09-01", lacre: "L-332945", quantidade_disponivel: 38 },
+  {
+    "id_lote": "LT-2024/01",
+    "id_produto": 1,
+    "sku": "EXT-PQS-4KG",
+    "validade": "2029-01-15",
+    "lacre": "INM-948201",
+    "quantidade_disponivel": 45
+  },
+  {
+    "id_lote": "LT-2023/15",
+    "id_produto": 1,
+    "sku": "EXT-PQS-4KG",
+    "validade": "2027-04-15",
+    "lacre": "INM-332910",
+    "quantidade_disponivel": 20
+  },
+  {
+    "id_lote": "LT-2024/04",
+    "id_produto": 2,
+    "sku": "EXT-H2O-10L",
+    "validade": "2028-04-10",
+    "lacre": "INM-849202",
+    "quantidade_disponivel": 45
+  },
+  {
+    "id_lote": "LT-2024/07",
+    "id_produto": 3,
+    "sku": "EXT-CO2-6KG",
+    "validade": "2028-02-20",
+    "lacre": "INM-773041",
+    "quantidade_disponivel": 22
+  },
+  {
+    "id_lote": "LT-2023/08",
+    "id_produto": 4,
+    "sku": "EXT-CO2-4KG",
+    "validade": "2027-11-20",
+    "lacre": "INM-771920",
+    "quantidade_disponivel": 8
+  },
+  {
+    "id_lote": "LT-2024/11",
+    "id_produto": 5,
+    "sku": "EXT-K-6L",
+    "validade": "2028-06-15",
+    "lacre": "INM-882031",
+    "quantidade_disponivel": 6
+  },
+  {
+    "id_lote": "LT-2022/02",
+    "id_produto": 6,
+    "sku": "EXT-PQS-12KG",
+    "validade": "2024-03-25",
+    "lacre": "INM-662910",
+    "quantidade_disponivel": 0
+  }
 ];
 
 // ─── Referência de data para dados simulados ─────────────────────────────────
 // Alinhado com a data de referência usada no mock-data.js
-const ENTREGAS_REF_DATE = new Date("2024-10-15T18:00:00Z");
+const ENTREGAS_REF_DATE = new Date();
 
 function diasAtras(n) {
   const d = new Date(ENTREGAS_REF_DATE);
@@ -72,596 +120,388 @@ const STATUS_LOGISTICO = {
 // Cada registro representa um pedido no pipeline logístico da RezFire.
 // Os campos seguem uma estrutura que permitirá mapeamento futuro com a API do ML.
 const ENTREGAS_MOCK = [
-  // ── 1. Pedido recém recebido — aguardando separação ───────────────────────
   {
-    id_entrega: "ENT-001",
-    id_pedido_interno: 201,
-    codigo_pedido_ml: "MLB-2894012110",    // Identificador externo (ML)
-    codigo_pedido_direto: null,
-    canal: "Mercado Livre",
-    cliente: "Condomínio Solar das Palmeiras",
-    uf: "SP",
-    data_venda: horasAtras(3),
-    prazo_despacho: diasAFrente(1),       // Despachar até amanhã
-    modalidade_envio: "Mercado Envios Coleta",
-    id_envio_ml: null,                    // Preenchido na futura integração
-    codigo_rastreio: null,
-    data_despacho: null,
-    previsao_entrega: diasAFrente(5),
-    data_entrega: null,
-    status_interno: STATUS_INTERNO.A_SEPARAR,
-    status_logistico: STATUS_LOGISTICO.AGUARDANDO_ENVIO,
-    ocorrencias: [],
-    itens: [
-      { id_produto: 7, sku: "EXT-PQS-4KG", nome: "Extintor Pó Químico ABC 4kg", quantidade: 3, preco_unitario: 169.90, subtotal: 509.70 },
-      { id_produto: 11, sku: "PLA-FOTO-01", nome: "Placa Sinalização Fotoluminescente", quantidade: 3, preco_unitario: 34.90, subtotal: 104.70 },
+    "id_entrega": "ENT-001",
+    "id_pedido_interno": 57,
+    "codigo_pedido_ml": null,
+    "codigo_pedido_direto": "PED-0057",
+    "canal": "Venda Direta",
+    "cliente": "Centro Empresarial Millennium",
+    "uf": "SP",
+    "data_venda": horasAtras(2),
+    "prazo_despacho": diasAFrente(1),
+    "modalidade_envio": "Transportadora Parceira (Rodonaves)",
+    "id_envio_ml": null,
+    "codigo_rastreio": null,
+    "data_despacho": null,
+    "previsao_entrega": diasAFrente(4),
+    "data_entrega": null,
+    "status_interno": STATUS_INTERNO.A_SEPARAR,
+    "status_logistico": STATUS_LOGISTICO.AGUARDANDO_ENVIO,
+    "ocorrencias": [],
+    "itens": [
+      {
+        "id_produto": 1,
+        "sku": "EXT-PQS-4KG",
+        "nome": "Extintor Pó Químico ABC 4kg",
+        "quantidade": 2,
+        "preco_unitario": 169.9,
+        "subtotal": 339.8
+      },
+      {
+        "id_produto": 8,
+        "sku": "SUP-EXT-01",
+        "nome": "Suporte de Parede p/ Extintor",
+        "quantidade": 2,
+        "preco_unitario": 18.9,
+        "subtotal": 37.8
+      }
     ],
-    valor_total: 614.40,
-    separacao: null,                      // null = separação ainda não iniciada
-    historico: [
-      { data: horasAtras(3), evento: "Pedido recebido", descricao: "Pedido aprovado no Mercado Livre. Aguardando separação.", tipo: "info" },
-    ],
+    "valor_total": 377.6,
+    "separacao": null,
+    "historico": [
+      {
+        "data": horasAtras(2),
+        "evento": "Pedido Recebido",
+        "descricao": "Aguardando separação física dos extintores no galpão.",
+        "tipo": "info"
+      }
+    ]
   },
-
-  // ── 2. Separação em andamento ─────────────────────────────────────────────
   {
-    id_entrega: "ENT-002",
-    id_pedido_interno: 202,
-    codigo_pedido_ml: "MLB-2894012148",
-    codigo_pedido_direto: null,
-    canal: "Mercado Livre",
-    cliente: "Indústria Metalúrgica Alvorada",
-    uf: "SP",
-    data_venda: horasAtras(18),
-    prazo_despacho: diasAFrente(1),
-    modalidade_envio: "Mercado Envios Full",
-    id_envio_ml: null,
-    codigo_rastreio: null,
-    data_despacho: null,
-    previsao_entrega: diasAFrente(4),
-    data_entrega: null,
-    status_interno: STATUS_INTERNO.EM_SEPARACAO,
-    status_logistico: STATUS_LOGISTICO.AGUARDANDO_ENVIO,
-    ocorrencias: [],
-    itens: [
-      { id_produto: 2, sku: "EXT-H2O-10L", nome: "Extintor Água Pressurizada 10L", quantidade: 2, preco_unitario: 159.90, subtotal: 319.80 },
-      { id_produto: 9, sku: "EXT-PQS-12KG", nome: "Extintor Pó Químico BC 12kg", quantidade: 1, preco_unitario: 329.00, subtotal: 329.00 },
-      { id_produto: 10, sku: "MAN-MANG-15", nome: "Mangueira de Incêndio 1½\" 15m", quantidade: 1, preco_unitario: 389.00, subtotal: 389.00 },
+    "id_entrega": "ENT-002",
+    "id_pedido_interno": 56,
+    "codigo_pedido_ml": null,
+    "codigo_pedido_direto": "PED-0056",
+    "canal": "Venda Direta",
+    "cliente": "Escola Técnica Integrada",
+    "uf": "PR",
+    "data_venda": horasAtras(5),
+    "prazo_despacho": diasAFrente(1),
+    "modalidade_envio": "Transportadora Parceira (Rodonaves)",
+    "id_envio_ml": null,
+    "codigo_rastreio": null,
+    "data_despacho": null,
+    "previsao_entrega": diasAFrente(5),
+    "data_entrega": null,
+    "status_interno": STATUS_INTERNO.EM_SEPARACAO,
+    "status_logistico": STATUS_LOGISTICO.AGUARDANDO_ENVIO,
+    "ocorrencias": [],
+    "itens": [
+      {
+        "id_produto": 1,
+        "sku": "EXT-PQS-4KG",
+        "nome": "Extintor Pó Químico ABC 4kg",
+        "quantidade": 2,
+        "preco_unitario": 169.9,
+        "subtotal": 339.8
+      },
+      {
+        "id_produto": 8,
+        "sku": "SUP-EXT-01",
+        "nome": "Suporte de Parede p/ Extintor",
+        "quantidade": 2,
+        "preco_unitario": 18.9,
+        "subtotal": 37.8
+      },
+      {
+        "id_produto": 9,
+        "sku": "PLA-FOTO-01",
+        "nome": "Placa Sinalização Fotoluminescente",
+        "quantidade": 2,
+        "preco_unitario": 34.9,
+        "subtotal": 69.8
+      }
     ],
-    valor_total: 1037.80,
-    separacao: {
-      iniciada_em: horasAtras(14),
-      itens: [
+    "valor_total": 447.4,
+    "separacao": {
+      "responsavel": "Operador Galpão",
+      "iniciada_em": horasAtras(1),
+      "lotes_vinculados": [
         {
-          id_produto: 2, sku: "EXT-H2O-10L", nome: "Extintor Água Pressurizada 10L",
-          quantidade_solicitada: 2,
-          lotes: [
-            { id_lote: "LT-2024/01", quantidade: 2, validade: "2028-04-10" },
-          ],
-          quantidade_separada: 2,
-          conferido: true,
-        },
-        {
-          id_produto: 9, sku: "EXT-PQS-12KG", nome: "Extintor Pó Químico BC 12kg",
-          quantidade_solicitada: 1,
-          lotes: [],
-          quantidade_separada: 0,
-          conferido: false,
-        },
-        {
-          id_produto: 10, sku: "MAN-MANG-15", nome: "Mangueira de Incêndio 1½\" 15m",
-          quantidade_solicitada: 1,
-          lotes: [],           // Produto sem rastreio por lote
-          quantidade_separada: 0,
-          conferido: false,
-        },
-      ],
+          "id_produto": 1,
+          "id_lote": "LT-2024/01",
+          "quantidade": 2,
+          "validade": "2029-01-15",
+          "lacre": "INM-948201"
+        }
+      ]
     },
-    historico: [
-      { data: horasAtras(18), evento: "Pedido recebido", descricao: "Pedido aprovado no Mercado Livre.", tipo: "info" },
-      { data: horasAtras(14), evento: "Separação iniciada", descricao: "Gestor iniciou a conferência dos itens.", tipo: "info" },
-    ],
+    "historico": [
+      {
+        "data": horasAtras(5),
+        "evento": "Pedido Recebido",
+        "descricao": "Aprovado no financeiro.",
+        "tipo": "info"
+      },
+      {
+        "data": horasAtras(1),
+        "evento": "Separação Iniciada",
+        "descricao": "Extintores sendo conferidos no galpão.",
+        "tipo": "info"
+      }
+    ]
   },
-
-  // ── 3. Pronto para despacho ───────────────────────────────────────────────
   {
-    id_entrega: "ENT-003",
-    id_pedido_interno: 203,
-    codigo_pedido_ml: "MLB-2894012185",
-    codigo_pedido_direto: null,
-    canal: "Mercado Livre",
-    cliente: "Restaurante Família & Sabor",
-    uf: "RJ",
-    data_venda: diasAtras(2),
-    prazo_despacho: ENTREGAS_REF_DATE.toISOString(),   // Hoje — no limite
-    modalidade_envio: "Mercado Envios Coleta",
-    id_envio_ml: null,
-    codigo_rastreio: null,
-    data_despacho: null,
-    previsao_entrega: diasAFrente(6),
-    data_entrega: null,
-    status_interno: STATUS_INTERNO.PRONTO_DESPACHO,
-    status_logistico: STATUS_LOGISTICO.AGUARDANDO_ENVIO,
-    ocorrencias: [],
-    itens: [
-      { id_produto: 3, sku: "EXT-K-6L", nome: "Extintor Classe K 6L (Cozinhas)", quantidade: 1, preco_unitario: 749.00, subtotal: 749.00 },
-      { id_produto: 5, sku: "EXT-CO2-6KG", nome: "Extintor CO2 6kg", quantidade: 1, preco_unitario: 549.00, subtotal: 549.00 },
-      { id_produto: 11, sku: "PLA-FOTO-01", nome: "Placa Sinalização Fotoluminescente", quantidade: 2, preco_unitario: 34.90, subtotal: 69.80 },
+    "id_entrega": "ENT-003",
+    "id_pedido_interno": 55,
+    "codigo_pedido_ml": "MLB-2894012055",
+    "codigo_pedido_direto": null,
+    "canal": "Mercado Livre",
+    "cliente": "Laboratório Clínico Biolab",
+    "uf": "SP",
+    "data_venda": diasAtras(1),
+    "prazo_despacho": horasAtras(2),
+    "modalidade_envio": "Mercado Envios Coleta",
+    "id_envio_ml": "ENV-48920194",
+    "codigo_rastreio": "BR-ML-7729104",
+    "data_despacho": null,
+    "previsao_entrega": diasAFrente(2),
+    "data_entrega": null,
+    "status_interno": STATUS_INTERNO.PRONTO_DESPACHO,
+    "status_logistico": STATUS_LOGISTICO.AGUARDANDO_ENVIO,
+    "ocorrencias": [
+      {
+        "data": horasAtras(1),
+        "tipo": "Atraso na Coleta",
+        "descricao": "Transportadora do Mercado Livre atrasou a janela da tarde. Coleta remarcada para manhã seguinte."
+      }
     ],
-    valor_total: 1367.80,
-    separacao: {
-      iniciada_em: diasAtras(1),
-      concluida_em: horasAtras(5),
-      itens: [
+    "itens": [
+      {
+        "id_produto": 2,
+        "sku": "EXT-H2O-10L",
+        "nome": "Extintor Água Pressurizada 10L",
+        "quantidade": 3,
+        "preco_unitario": 159.9,
+        "subtotal": 479.7
+      },
+      {
+        "id_produto": 8,
+        "sku": "SUP-EXT-01",
+        "nome": "Suporte de Parede p/ Extintor",
+        "quantidade": 3,
+        "preco_unitario": 18.9,
+        "subtotal": 56.7
+      }
+    ],
+    "valor_total": 536.4,
+    "separacao": {
+      "responsavel": "Operador Galpão",
+      "iniciada_em": diasAtras(1),
+      "concluida_em": horasAtras(3),
+      "lotes_vinculados": [
         {
-          id_produto: 3, sku: "EXT-K-6L", nome: "Extintor Classe K 6L (Cozinhas)",
-          quantidade_solicitada: 1,
-          lotes: [{ id_lote: "LT-2024/06", quantidade: 1, validade: "2028-06-15" }],
-          quantidade_separada: 1,
-          conferido: true,
-        },
-        {
-          id_produto: 5, sku: "EXT-CO2-6KG", nome: "Extintor CO2 6kg",
-          quantidade_solicitada: 1,
-          lotes: [{ id_lote: "LT-2024/05", quantidade: 1, validade: "2027-12-05" }],
-          quantidade_separada: 1,
-          conferido: true,
-        },
-        {
-          id_produto: 11, sku: "PLA-FOTO-01", nome: "Placa Sinalização Fotoluminescente",
-          quantidade_solicitada: 2,
-          lotes: [],
-          quantidade_separada: 2,
-          conferido: true,
-        },
-      ],
+          "id_produto": 2,
+          "id_lote": "LT-2024/04",
+          "quantidade": 3,
+          "validade": "2028-04-10",
+          "lacre": "INM-849202"
+        }
+      ]
     },
-    historico: [
-      { data: diasAtras(2), evento: "Pedido recebido", descricao: "Pedido aprovado no Mercado Livre.", tipo: "info" },
-      { data: diasAtras(1), evento: "Separação iniciada", descricao: "Gestor iniciou a conferência dos itens.", tipo: "info" },
-      { data: horasAtras(5), evento: "Separação concluída", descricao: "Todos os itens conferidos. Pedido pronto para despacho.", tipo: "sucesso" },
-    ],
+    "historico": [
+      {
+        "data": diasAtras(1),
+        "evento": "Venda Mercado Livre",
+        "descricao": "Pedido aprovado via Mercado Envios.",
+        "tipo": "info"
+      },
+      {
+        "data": horasAtras(3),
+        "evento": "Pronto para Despacho",
+        "descricao": "Volumes embalados com etiquetas ML afixadas.",
+        "tipo": "info"
+      }
+    ]
   },
-
-  // ── 4. Enviado — em trânsito ──────────────────────────────────────────────
   {
-    id_entrega: "ENT-004",
-    id_pedido_interno: 204,
-    codigo_pedido_ml: "MLB-2893940210",
-    codigo_pedido_direto: null,
-    canal: "Mercado Livre",
-    cliente: "Colégio Futuro Brilhante",
-    uf: "SP",
-    data_venda: diasAtras(5),
-    prazo_despacho: diasAtras(4),
-    modalidade_envio: "Mercado Envios Full",
-    id_envio_ml: "SHP-20241010-00042",
-    codigo_rastreio: "BR123456789BR",
-    data_despacho: diasAtras(4),
-    previsao_entrega: diasAFrente(1),
-    data_entrega: null,
-    status_interno: STATUS_INTERNO.DESPACHO_REGISTRADO,
-    status_logistico: STATUS_LOGISTICO.EM_TRANSITO,
-    ocorrencias: [],
-    itens: [
-      { id_produto: 7, sku: "EXT-PQS-4KG", nome: "Extintor Pó Químico ABC 4kg", quantidade: 4, preco_unitario: 169.90, subtotal: 679.60 },
-      { id_produto: 12, sku: "SUP-EXT-01", nome: "Suporte de Parede p/ Extintor", quantidade: 4, preco_unitario: 42.00, subtotal: 168.00 },
+    "id_entrega": "ENT-004",
+    "id_pedido_interno": 54,
+    "codigo_pedido_ml": "MLB-2894012054",
+    "codigo_pedido_direto": null,
+    "canal": "Mercado Livre",
+    "cliente": "Teatro Municipal Carlos Gomes",
+    "uf": "RJ",
+    "data_venda": diasAtras(1),
+    "prazo_despacho": diasAtras(1),
+    "modalidade_envio": "Mercado Envios Coleta",
+    "id_envio_ml": "ENV-48920150",
+    "codigo_rastreio": "QB-948201490BR",
+    "data_despacho": horasAtras(8),
+    "previsao_entrega": diasAFrente(3),
+    "data_entrega": null,
+    "status_interno": STATUS_INTERNO.DESPACHO_REGISTRADO,
+    "status_logistico": STATUS_LOGISTICO.EM_TRANSITO,
+    "ocorrencias": [],
+    "itens": [
+      {
+        "id_produto": 3,
+        "sku": "EXT-CO2-6KG",
+        "nome": "Extintor CO2 6kg",
+        "quantidade": 4,
+        "preco_unitario": 459,
+        "subtotal": 1836
+      },
+      {
+        "id_produto": 9,
+        "sku": "PLA-FOTO-01",
+        "nome": "Placa Sinalização Fotoluminescente",
+        "quantidade": 4,
+        "preco_unitario": 34.9,
+        "subtotal": 139.6
+      }
     ],
-    valor_total: 847.60,
-    separacao: {
-      iniciada_em: diasAtras(5),
-      concluida_em: diasAtras(4),
-      itens: [
+    "valor_total": 1975.6,
+    "separacao": {
+      "responsavel": "Operador Galpão",
+      "iniciada_em": diasAtras(1),
+      "concluida_em": diasAtras(1),
+      "lotes_vinculados": [
         {
-          id_produto: 7, sku: "EXT-PQS-4KG", nome: "Extintor Pó Químico ABC 4kg",
-          quantidade_solicitada: 4,
-          lotes: [
-            { id_lote: "LT-2024/02", quantidade: 2, validade: "2024-08-10" },
-            { id_lote: "LT-2024/10", quantidade: 2, validade: "2024-08-10" },
-          ],
-          quantidade_separada: 4,
-          conferido: true,
-        },
-        {
-          id_produto: 12, sku: "SUP-EXT-01", nome: "Suporte de Parede p/ Extintor",
-          quantidade_solicitada: 4,
-          lotes: [],
-          quantidade_separada: 4,
-          conferido: true,
-        },
-      ],
+          "id_produto": 3,
+          "id_lote": "LT-2024/07",
+          "quantidade": 4,
+          "validade": "2028-02-20",
+          "lacre": "INM-773041"
+        }
+      ]
     },
-    historico: [
-      { data: diasAtras(5), evento: "Pedido recebido", descricao: "Pedido aprovado no Mercado Livre.", tipo: "info" },
-      { data: diasAtras(5), evento: "Separação iniciada", descricao: "Gestor iniciou a conferência dos itens.", tipo: "info" },
-      { data: diasAtras(4), evento: "Separação concluída", descricao: "Todos os itens conferidos. 4 un. EXT-PQS-4KG em 2 lotes.", tipo: "sucesso" },
-      { data: diasAtras(4), evento: "Despacho registrado", descricao: "Pedido despachado. Código de rastreio: BR123456789BR.", tipo: "sucesso" },
-      { data: diasAtras(3), evento: "Em trânsito", descricao: "Objeto postado no sistema dos Correios.", tipo: "info" },
-    ],
+    "historico": [
+      {
+        "data": diasAtras(1),
+        "evento": "Venda ML",
+        "descricao": "Aprovado.",
+        "tipo": "info"
+      },
+      {
+        "data": horasAtras(8),
+        "evento": "Coletado",
+        "descricao": "Mercado Envios realizou a coleta.",
+        "tipo": "info"
+      }
+    ]
   },
-
-  // ── 5. Enviado — saiu para entrega ────────────────────────────────────────
   {
-    id_entrega: "ENT-005",
-    id_pedido_interno: 205,
-    codigo_pedido_ml: "MLB-2893940330",
-    codigo_pedido_direto: null,
-    canal: "Mercado Livre",
-    cliente: "Academia Fisio & Saúde",
-    uf: "RS",
-    data_venda: diasAtras(8),
-    prazo_despacho: diasAtras(7),
-    modalidade_envio: "Mercado Envios Coleta",
-    id_envio_ml: "SHP-20241007-00031",
-    codigo_rastreio: "BR987654321BR",
-    data_despacho: diasAtras(7),
-    previsao_entrega: ENTREGAS_REF_DATE.toISOString(),
-    data_entrega: null,
-    status_interno: STATUS_INTERNO.DESPACHO_REGISTRADO,
-    status_logistico: STATUS_LOGISTICO.SAIU_ENTREGA,
-    ocorrencias: [],
-    itens: [
-      { id_produto: 8, sku: "EXT-PQS-6KG", nome: "Extintor Pó Químico ABC 6kg", quantidade: 3, preco_unitario: 219.90, subtotal: 659.70 },
+    "id_entrega": "ENT-005",
+    "id_pedido_interno": 53,
+    "codigo_pedido_ml": "MLB-2894012053",
+    "codigo_pedido_direto": null,
+    "canal": "Mercado Livre",
+    "cliente": "Farmácia Droga Express",
+    "uf": "SP",
+    "data_venda": diasAtras(2),
+    "prazo_despacho": diasAtras(1),
+    "modalidade_envio": "Mercado Envios Coleta",
+    "id_envio_ml": "ENV-48920112",
+    "codigo_rastreio": "QB-948201230BR",
+    "data_despacho": diasAtras(1),
+    "previsao_entrega": diasAFrente(1),
+    "data_entrega": null,
+    "status_interno": STATUS_INTERNO.DESPACHO_REGISTRADO,
+    "status_logistico": STATUS_LOGISTICO.EM_TRANSITO,
+    "ocorrencias": [],
+    "itens": [
+      {
+        "id_produto": 4,
+        "sku": "EXT-CO2-4KG",
+        "nome": "Extintor CO2 4kg",
+        "quantidade": 4,
+        "preco_unitario": 389,
+        "subtotal": 1556
+      },
+      {
+        "id_produto": 8,
+        "sku": "SUP-EXT-01",
+        "nome": "Suporte de Parede p/ Extintor",
+        "quantidade": 4,
+        "preco_unitario": 18.9,
+        "subtotal": 75.6
+      }
     ],
-    valor_total: 659.70,
-    separacao: {
-      iniciada_em: diasAtras(8),
-      concluida_em: diasAtras(7),
-      itens: [
+    "valor_total": 1631.6,
+    "separacao": {
+      "responsavel": "Operador Galpão",
+      "lotes_vinculados": [
         {
-          id_produto: 8, sku: "EXT-PQS-6KG", nome: "Extintor Pó Químico ABC 6kg",
-          quantidade_solicitada: 3,
-          lotes: [
-            { id_lote: "LT-2024/03", quantidade: 1, validade: "2024-09-01" },
-            { id_lote: "LT-2024/12", quantidade: 2, validade: "2024-09-01" },
-          ],
-          quantidade_separada: 3,
-          conferido: true,
-        },
-      ],
+          "id_produto": 4,
+          "id_lote": "LT-2023/08",
+          "quantidade": 4,
+          "validade": "2027-11-20",
+          "lacre": "INM-771920"
+        }
+      ]
     },
-    historico: [
-      { data: diasAtras(8), evento: "Pedido recebido", descricao: "Pedido aprovado no Mercado Livre.", tipo: "info" },
-      { data: diasAtras(8), evento: "Separação iniciada", descricao: "Gestor iniciou a conferência dos itens.", tipo: "info" },
-      { data: diasAtras(7), evento: "Separação concluída", descricao: "3 un. EXT-PQS-6KG em 2 lotes conferidas.", tipo: "sucesso" },
-      { data: diasAtras(7), evento: "Despacho registrado", descricao: "Pedido despachado. Código: BR987654321BR.", tipo: "sucesso" },
-      { data: diasAtras(5), evento: "Em trânsito", descricao: "Objeto em trânsito para a cidade de destino.", tipo: "info" },
-      { data: horasAtras(6), evento: "Saiu para entrega", descricao: "Objeto saiu para entrega ao destinatário.", tipo: "info" },
-    ],
+    "historico": [
+      {
+        "data": diasAtras(2),
+        "evento": "Pedido Recebido",
+        "descricao": "Aprovado.",
+        "tipo": "info"
+      },
+      {
+        "data": diasAtras(1),
+        "evento": "Despachado",
+        "descricao": "Coleta realizada.",
+        "tipo": "info"
+      }
+    ]
   },
-
-  // ── 6. Entregue ───────────────────────────────────────────────────────────
   {
-    id_entrega: "ENT-006",
-    id_pedido_interno: 206,
-    codigo_pedido_ml: "MLB-2893801440",
-    codigo_pedido_direto: null,
-    canal: "Mercado Livre",
-    cliente: "Supermercado Bom Preço Ltda",
-    uf: "PR",
-    data_venda: diasAtras(14),
-    prazo_despacho: diasAtras(13),
-    modalidade_envio: "Mercado Envios Full",
-    id_envio_ml: "SHP-20241001-00021",
-    codigo_rastreio: "BR555444333BR",
-    data_despacho: diasAtras(13),
-    previsao_entrega: diasAtras(8),
-    data_entrega: diasAtras(9),
-    status_interno: STATUS_INTERNO.DESPACHO_REGISTRADO,
-    status_logistico: STATUS_LOGISTICO.ENTREGUE,
-    ocorrencias: [],
-    itens: [
-      { id_produto: 7, sku: "EXT-PQS-4KG", nome: "Extintor Pó Químico ABC 4kg", quantidade: 3, preco_unitario: 169.90, subtotal: 509.70 },
-      { id_produto: 11, sku: "PLA-FOTO-01", nome: "Placa Sinalização Fotoluminescente", quantidade: 3, preco_unitario: 34.90, subtotal: 104.70 },
-      { id_produto: 12, sku: "SUP-EXT-01", nome: "Suporte de Parede p/ Extintor", quantidade: 3, preco_unitario: 42.00, subtotal: 126.00 },
+    "id_entrega": "ENT-006",
+    "id_pedido_interno": 52,
+    "codigo_pedido_ml": null,
+    "codigo_pedido_direto": "PED-0052",
+    "canal": "Venda Direta",
+    "cliente": "Gráfica e Editora Moderna",
+    "uf": "RS",
+    "data_venda": diasAtras(3),
+    "prazo_despacho": diasAtras(2),
+    "modalidade_envio": "Transportadora Parceira (Rodonaves)",
+    "id_envio_ml": null,
+    "codigo_rastreio": "ROD-8820491",
+    "data_despacho": diasAtras(2),
+    "previsao_entrega": diasAtras(0),
+    "data_entrega": horasAtras(4),
+    "status_interno": STATUS_INTERNO.DESPACHO_REGISTRADO,
+    "status_logistico": STATUS_LOGISTICO.ENTREGUE,
+    "ocorrencias": [],
+    "itens": [
+      {
+        "id_produto": 11,
+        "sku": "DET-FUM-01",
+        "nome": "Detector de Fumaça Óptico",
+        "quantidade": 8,
+        "preco_unitario": 89.9,
+        "subtotal": 719.2
+      }
     ],
-    valor_total: 740.40,
-    separacao: {
-      iniciada_em: diasAtras(14),
-      concluida_em: diasAtras(13),
-      itens: [
-        {
-          id_produto: 7, sku: "EXT-PQS-4KG", nome: "Extintor Pó Químico ABC 4kg",
-          quantidade_solicitada: 3,
-          lotes: [{ id_lote: "LT-2024/02", quantidade: 3, validade: "2024-08-10" }],
-          quantidade_separada: 3,
-          conferido: true,
-        },
-        {
-          id_produto: 11, sku: "PLA-FOTO-01", nome: "Placa Sinalização Fotoluminescente",
-          quantidade_solicitada: 3,
-          lotes: [],
-          quantidade_separada: 3,
-          conferido: true,
-        },
-        {
-          id_produto: 12, sku: "SUP-EXT-01", nome: "Suporte de Parede p/ Extintor",
-          quantidade_solicitada: 3,
-          lotes: [],
-          quantidade_separada: 3,
-          conferido: true,
-        },
-      ],
+    "valor_total": 719.2,
+    "separacao": {
+      "responsavel": "Operador Galpão",
+      "lotes_vinculados": []
     },
-    historico: [
-      { data: diasAtras(14), evento: "Pedido recebido", descricao: "Pedido aprovado no Mercado Livre.", tipo: "info" },
-      { data: diasAtras(14), evento: "Separação iniciada", descricao: "Gestor iniciou a conferência dos itens.", tipo: "info" },
-      { data: diasAtras(13), evento: "Separação concluída", descricao: "Todos os itens conferidos.", tipo: "sucesso" },
-      { data: diasAtras(13), evento: "Despacho registrado", descricao: "Código de rastreio: BR555444333BR.", tipo: "sucesso" },
-      { data: diasAtras(11), evento: "Em trânsito", descricao: "Objeto em trânsito.", tipo: "info" },
-      { data: diasAtras(9), evento: "Entregue", descricao: "Entrega confirmada ao destinatário (simulação).", tipo: "sucesso" },
-    ],
-  },
-
-  // ── 7. Pedido ATRASADO — prazo de despacho vencido ───────────────────────
-  {
-    id_entrega: "ENT-007",
-    id_pedido_interno: 207,
-    codigo_pedido_ml: "MLB-2894000099",
-    codigo_pedido_direto: null,
-    canal: "Mercado Livre",
-    cliente: "Hotel Fazenda Recanto Verde",
-    uf: "MG",
-    data_venda: diasAtras(4),
-    prazo_despacho: diasAtras(2),      // Prazo vencido há 2 dias
-    modalidade_envio: "Mercado Envios Coleta",
-    id_envio_ml: null,
-    codigo_rastreio: null,
-    data_despacho: null,
-    previsao_entrega: diasAFrente(3),
-    data_entrega: null,
-    status_interno: STATUS_INTERNO.A_SEPARAR,
-    status_logistico: STATUS_LOGISTICO.AGUARDANDO_ENVIO,
-    ocorrencias: [
-      { data: diasAtras(1), tipo: "atraso_despacho", descricao: "Prazo de despacho vencido. O pedido deveria ter sido despachado em " + new Date(diasAtras(2)).toLocaleDateString("pt-BR") + "." },
-    ],
-    itens: [
-      { id_produto: 5, sku: "EXT-CO2-6KG", nome: "Extintor CO2 6kg", quantidade: 2, preco_unitario: 549.00, subtotal: 1098.00 },
-      { id_produto: 11, sku: "PLA-FOTO-01", nome: "Placa Sinalização Fotoluminescente", quantidade: 2, preco_unitario: 34.90, subtotal: 69.80 },
-    ],
-    valor_total: 1167.80,
-    separacao: null,
-    historico: [
-      { data: diasAtras(4), evento: "Pedido recebido", descricao: "Pedido aprovado no Mercado Livre.", tipo: "info" },
-      { data: diasAtras(1), evento: "Alerta: prazo vencido", descricao: "Prazo de despacho expirado. Pedido ainda não foi separado.", tipo: "alerta" },
-    ],
-  },
-
-  // ── 8. Pedido com ocorrência logística ────────────────────────────────────
-  {
-    id_entrega: "ENT-008",
-    id_pedido_interno: 208,
-    codigo_pedido_ml: "MLB-2893850222",
-    codigo_pedido_direto: null,
-    canal: "Mercado Livre",
-    cliente: "Distribuidora de Alimentos União",
-    uf: "SC",
-    data_venda: diasAtras(10),
-    prazo_despacho: diasAtras(9),
-    modalidade_envio: "Mercado Envios Full",
-    id_envio_ml: "SHP-20241005-00018",
-    codigo_rastreio: "BR112233445BR",
-    data_despacho: diasAtras(9),
-    previsao_entrega: diasAtras(4),
-    data_entrega: null,
-    status_interno: STATUS_INTERNO.DESPACHO_REGISTRADO,
-    status_logistico: STATUS_LOGISTICO.OCORRENCIA,
-    ocorrencias: [
-      { data: diasAtras(3), tipo: "ocorrencia_logistica", descricao: "Objeto retido na unidade de distribuição. Tentativa de entrega sem sucesso: destinatário ausente." },
-    ],
-    itens: [
-      { id_produto: 6, sku: "EXT-ESP-9L", nome: "Extintor Espuma Mecânica 9L", quantidade: 2, preco_unitario: 289.00, subtotal: 578.00 },
-      { id_produto: 11, sku: "PLA-FOTO-01", nome: "Placa Sinalização Fotoluminescente", quantidade: 2, preco_unitario: 34.90, subtotal: 69.80 },
-    ],
-    valor_total: 647.80,
-    separacao: {
-      iniciada_em: diasAtras(10),
-      concluida_em: diasAtras(9),
-      itens: [
-        {
-          id_produto: 6, sku: "EXT-ESP-9L", nome: "Extintor Espuma Mecânica 9L",
-          quantidade_solicitada: 2,
-          lotes: [],
-          quantidade_separada: 2,
-          conferido: true,
-        },
-        {
-          id_produto: 11, sku: "PLA-FOTO-01", nome: "Placa Sinalização Fotoluminescente",
-          quantidade_solicitada: 2,
-          lotes: [],
-          quantidade_separada: 2,
-          conferido: true,
-        },
-      ],
-    },
-    historico: [
-      { data: diasAtras(10), evento: "Pedido recebido", descricao: "Pedido aprovado no Mercado Livre.", tipo: "info" },
-      { data: diasAtras(10), evento: "Separação iniciada", descricao: "Gestor iniciou a conferência dos itens.", tipo: "info" },
-      { data: diasAtras(9), evento: "Separação concluída", descricao: "Todos os itens conferidos.", tipo: "sucesso" },
-      { data: diasAtras(9), evento: "Despacho registrado", descricao: "Código: BR112233445BR.", tipo: "sucesso" },
-      { data: diasAtras(7), evento: "Em trânsito", descricao: "Objeto em trânsito para destino.", tipo: "info" },
-      { data: diasAtras(3), evento: "Ocorrência registrada", descricao: "Tentativa de entrega sem sucesso. Destinatário ausente.", tipo: "alerta" },
-    ],
-  },
-
-  // ── 9. Cancelado ─────────────────────────────────────────────────────────
-  {
-    id_entrega: "ENT-009",
-    id_pedido_interno: 209,
-    codigo_pedido_ml: "MLB-2893890555",
-    codigo_pedido_direto: null,
-    canal: "Mercado Livre",
-    cliente: "Padaria e Confeitaria Central",
-    uf: "RJ",
-    data_venda: diasAtras(12),
-    prazo_despacho: diasAtras(11),
-    modalidade_envio: "Mercado Envios Coleta",
-    id_envio_ml: null,
-    codigo_rastreio: null,
-    data_despacho: null,
-    previsao_entrega: null,
-    data_entrega: null,
-    status_interno: STATUS_INTERNO.CANCELADO,
-    status_logistico: STATUS_LOGISTICO.CANCELADO,
-    ocorrencias: [
-      { data: diasAtras(11), tipo: "cancelamento", descricao: "Pedido cancelado pelo comprador antes do despacho." },
-    ],
-    itens: [
-      { id_produto: 3, sku: "EXT-K-6L", nome: "Extintor Classe K 6L (Cozinhas)", quantidade: 1, preco_unitario: 749.00, subtotal: 749.00 },
-    ],
-    valor_total: 749.00,
-    separacao: null,
-    historico: [
-      { data: diasAtras(12), evento: "Pedido recebido", descricao: "Pedido aprovado no Mercado Livre.", tipo: "info" },
-      { data: diasAtras(11), evento: "Pedido cancelado", descricao: "Pedido cancelado pelo comprador antes do despacho.", tipo: "erro" },
-    ],
-  },
-
-  // ── 10. Venda direta — multi-produto ─────────────────────────────────────
-  {
-    id_entrega: "ENT-010",
-    id_pedido_interno: 210,
-    codigo_pedido_ml: null,
-    codigo_pedido_direto: "DIR-2024-042",
-    canal: "Venda Direta",
-    cliente: "Galpão Armazéns Gerais",
-    uf: "GO",
-    data_venda: diasAtras(3),
-    prazo_despacho: diasAFrente(2),
-    modalidade_envio: "Transportadora Parceira",
-    id_envio_ml: null,
-    codigo_rastreio: null,
-    data_despacho: null,
-    previsao_entrega: diasAFrente(7),
-    data_entrega: null,
-    status_interno: STATUS_INTERNO.PRONTO_DESPACHO,
-    status_logistico: STATUS_LOGISTICO.AGUARDANDO_ENVIO,
-    ocorrencias: [],
-    itens: [
-      { id_produto: 2, sku: "EXT-H2O-10L", nome: "Extintor Água Pressurizada 10L", quantidade: 3, preco_unitario: 159.90, subtotal: 479.70 },
-      { id_produto: 7, sku: "EXT-PQS-4KG", nome: "Extintor Pó Químico ABC 4kg", quantidade: 3, preco_unitario: 169.90, subtotal: 509.70 },
-      { id_produto: 11, sku: "PLA-FOTO-01", nome: "Placa Sinalização Fotoluminescente", quantidade: 6, preco_unitario: 34.90, subtotal: 209.40 },
-    ],
-    valor_total: 1198.80,
-    separacao: {
-      iniciada_em: diasAtras(2),
-      concluida_em: diasAtras(1),
-      itens: [
-        {
-          id_produto: 2, sku: "EXT-H2O-10L", nome: "Extintor Água Pressurizada 10L",
-          quantidade_solicitada: 3,
-          lotes: [{ id_lote: "LT-2024/01", quantidade: 3, validade: "2028-04-10" }],
-          quantidade_separada: 3,
-          conferido: true,
-        },
-        {
-          id_produto: 7, sku: "EXT-PQS-4KG", nome: "Extintor Pó Químico ABC 4kg",
-          quantidade_solicitada: 3,
-          lotes: [{ id_lote: "LT-2024/10", quantidade: 3, validade: "2024-08-10" }],
-          quantidade_separada: 3,
-          conferido: true,
-        },
-        {
-          id_produto: 11, sku: "PLA-FOTO-01", nome: "Placa Sinalização Fotoluminescente",
-          quantidade_solicitada: 6,
-          lotes: [],
-          quantidade_separada: 6,
-          conferido: true,
-        },
-      ],
-    },
-    historico: [
-      { data: diasAtras(3), evento: "Pedido recebido", descricao: "Venda direta registrada pelo gestor.", tipo: "info" },
-      { data: diasAtras(2), evento: "Separação iniciada", descricao: "Gestor iniciou a conferência dos itens.", tipo: "info" },
-      { data: diasAtras(1), evento: "Separação concluída", descricao: "Todos os itens conferidos. Pedido pronto para despacho.", tipo: "sucesso" },
-    ],
-  },
-
-  // ── 11. Pedido com muitas unidades de um mesmo produto ───────────────────
-  {
-    id_entrega: "ENT-011",
-    id_pedido_interno: 211,
-    codigo_pedido_ml: "MLB-2894050999",
-    codigo_pedido_direto: null,
-    canal: "Mercado Livre",
-    cliente: "Centro Logístico Bandeirantes",
-    uf: "SP",
-    data_venda: horasAtras(8),
-    prazo_despacho: diasAFrente(2),
-    modalidade_envio: "Mercado Envios Full",
-    id_envio_ml: null,
-    codigo_rastreio: null,
-    data_despacho: null,
-    previsao_entrega: diasAFrente(6),
-    data_entrega: null,
-    status_interno: STATUS_INTERNO.A_SEPARAR,
-    status_logistico: STATUS_LOGISTICO.AGUARDANDO_ENVIO,
-    ocorrencias: [],
-    itens: [
-      { id_produto: 7, sku: "EXT-PQS-4KG", nome: "Extintor Pó Químico ABC 4kg", quantidade: 10, preco_unitario: 169.90, subtotal: 1699.00 },
-      { id_produto: 11, sku: "PLA-FOTO-01", nome: "Placa Sinalização Fotoluminescente", quantidade: 10, preco_unitario: 34.90, subtotal: 349.00 },
-    ],
-    valor_total: 2048.00,
-    separacao: null,
-    historico: [
-      { data: horasAtras(8), evento: "Pedido recebido", descricao: "Pedido aprovado no Mercado Livre.", tipo: "info" },
-    ],
-  },
-
-  // ── 12. Pedido recente — entrega concluída ────────────────────────────────
-  {
-    id_entrega: "ENT-012",
-    id_pedido_interno: 212,
-    codigo_pedido_ml: "MLB-2893750119",
-    codigo_pedido_direto: null,
-    canal: "Mercado Livre",
-    cliente: "Transportadora Rodoviária Rápida",
-    uf: "SP",
-    data_venda: diasAtras(21),
-    prazo_despacho: diasAtras(20),
-    modalidade_envio: "Mercado Envios Coleta",
-    id_envio_ml: "SHP-20240924-00011",
-    codigo_rastreio: "BR771122334BR",
-    data_despacho: diasAtras(20),
-    previsao_entrega: diasAtras(15),
-    data_entrega: diasAtras(16),
-    status_interno: STATUS_INTERNO.DESPACHO_REGISTRADO,
-    status_logistico: STATUS_LOGISTICO.ENTREGUE,
-    ocorrencias: [],
-    itens: [
-      { id_produto: 1, sku: "DET-FUM-01", nome: "Detector de Fumaça Óptico", quantidade: 4, preco_unitario: 89.90, subtotal: 359.60 },
-      { id_produto: 11, sku: "PLA-FOTO-01", nome: "Placa Sinalização Fotoluminescente", quantidade: 10, preco_unitario: 34.90, subtotal: 349.00 },
-    ],
-    valor_total: 708.60,
-    separacao: {
-      iniciada_em: diasAtras(21),
-      concluida_em: diasAtras(20),
-      itens: [
-        {
-          id_produto: 1, sku: "DET-FUM-01", nome: "Detector de Fumaça Óptico",
-          quantidade_solicitada: 4,
-          lotes: [],
-          quantidade_separada: 4,
-          conferido: true,
-        },
-        {
-          id_produto: 11, sku: "PLA-FOTO-01", nome: "Placa Sinalização Fotoluminescente",
-          quantidade_solicitada: 10,
-          lotes: [],
-          quantidade_separada: 10,
-          conferido: true,
-        },
-      ],
-    },
-    historico: [
-      { data: diasAtras(21), evento: "Pedido recebido", descricao: "Pedido aprovado no Mercado Livre.", tipo: "info" },
-      { data: diasAtras(21), evento: "Separação iniciada", descricao: "Gestor iniciou a conferência.", tipo: "info" },
-      { data: diasAtras(20), evento: "Separação concluída", descricao: "Todos os itens conferidos.", tipo: "sucesso" },
-      { data: diasAtras(20), evento: "Despacho registrado", descricao: "Código: BR771122334BR.", tipo: "sucesso" },
-      { data: diasAtras(18), evento: "Em trânsito", descricao: "Objeto em trânsito para o destino.", tipo: "info" },
-      { data: diasAtras(16), evento: "Entregue", descricao: "Entrega confirmada ao destinatário (simulação).", tipo: "sucesso" },
-    ],
-  },
+    "historico": [
+      {
+        "data": diasAtras(3),
+        "evento": "Venda Direta",
+        "descricao": "Aprovado.",
+        "tipo": "info"
+      },
+      {
+        "data": diasAtras(2),
+        "evento": "Despachado",
+        "descricao": "Rodonaves coletou.",
+        "tipo": "info"
+      },
+      {
+        "data": horasAtras(4),
+        "evento": "Entregue",
+        "descricao": "Recebido pelo cliente no RS.",
+        "tipo": "info"
+      }
+    ]
+  }
 ];
 
 // ─── Chave de armazenamento local ─────────────────────────────────────────────
@@ -674,6 +514,13 @@ const ENTREGAS_STORAGE_KEY = "rezfire.entregas";
  * Na primeira execução, persiste os dados simulados.
  */
 function loadEntregas() {
+    try {
+      if (localStorage.getItem("rezfire.mock_version") !== "rezfire_v2_2026") {
+        localStorage.setItem("rezfire.mock_version", "rezfire_v2_2026");
+        saveEntregas(ENTREGAS_MOCK);
+        return ENTREGAS_MOCK;
+      }
+    } catch {}
   try {
     const raw = localStorage.getItem(ENTREGAS_STORAGE_KEY);
     if (!raw) {

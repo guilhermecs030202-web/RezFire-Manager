@@ -1397,6 +1397,10 @@ function init() {
   document.getElementById("detalhe-overlay")?.addEventListener("click", fecharDetalhe);
 
   renderTable();
+
+  // Deep link vindo do Painel Executivo: entregas.html?id=ENT-007 abre o detalhe do pedido
+  const idParam = new URLSearchParams(window.location.search).get("id");
+  if (idParam) abrirDetalhe(idParam);
 }
 
 document.addEventListener("DOMContentLoaded", init);

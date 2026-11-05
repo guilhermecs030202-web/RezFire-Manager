@@ -7,6 +7,7 @@ function kpiCard(label, value, hint) {
     </article>
   `;
 }
+window.kpiCard = kpiCard;
 
 function renderDashboard() {
   RezFireLayout.renderSidebar("dashboard");
@@ -86,6 +87,10 @@ function renderDashboard() {
   renderTabFinanceiro(products);
   setupFinancialFilters(products);
   renderTabProdutos(products);
+  if (typeof renderTabEntregas === "function") {
+    renderTabEntregas();
+    setupDeliveryFilters();
+  }
   bindTabs();
   bindOrderModalEvents();
   bindStockModalEvents();

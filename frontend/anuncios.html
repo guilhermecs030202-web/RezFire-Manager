@@ -1,0 +1,319 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Anúncios do Mercado Livre · RezFire Manager</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap"
+      rel="stylesheet"
+    />
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+      tailwind.config = {
+        theme: {
+          extend: {
+            colors: {
+              cream: "#f4efe8",
+              sidebar: "#1a1412",
+              accent: "#e85c2a",
+            },
+            fontFamily: { sans: ["Inter", "ui-sans-serif", "system-ui"] },
+          },
+        },
+      };
+    </script>
+    <link rel="stylesheet" href="css/app.css" />
+  </head>
+  <body>
+    <div class="app-shell" id="app-shell">
+      <main class="app-main">
+        <!-- 3.1 Cabeçalho com status da integração e botão de sincronização -->
+        <div class="page-toolbar flex-wrap gap-4 items-start justify-between mb-4">
+          <div>
+            <h1 class="page-title">ANÚNCIOS DO MERCADO LIVRE</h1>
+            <p class="page-subtitle">
+              Gerencie e acompanhe os anúncios publicados pela RezFire na plataforma.
+            </p>
+          </div>
+
+          <div class="flex items-center gap-3 flex-wrap">
+            <div id="sync-status-indicator" class="sync-badge">
+              <span class="inline-block w-2 h-2 rounded-full bg-emerald-500"></span>
+              <span id="sync-status-text">Conta Conectada (OAuth 2.0)</span>
+            </div>
+
+            <div class="text-xs text-stone-500 font-medium" id="sync-last-time">
+              Última sincronização: carregando...
+            </div>
+
+            <button
+              id="btn-sync-manual"
+              class="btn-primary"
+              type="button"
+              style="padding: 8px 16px; font-size: 0.84rem; display: inline-flex; align-items: center; gap: 6px;"
+            >
+              <svg id="sync-btn-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.2"/>
+              </svg>
+              <span id="sync-btn-label">Sincronizar Anúncios</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Mensagem de feedback de sincronização / notificações -->
+        <div id="sync-feedback-banner" style="display: none; margin-bottom: 16px;"></div>
+
+        <!-- 3.2 Indicadores Principais (KPIs) -->
+        <section class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 mb-4" id="kpis-anuncios"></section>
+
+        <!-- 3.3 Filtros e Pesquisa -->
+        <div class="card p-4 mb-4" style="padding: 16px 20px;">
+          <div class="flex items-center justify-between flex-wrap gap-3 mb-3">
+            <span class="text-xs font-bold text-stone-500 uppercase tracking-wider">Filtros & Busca Avançada</span>
+            <button id="btn-limpar-filtros" class="btn-ghost" type="button" style="padding: 4px 10px; font-size: 0.76rem;">
+              ✕ Limpar Filtros
+            </button>
+          </div>
+
+          <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-3">
+            <!-- Busca por Título ou MLB -->
+            <div>
+              <label for="filtro-busca" class="block text-xs font-bold text-stone-500 mb-1">PESQUISA:</label>
+              <input
+                id="filtro-busca"
+                type="search"
+                class="search-input w-full"
+                placeholder="Título ou código MLB..."
+              />
+            </div>
+
+            <!-- Filtro por Tipo de Composição (Unitário vs Kit) -->
+            <div>
+              <label for="filtro-tipo" class="block text-xs font-bold text-stone-500 mb-1">TIPO DE ANÚNCIO:</label>
+              <select id="filtro-tipo" class="search-input w-full">
+                <option value="todos">Todos (Unitários e Kits)</option>
+                <option value="kit">📦 Kits & Combos Multi-item</option>
+                <option value="unitario">🏷️ Itens Unitários</option>
+              </select>
+            </div>
+
+            <!-- Filtro por Produto Vinculado -->
+            <div>
+              <label for="filtro-produto" class="block text-xs font-bold text-stone-500 mb-1">PRODUTO VINCULADO:</label>
+              <select id="filtro-produto" class="search-input w-full">
+                <option value="todos">Todos os Produtos</option>
+                <option value="sem_vinculo">⚠️ Sem produto vinculado</option>
+              </select>
+            </div>
+
+            <!-- Filtro por Status do Anúncio -->
+            <div>
+              <label for="filtro-status" class="block text-xs font-bold text-stone-500 mb-1">STATUS NO ML:</label>
+              <select id="filtro-status" class="search-input w-full">
+                <option value="todos">Todos os Status</option>
+                <option value="Ativo">Ativo</option>
+                <option value="Pausado">Pausado</option>
+                <option value="Encerrado">Encerrado</option>
+              </select>
+            </div>
+
+            <!-- Filtro de Divergências -->
+            <div>
+              <label for="filtro-divergencia" class="block text-xs font-bold text-stone-500 mb-1">DIVERGÊNCIAS:</label>
+              <select id="filtro-divergencia" class="search-input w-full">
+                <option value="todos">Todas as Situações</option>
+                <option value="com_divergencia">⚠️ Com divergência</option>
+                <option value="sem_divergencia">✅ Sem divergência (Alinhado)</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-3 mt-3">
+            <!-- Filtro por Categoria -->
+            <div>
+              <label for="filtro-categoria" class="block text-xs font-bold text-stone-500 mb-1">CATEGORIA:</label>
+              <select id="filtro-categoria" class="search-input w-full">
+                <option value="todos">Todas as Categorias</option>
+              </select>
+            </div>
+
+            <!-- Filtro de Certificação Inmetro -->
+            <div>
+              <label for="filtro-certificados-anuncio" class="block text-xs font-bold text-stone-500 mb-1">CERTIFICAÇÃO INMETRO:</label>
+              <select id="filtro-certificados-anuncio" class="search-input w-full">
+                <option value="todos">Todas as Situações</option>
+                <option value="com_cert">🛡️ Com Certificado Vinculado</option>
+                <option value="sem_cert">⚠️ Sem Certificado (Pendente)</option>
+              </select>
+            </div>
+
+            <!-- Ordenação -->
+            <div>
+              <label for="filtro-ordenacao" class="block text-xs font-bold text-stone-500 mb-1">ORDENAR POR:</label>
+              <select id="filtro-ordenacao" class="search-input w-full">
+                <option value="vendas_desc" selected>Mais vendidos primeiro</option>
+                <option value="vendas_asc">Menos vendidos primeiro</option>
+                <option value="preco_desc">Maior preço</option>
+                <option value="preco_asc">Menor preço</option>
+                <option value="visitas_desc">Mais visualizados</option>
+                <option value="atualizacao_desc">Última atualização</option>
+              </select>
+            </div>
+
+            <div class="col-span-1 md:col-span-2 flex items-end justify-between">
+              <span id="label-total-filtrado" class="text-xs font-bold text-stone-600 bg-stone-100 px-3 py-2 rounded-lg">
+                Carregando anúncios...
+              </span>
+            </div>
+          </div>
+        </div>
+
+        <!-- 3.4 Listagem de Anúncios -->
+        <section class="card table-wrap" style="padding: 0; overflow-x: auto;">
+          <table class="products-table" id="tabela-anuncios" style="width: 100%; min-width: 960px;">
+            <thead>
+              <tr>
+                <th style="min-width: 240px;">ANÚNCIO</th>
+                <th>CÓDIGO MLB</th>
+                <th>PRODUTO RELACIONADO</th>
+                <th>PREÇO NO ML</th>
+                <th>ESTOQUE ML</th>
+                <th>VISITAS</th>
+                <th>VENDAS</th>
+                <th>STATUS & INMETRO</th>
+                <th>DIVERGÊNCIAS</th>
+                <th style="text-align: right;">AÇÕES</th>
+              </tr>
+            </thead>
+            <tbody id="anuncios-body">
+              <!-- Renderizado dinamicamente via anuncios.js (suporta skeleton e empty state) -->
+            </tbody>
+          </table>
+
+          <!-- Paginação -->
+          <div id="paginacao-container" class="flex items-center justify-between p-4 border-t border-stone-200 bg-stone-50 text-xs text-stone-600">
+            <div id="paginacao-info">Exibindo 0 de 0</div>
+            <div class="flex items-center gap-2" id="paginacao-botoes"></div>
+          </div>
+        </section>
+      </main>
+    </div>
+
+    <!-- 3.5 Drawer Lateral com Detalhes do Anúncio -->
+    <div id="anuncio-drawer-overlay" tabindex="-1"></div>
+    <aside id="anuncio-drawer" role="dialog" aria-modal="true" aria-label="Detalhes do Anúncio" tabindex="-1">
+      <div class="drawer-header">
+        <div class="flex items-start gap-3">
+          <img id="drawer-thumb" class="thumb-preview" src="" alt="Thumbnail" />
+          <div>
+            <div class="flex items-center gap-2 mb-1">
+              <span id="drawer-status-badge"></span>
+              <span id="drawer-listing-type" class="text-xs text-stone-500 font-medium"></span>
+            </div>
+            <h2 id="drawer-titulo" class="text-sm font-bold text-stone-900 leading-snug max-w-md"></h2>
+            <div class="flex items-center gap-2 mt-1">
+              <span id="drawer-mlb" class="text-xs font-mono text-stone-600 bg-stone-100 px-2 py-0.5 rounded"></span>
+              <a id="drawer-ml-link" href="#" target="_blank" rel="noopener noreferrer" class="text-xs text-orange-600 hover:underline flex items-center gap-1 font-semibold">
+                Ver no Mercado Livre ↗
+              </a>
+            </div>
+          </div>
+        </div>
+        <button id="btn-fechar-drawer" class="icon-btn" type="button" aria-label="Fechar">✕</button>
+      </div>
+
+      <div class="drawer-body">
+        <!-- Seção 1: Diagnóstico e Divergências Detectadas -->
+        <div id="drawer-divergencias-secao">
+          <h3 class="drawer-section-title">Diagnóstico de Divergências</h3>
+          <div id="drawer-divergencias-lista"></div>
+        </div>
+
+        <!-- Seção 2: Composição de Produtos do RezFire (Suporte a Kits e Multi-item) -->
+        <div class="p-4 bg-stone-50 border border-stone-200 rounded-xl">
+          <div class="flex items-center justify-between mb-2">
+            <h3 class="drawer-section-title mb-0">Composição do Anúncio (Produtos / Kit)</h3>
+            <span id="drawer-vinculo-status" class="text-xs font-bold"></span>
+          </div>
+          <div id="drawer-produto-info" class="mb-3 text-xs text-stone-700"></div>
+
+          <!-- Ação rápida para adicionar produtos e salvar composição -->
+          <div class="flex items-center gap-2 pt-2 border-t border-stone-200 flex-wrap">
+            <select id="drawer-select-produto" class="search-input text-xs flex-1"></select>
+            <button id="btn-add-item-composicao" type="button" class="btn-ghost" style="padding: 6px 12px; font-size: 0.78rem;">
+              + Adicionar Item
+            </button>
+            <button id="btn-salvar-composicao" type="button" class="btn-primary" style="padding: 6px 14px; font-size: 0.78rem;">
+              Salvar Composição
+            </button>
+          </div>
+        </div>
+
+        <!-- Seção: Documentos de Certificação & Selo Inmetro do Anúncio -->
+        <div id="drawer-certificados-secao" class="mb-4">
+          <div id="drawer-certificados-container"></div>
+          <!-- Referência Cruzada: Certificados dos Produtos Componentes -->
+          <div id="drawer-certificados-produtos-componentes"></div>
+        </div>
+
+        <!-- Seção 3: Informações Comerciais e Desempenho -->
+        <div>
+          <h3 class="drawer-section-title">Informações Comerciais</h3>
+          <div class="grid grid-cols-2 sm:grid-cols-3 gap-3">
+            <div class="card p-3 bg-white">
+              <span class="text-xs text-stone-500 font-semibold block">Preço Anunciado</span>
+              <span id="drawer-preco" class="text-base font-bold text-stone-900"></span>
+            </div>
+            <div class="card p-3 bg-white">
+              <span class="text-xs text-stone-500 font-semibold block">Estoque no ML</span>
+              <span id="drawer-estoque-ml" class="text-base font-bold text-stone-900"></span>
+            </div>
+            <div class="card p-3 bg-white">
+              <span class="text-xs text-stone-500 font-semibold block">Condição</span>
+              <span id="drawer-condicao" class="text-base font-bold text-stone-900"></span>
+            </div>
+            <div class="card p-3 bg-white">
+              <span class="text-xs text-stone-500 font-semibold block">Unidades Vendidas</span>
+              <span id="drawer-vendas" class="text-base font-bold text-stone-900"></span>
+            </div>
+            <div class="card p-3 bg-white">
+              <span class="text-xs text-stone-500 font-semibold block">Visualizações</span>
+              <span id="drawer-visitas" class="text-base font-bold text-stone-900"></span>
+            </div>
+            <div class="card p-3 bg-white">
+              <span class="text-xs text-stone-500 font-semibold block">Conversão</span>
+              <span id="drawer-conversao" class="text-base font-bold text-stone-900"></span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Seção 4: Identificação e Metadados Técnicos -->
+        <div>
+          <h3 class="drawer-section-title">Metadados Técnicos</h3>
+          <div class="text-xs text-stone-600 space-y-1.5 p-3 bg-stone-50 border border-stone-200 rounded-lg">
+            <div><strong>Categoria no ML:</strong> <span id="drawer-categoria"></span></div>
+            <div><strong>Data de Criação:</strong> <span id="drawer-criacao"></span></div>
+            <div><strong>Última Sincronização:</strong> <span id="drawer-sync"></span></div>
+          </div>
+        </div>
+
+        <!-- Seção 5: Histórico de Alterações / Logs -->
+        <div>
+          <h3 class="drawer-section-title">Histórico de Alterações</h3>
+          <div id="drawer-historico-lista" class="text-xs space-y-2"></div>
+        </div>
+      </div>
+    </aside>
+
+    <!-- Scripts da aplicação -->
+    <script src="js/mock-data.js"></script>
+    <script src="js/mock-anuncios.js"></script>
+    <script src="js/certificadosService.js"></script>
+    <script src="js/layout.js"></script>
+    <script src="js/anuncios.js"></script>
+  </body>
+</html>
+

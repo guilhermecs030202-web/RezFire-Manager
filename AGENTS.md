@@ -605,6 +605,7 @@ Decisões já tomadas:
 -   Badges logísticas: `Aguardando Envio`, `Despacho Atrasado`, `Em trânsito` e `Entregue`
 -   Integração Mercado Livre: webhook rápido com persistência em fila/tabela (resposta 200 imediata), processamento assíncrono idempotente e Cron de reconciliação periódica com timestamp da última sincronização por recurso
 -   Controle de validade de extintores: FEFO prioritário, alerta com $\le$ 365 dias (1 ano), bloqueio operacional de expedição com $\le$ 180 dias (prazo mínimo de 6 meses para o cliente) e bloqueio total se vencido
+-   Documentos de certificação e selo Inmetro: vinculados a produtos e anúncios de forma independente; armazenamento definitivo em pasta de disco local do servidor do gestor (com rotas autenticadas); finalidade prioritária voltada para auditoria técnica e conformidade interna do gestor perante o Mercado Livre (sem envio automático via API do ML no momento)
 
 ## 16. Próximo passo para o Cursor
 

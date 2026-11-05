@@ -436,26 +436,40 @@ function bindEvents() {
     RezFireData.saveProducts(products);
 
     // Regra de Ouro: Registra movimentação de ajuste no histórico
-    if (diff !== 0 && RezFireData.loadMovements && RezFireData.saveMovements) {
-      const movements = RezFireData.loadMovements();
-      const nextMovId = movements.length > 0 ? Math.max(...movements.map((m) => m.id_movimentacao || 0)) + 1 : 1;
-      movements.unshift({
-        id_movimentacao: nextMovId,
-        id_produto: editingId,
-        sku: prodOld ? prodOld.sku : "PROD",
-        nome_produto: prodOld ? prodOld.nome : "Produto",
-        tipo: diff > 0 ? "Entrada" : "Saída",
-        motivo: "Ajuste de Balanço / Inventário Físico",
-        quantidade: Math.abs(diff),
-        preco_unitario: prodOld ? (prodOld.custo || 0) : 0,
-        valor_total: (prodOld ? (prodOld.custo || 0) : 0) * Math.abs(diff),
-        data: new Date().toISOString(),
-        responsavel: "Gestor RezFire (Inventário Físico)",
-        fornecedor: null,
-        codigo_pedido: `Balanço (${diff > 0 ? '+' : ''}${diff})`,
-        detalhes_remessa: null,
-      });
-      RezFireData.saveMovements(movements);
+    if (diff !== 0) {
+      if (window.RezFireAPI) {
+        try {
+          window.RezFireAPI.movimentacoes.ajustarInventario(editingId, qtdAtual).catch(err => {
+            console.warn("Falha ao registrar ajuste de inventário no backend:", err);
+          });
+        } catch (e) {}
+      }
+
+      if (RezFireData.loadMovements && RezFireData.saveMovements) {
+        const movements = RezFireData.loadMovements();
+        const nextMovId = movements.length > 0 ? Math.max(...movements.map((m) => m.id_movimentacao || 0)) + 1 : 1;
+        movements.unshift({
+          id_movimentacao: nextMovId,
+          id_produto: editingId,
+          sku: prodOld ? prodOld.sku : "PROD",
+          nome_produto: prodOld ? prodOld.nome : "Produto",
+          tipo: diff > 0 ? "Entrada" : "Saída",
+          motivo: "Ajuste de Balanço / Inventário Físico",
+          quantidade: Math.abs(diff),
+          preco_unitario: prodOld ? (prodOld.custo || 0) : 0,
+          valor_total: (prodOld ? (prodOld.custo || 0) : 0) * Math.abs(diff),
+          data: new Date().toISOString(),
+          responsavel: "Gestor RezFire (Inventário Físico)",
+          fornecedor: null,
+          codigo_pedido: `Balanço (${diff > 0 ? '+' : ''}${diff})`,
+          detalhes_remessa: null,
+        });
+        RezFireData.saveMovements(movements);
+      }
+    }
+
+    if (Number(prodOld?.estoque_minimo) !== estqMin && window.RezFireAPI) {
+      window.RezFireAPI.produtos.atualizar(editingId, { estoque_minimo: estqMin }).catch(() => {});
     }
 
     closeProductModal();
@@ -562,10 +576,48 @@ function bindEvents() {
   });
 }
 
-function init() {
+async function init() {
   RezFireLayout.renderSidebar("estoque");
-  products = RezFireData.loadProducts();
-  lotes = RezFireData.loadLotes();
+  try {
+    if (window.RezFireAPI) {
+      const res = await window.RezFireAPI.estoque.listar();
+      if (res && res.sucesso && Array.isArray(res.estoque) && res.estoque.length > 0) {
+        products = res.estoque;
+        const todosLotes = [];
+        res.estoque.forEach((p) => {
+          if (p.lotes && p.lotes.length > 0) {
+            p.lotes.forEach((l) => {
+              todosLotes.push({
+                id_lote: l.numero_lote || `LT-${l.id_lote}`,
+                id_lote_db: l.id_lote,
+                id_produto: p.id_produto,
+                sku: p.sku,
+                nome: p.nome,
+                lacre: l.numero_lacre_inmetro,
+                data_fabricacao: l.data_fabricacao,
+                validade: l.data_validade ? String(l.data_validade).split("T")[0] : "",
+                quantidade_disponivel: l.quantidade_disponivel,
+                fefo_status: l.fefo_status,
+                dias_para_vencer: l.dias_para_vencer,
+              });
+            });
+          }
+        });
+        if (todosLotes.length > 0) lotes = todosLotes;
+        else lotes = RezFireData.loadLotes();
+      } else {
+        products = RezFireData.loadProducts();
+        lotes = RezFireData.loadLotes();
+      }
+    } else {
+      products = RezFireData.loadProducts();
+      lotes = RezFireData.loadLotes();
+    }
+  } catch (err) {
+    console.warn("Backend não conectado, carregando dados locais:", err);
+    products = RezFireData.loadProducts();
+    lotes = RezFireData.loadLotes();
+  }
 
   bindEvents();
   renderProdutosTable();

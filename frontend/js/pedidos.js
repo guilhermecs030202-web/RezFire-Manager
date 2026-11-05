@@ -181,7 +181,7 @@ function renderKPIs() {
 
 // ─── Filtragem e Ordenação ────────────────────────────────────────────────────
 function getFilteredAndSortedPedidos() {
-  const refTime = new Date("2024-10-15T18:00:00Z").getTime();
+  const refTime = Date.now() + 60000;
   const dayMs = 86400000;
   const busca = state.busca.trim().toLowerCase();
 
@@ -811,7 +811,7 @@ function executarCancelamento() {
   p.status = "Cancelado";
   p.motivo_cancelamento = motivo;
 
-  const dataCanc = new Date("2024-10-15T18:00:00Z").toISOString();
+  const dataCanc = new Date().toISOString();
   p.historico = p.historico || [];
   p.historico.push({
     data: dataCanc,

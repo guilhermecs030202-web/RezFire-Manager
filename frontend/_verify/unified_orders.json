@@ -1,0 +1,2249 @@
+[
+  {
+    "id_pedido": 1,
+    "codigo_pedido": "PED-0001",
+    "canal": "Venda Direta",
+    "cliente": "Condomínio Edifício Mirante do Vale",
+    "uf": "SP",
+    "diasAtras": 160,
+    "status": "Concluido",
+    "itens": [
+      {
+        "id_produto": 1,
+        "sku": "EXT-PQS-4KG",
+        "nome": "Extintor Pó Químico ABC 4kg",
+        "quantidade": 10,
+        "preco_unitario": 169.9,
+        "subtotal": 1699
+      },
+      {
+        "id_produto": 2,
+        "sku": "EXT-H2O-10L",
+        "nome": "Extintor Água Pressurizada 10L",
+        "quantidade": 8,
+        "preco_unitario": 159.9,
+        "subtotal": 1279.2
+      },
+      {
+        "id_produto": 8,
+        "sku": "SUP-EXT-01",
+        "nome": "Suporte de Parede p/ Extintor",
+        "quantidade": 18,
+        "preco_unitario": 18.9,
+        "subtotal": 340.2
+      },
+      {
+        "id_produto": 9,
+        "sku": "PLA-FOTO-01",
+        "nome": "Placa Sinalização Fotoluminescente",
+        "quantidade": 18,
+        "preco_unitario": 34.9,
+        "subtotal": 628.2
+      }
+    ],
+    "subtotal": 3946.6,
+    "desconto": 197.33,
+    "frete": 0,
+    "valor_total": 3749.27,
+    "forma_pagamento": "Boleto Bancário",
+    "tipo_envio": "Transportadora Parceira (Rodonaves)"
+  },
+  {
+    "id_pedido": 2,
+    "codigo_pedido": "PED-0002",
+    "canal": "Venda Direta",
+    "cliente": "Auto Posto Alvorada Ltda",
+    "uf": "SP",
+    "diasAtras": 157,
+    "status": "Concluido",
+    "itens": [
+      {
+        "id_produto": 1,
+        "sku": "EXT-PQS-4KG",
+        "nome": "Extintor Pó Químico ABC 4kg",
+        "quantidade": 10,
+        "preco_unitario": 169.9,
+        "subtotal": 1699
+      },
+      {
+        "id_produto": 2,
+        "sku": "EXT-H2O-10L",
+        "nome": "Extintor Água Pressurizada 10L",
+        "quantidade": 8,
+        "preco_unitario": 159.9,
+        "subtotal": 1279.2
+      },
+      {
+        "id_produto": 8,
+        "sku": "SUP-EXT-01",
+        "nome": "Suporte de Parede p/ Extintor",
+        "quantidade": 18,
+        "preco_unitario": 18.9,
+        "subtotal": 340.2
+      },
+      {
+        "id_produto": 9,
+        "sku": "PLA-FOTO-01",
+        "nome": "Placa Sinalização Fotoluminescente",
+        "quantidade": 18,
+        "preco_unitario": 34.9,
+        "subtotal": 628.2
+      }
+    ],
+    "subtotal": 3946.6,
+    "desconto": 197.33,
+    "frete": 0,
+    "valor_total": 3749.27,
+    "forma_pagamento": "PIX",
+    "tipo_envio": "Transportadora Parceira (Rodonaves)"
+  },
+  {
+    "id_pedido": 3,
+    "codigo_pedido": "PED-0003",
+    "canal": "Venda Direta",
+    "cliente": "Transportadora Rápido Sudeste",
+    "uf": "RJ",
+    "diasAtras": 154,
+    "status": "Concluido",
+    "itens": [
+      {
+        "id_produto": 1,
+        "sku": "EXT-PQS-4KG",
+        "nome": "Extintor Pó Químico ABC 4kg",
+        "quantidade": 10,
+        "preco_unitario": 169.9,
+        "subtotal": 1699
+      },
+      {
+        "id_produto": 2,
+        "sku": "EXT-H2O-10L",
+        "nome": "Extintor Água Pressurizada 10L",
+        "quantidade": 8,
+        "preco_unitario": 159.9,
+        "subtotal": 1279.2
+      },
+      {
+        "id_produto": 8,
+        "sku": "SUP-EXT-01",
+        "nome": "Suporte de Parede p/ Extintor",
+        "quantidade": 18,
+        "preco_unitario": 18.9,
+        "subtotal": 340.2
+      },
+      {
+        "id_produto": 9,
+        "sku": "PLA-FOTO-01",
+        "nome": "Placa Sinalização Fotoluminescente",
+        "quantidade": 18,
+        "preco_unitario": 34.9,
+        "subtotal": 628.2
+      }
+    ],
+    "subtotal": 3946.6,
+    "desconto": 197.33,
+    "frete": 0,
+    "valor_total": 3749.27,
+    "forma_pagamento": "Mercado Pago",
+    "tipo_envio": "Transportadora Parceira (Rodonaves)"
+  },
+  {
+    "id_pedido": 4,
+    "codigo_pedido": "PED-0004",
+    "canal": "Venda Direta",
+    "cliente": "Restaurante e Churrascaria Fogo Nobre",
+    "uf": "MG",
+    "diasAtras": 151,
+    "status": "Concluido",
+    "itens": [
+      {
+        "id_produto": 1,
+        "sku": "EXT-PQS-4KG",
+        "nome": "Extintor Pó Químico ABC 4kg",
+        "quantidade": 10,
+        "preco_unitario": 169.9,
+        "subtotal": 1699
+      },
+      {
+        "id_produto": 2,
+        "sku": "EXT-H2O-10L",
+        "nome": "Extintor Água Pressurizada 10L",
+        "quantidade": 8,
+        "preco_unitario": 159.9,
+        "subtotal": 1279.2
+      },
+      {
+        "id_produto": 8,
+        "sku": "SUP-EXT-01",
+        "nome": "Suporte de Parede p/ Extintor",
+        "quantidade": 18,
+        "preco_unitario": 18.9,
+        "subtotal": 340.2
+      },
+      {
+        "id_produto": 9,
+        "sku": "PLA-FOTO-01",
+        "nome": "Placa Sinalização Fotoluminescente",
+        "quantidade": 18,
+        "preco_unitario": 34.9,
+        "subtotal": 628.2
+      }
+    ],
+    "subtotal": 3946.6,
+    "desconto": 197.33,
+    "frete": 0,
+    "valor_total": 3749.27,
+    "forma_pagamento": "Cartão de Crédito",
+    "tipo_envio": "Transportadora Parceira (Rodonaves)"
+  },
+  {
+    "id_pedido": 5,
+    "codigo_pedido": "PED-0005",
+    "canal": "Venda Direta",
+    "cliente": "Indústria Metalúrgica Progresso",
+    "uf": "SP",
+    "diasAtras": 148,
+    "status": "Concluido",
+    "itens": [
+      {
+        "id_produto": 1,
+        "sku": "EXT-PQS-4KG",
+        "nome": "Extintor Pó Químico ABC 4kg",
+        "quantidade": 10,
+        "preco_unitario": 169.9,
+        "subtotal": 1699
+      },
+      {
+        "id_produto": 2,
+        "sku": "EXT-H2O-10L",
+        "nome": "Extintor Água Pressurizada 10L",
+        "quantidade": 8,
+        "preco_unitario": 159.9,
+        "subtotal": 1279.2
+      },
+      {
+        "id_produto": 8,
+        "sku": "SUP-EXT-01",
+        "nome": "Suporte de Parede p/ Extintor",
+        "quantidade": 18,
+        "preco_unitario": 18.9,
+        "subtotal": 340.2
+      },
+      {
+        "id_produto": 9,
+        "sku": "PLA-FOTO-01",
+        "nome": "Placa Sinalização Fotoluminescente",
+        "quantidade": 18,
+        "preco_unitario": 34.9,
+        "subtotal": 628.2
+      }
+    ],
+    "subtotal": 3946.6,
+    "desconto": 197.33,
+    "frete": 0,
+    "valor_total": 3749.27,
+    "forma_pagamento": "Boleto Bancário",
+    "tipo_envio": "Transportadora Parceira (Rodonaves)"
+  },
+  {
+    "id_pedido": 6,
+    "codigo_pedido": "PED-0006",
+    "canal": "Venda Direta",
+    "cliente": "Supermercado Compre Bem",
+    "uf": "PR",
+    "diasAtras": 144,
+    "status": "Concluido",
+    "itens": [
+      {
+        "id_produto": 1,
+        "sku": "EXT-PQS-4KG",
+        "nome": "Extintor Pó Químico ABC 4kg",
+        "quantidade": 10,
+        "preco_unitario": 169.9,
+        "subtotal": 1699
+      },
+      {
+        "id_produto": 2,
+        "sku": "EXT-H2O-10L",
+        "nome": "Extintor Água Pressurizada 10L",
+        "quantidade": 8,
+        "preco_unitario": 159.9,
+        "subtotal": 1279.2
+      },
+      {
+        "id_produto": 8,
+        "sku": "SUP-EXT-01",
+        "nome": "Suporte de Parede p/ Extintor",
+        "quantidade": 18,
+        "preco_unitario": 18.9,
+        "subtotal": 340.2
+      },
+      {
+        "id_produto": 9,
+        "sku": "PLA-FOTO-01",
+        "nome": "Placa Sinalização Fotoluminescente",
+        "quantidade": 18,
+        "preco_unitario": 34.9,
+        "subtotal": 628.2
+      }
+    ],
+    "subtotal": 3946.6,
+    "desconto": 197.33,
+    "frete": 0,
+    "valor_total": 3749.27,
+    "forma_pagamento": "PIX",
+    "tipo_envio": "Transportadora Parceira (Rodonaves)"
+  },
+  {
+    "id_pedido": 7,
+    "codigo_pedido": "PED-0007",
+    "canal": "Venda Direta",
+    "cliente": "Hospital e Maternidade São Lucas",
+    "uf": "SP",
+    "diasAtras": 141,
+    "status": "Concluido",
+    "itens": [
+      {
+        "id_produto": 1,
+        "sku": "EXT-PQS-4KG",
+        "nome": "Extintor Pó Químico ABC 4kg",
+        "quantidade": 10,
+        "preco_unitario": 169.9,
+        "subtotal": 1699
+      },
+      {
+        "id_produto": 2,
+        "sku": "EXT-H2O-10L",
+        "nome": "Extintor Água Pressurizada 10L",
+        "quantidade": 8,
+        "preco_unitario": 159.9,
+        "subtotal": 1279.2
+      },
+      {
+        "id_produto": 8,
+        "sku": "SUP-EXT-01",
+        "nome": "Suporte de Parede p/ Extintor",
+        "quantidade": 18,
+        "preco_unitario": 18.9,
+        "subtotal": 340.2
+      },
+      {
+        "id_produto": 9,
+        "sku": "PLA-FOTO-01",
+        "nome": "Placa Sinalização Fotoluminescente",
+        "quantidade": 18,
+        "preco_unitario": 34.9,
+        "subtotal": 628.2
+      }
+    ],
+    "subtotal": 3946.6,
+    "desconto": 197.33,
+    "frete": 0,
+    "valor_total": 3749.27,
+    "forma_pagamento": "Mercado Pago",
+    "tipo_envio": "Transportadora Parceira (Rodonaves)"
+  },
+  {
+    "id_pedido": 8,
+    "codigo_pedido": "PED-0008",
+    "canal": "Venda Direta",
+    "cliente": "Centro Educacional Futuro",
+    "uf": "SC",
+    "diasAtras": 138,
+    "status": "Concluido",
+    "itens": [
+      {
+        "id_produto": 1,
+        "sku": "EXT-PQS-4KG",
+        "nome": "Extintor Pó Químico ABC 4kg",
+        "quantidade": 10,
+        "preco_unitario": 169.9,
+        "subtotal": 1699
+      },
+      {
+        "id_produto": 2,
+        "sku": "EXT-H2O-10L",
+        "nome": "Extintor Água Pressurizada 10L",
+        "quantidade": 8,
+        "preco_unitario": 159.9,
+        "subtotal": 1279.2
+      },
+      {
+        "id_produto": 8,
+        "sku": "SUP-EXT-01",
+        "nome": "Suporte de Parede p/ Extintor",
+        "quantidade": 18,
+        "preco_unitario": 18.9,
+        "subtotal": 340.2
+      },
+      {
+        "id_produto": 9,
+        "sku": "PLA-FOTO-01",
+        "nome": "Placa Sinalização Fotoluminescente",
+        "quantidade": 18,
+        "preco_unitario": 34.9,
+        "subtotal": 628.2
+      }
+    ],
+    "subtotal": 3946.6,
+    "desconto": 197.33,
+    "frete": 0,
+    "valor_total": 3749.27,
+    "forma_pagamento": "Cartão de Crédito",
+    "tipo_envio": "Transportadora Parceira (Rodonaves)"
+  },
+  {
+    "id_pedido": 9,
+    "codigo_pedido": "PED-0009",
+    "canal": "Venda Direta",
+    "cliente": "Distribuidora de Alimentos União",
+    "uf": "GO",
+    "diasAtras": 135,
+    "status": "Concluido",
+    "itens": [
+      {
+        "id_produto": 1,
+        "sku": "EXT-PQS-4KG",
+        "nome": "Extintor Pó Químico ABC 4kg",
+        "quantidade": 10,
+        "preco_unitario": 169.9,
+        "subtotal": 1699
+      },
+      {
+        "id_produto": 2,
+        "sku": "EXT-H2O-10L",
+        "nome": "Extintor Água Pressurizada 10L",
+        "quantidade": 8,
+        "preco_unitario": 159.9,
+        "subtotal": 1279.2
+      },
+      {
+        "id_produto": 8,
+        "sku": "SUP-EXT-01",
+        "nome": "Suporte de Parede p/ Extintor",
+        "quantidade": 18,
+        "preco_unitario": 18.9,
+        "subtotal": 340.2
+      },
+      {
+        "id_produto": 9,
+        "sku": "PLA-FOTO-01",
+        "nome": "Placa Sinalização Fotoluminescente",
+        "quantidade": 18,
+        "preco_unitario": 34.9,
+        "subtotal": 628.2
+      }
+    ],
+    "subtotal": 3946.6,
+    "desconto": 197.33,
+    "frete": 0,
+    "valor_total": 3749.27,
+    "forma_pagamento": "Boleto Bancário",
+    "tipo_envio": "Transportadora Parceira (Rodonaves)"
+  },
+  {
+    "id_pedido": 10,
+    "codigo_pedido": "PED-0010",
+    "canal": "Venda Direta",
+    "cliente": "Oficina Mecânica Precision Car",
+    "uf": "SP",
+    "diasAtras": 132,
+    "status": "Concluido",
+    "itens": [
+      {
+        "id_produto": 1,
+        "sku": "EXT-PQS-4KG",
+        "nome": "Extintor Pó Químico ABC 4kg",
+        "quantidade": 10,
+        "preco_unitario": 169.9,
+        "subtotal": 1699
+      },
+      {
+        "id_produto": 2,
+        "sku": "EXT-H2O-10L",
+        "nome": "Extintor Água Pressurizada 10L",
+        "quantidade": 8,
+        "preco_unitario": 159.9,
+        "subtotal": 1279.2
+      },
+      {
+        "id_produto": 8,
+        "sku": "SUP-EXT-01",
+        "nome": "Suporte de Parede p/ Extintor",
+        "quantidade": 18,
+        "preco_unitario": 18.9,
+        "subtotal": 340.2
+      },
+      {
+        "id_produto": 9,
+        "sku": "PLA-FOTO-01",
+        "nome": "Placa Sinalização Fotoluminescente",
+        "quantidade": 18,
+        "preco_unitario": 34.9,
+        "subtotal": 628.2
+      }
+    ],
+    "subtotal": 3946.6,
+    "desconto": 197.33,
+    "frete": 0,
+    "valor_total": 3749.27,
+    "forma_pagamento": "PIX",
+    "tipo_envio": "Transportadora Parceira (Rodonaves)"
+  },
+  {
+    "id_pedido": 11,
+    "codigo_pedido": "PED-0011",
+    "canal": "Venda Direta",
+    "cliente": "Hotel Pousada das Palmeiras",
+    "uf": "RJ",
+    "diasAtras": 129,
+    "status": "Concluido",
+    "itens": [
+      {
+        "id_produto": 1,
+        "sku": "EXT-PQS-4KG",
+        "nome": "Extintor Pó Químico ABC 4kg",
+        "quantidade": 10,
+        "preco_unitario": 169.9,
+        "subtotal": 1699
+      },
+      {
+        "id_produto": 2,
+        "sku": "EXT-H2O-10L",
+        "nome": "Extintor Água Pressurizada 10L",
+        "quantidade": 8,
+        "preco_unitario": 159.9,
+        "subtotal": 1279.2
+      },
+      {
+        "id_produto": 8,
+        "sku": "SUP-EXT-01",
+        "nome": "Suporte de Parede p/ Extintor",
+        "quantidade": 18,
+        "preco_unitario": 18.9,
+        "subtotal": 340.2
+      },
+      {
+        "id_produto": 9,
+        "sku": "PLA-FOTO-01",
+        "nome": "Placa Sinalização Fotoluminescente",
+        "quantidade": 18,
+        "preco_unitario": 34.9,
+        "subtotal": 628.2
+      }
+    ],
+    "subtotal": 3946.6,
+    "desconto": 197.33,
+    "frete": 0,
+    "valor_total": 3749.27,
+    "forma_pagamento": "Mercado Pago",
+    "tipo_envio": "Transportadora Parceira (Rodonaves)"
+  },
+  {
+    "id_pedido": 12,
+    "codigo_pedido": "PED-0012",
+    "canal": "Venda Direta",
+    "cliente": "Padaria e Confeitaria Bella Vista",
+    "uf": "SP",
+    "diasAtras": 126,
+    "status": "Concluido",
+    "itens": [
+      {
+        "id_produto": 1,
+        "sku": "EXT-PQS-4KG",
+        "nome": "Extintor Pó Químico ABC 4kg",
+        "quantidade": 10,
+        "preco_unitario": 169.9,
+        "subtotal": 1699
+      },
+      {
+        "id_produto": 2,
+        "sku": "EXT-H2O-10L",
+        "nome": "Extintor Água Pressurizada 10L",
+        "quantidade": 8,
+        "preco_unitario": 159.9,
+        "subtotal": 1279.2
+      },
+      {
+        "id_produto": 8,
+        "sku": "SUP-EXT-01",
+        "nome": "Suporte de Parede p/ Extintor",
+        "quantidade": 18,
+        "preco_unitario": 18.9,
+        "subtotal": 340.2
+      },
+      {
+        "id_produto": 9,
+        "sku": "PLA-FOTO-01",
+        "nome": "Placa Sinalização Fotoluminescente",
+        "quantidade": 18,
+        "preco_unitario": 34.9,
+        "subtotal": 628.2
+      }
+    ],
+    "subtotal": 3946.6,
+    "desconto": 197.33,
+    "frete": 0,
+    "valor_total": 3749.27,
+    "forma_pagamento": "Cartão de Crédito",
+    "tipo_envio": "Transportadora Parceira (Rodonaves)"
+  },
+  {
+    "id_pedido": 13,
+    "codigo_pedido": "PED-0013",
+    "canal": "Venda Direta",
+    "cliente": "Galpão Logístico Bandeirantes",
+    "uf": "SP",
+    "diasAtras": 123,
+    "status": "Concluido",
+    "itens": [
+      {
+        "id_produto": 5,
+        "sku": "EXT-K-6L",
+        "nome": "Extintor Classe K 6L (Cozinhas)",
+        "quantidade": 3,
+        "preco_unitario": 749,
+        "subtotal": 2247
+      },
+      {
+        "id_produto": 1,
+        "sku": "EXT-PQS-4KG",
+        "nome": "Extintor Pó Químico ABC 4kg",
+        "quantidade": 2,
+        "preco_unitario": 169.9,
+        "subtotal": 339.8
+      },
+      {
+        "id_produto": 9,
+        "sku": "PLA-FOTO-01",
+        "nome": "Placa Sinalização Fotoluminescente",
+        "quantidade": 5,
+        "preco_unitario": 34.9,
+        "subtotal": 174.5
+      }
+    ],
+    "subtotal": 2761.3,
+    "desconto": 138.07,
+    "frete": 0,
+    "valor_total": 2623.23,
+    "forma_pagamento": "Boleto Bancário",
+    "tipo_envio": "Transportadora Parceira (Rodonaves)"
+  },
+  {
+    "id_pedido": 14,
+    "codigo_pedido": "PED-0014",
+    "canal": "Venda Direta",
+    "cliente": "Academia Iron Fitness Center",
+    "uf": "MG",
+    "diasAtras": 119,
+    "status": "Concluido",
+    "itens": [
+      {
+        "id_produto": 5,
+        "sku": "EXT-K-6L",
+        "nome": "Extintor Classe K 6L (Cozinhas)",
+        "quantidade": 3,
+        "preco_unitario": 749,
+        "subtotal": 2247
+      },
+      {
+        "id_produto": 1,
+        "sku": "EXT-PQS-4KG",
+        "nome": "Extintor Pó Químico ABC 4kg",
+        "quantidade": 2,
+        "preco_unitario": 169.9,
+        "subtotal": 339.8
+      },
+      {
+        "id_produto": 9,
+        "sku": "PLA-FOTO-01",
+        "nome": "Placa Sinalização Fotoluminescente",
+        "quantidade": 5,
+        "preco_unitario": 34.9,
+        "subtotal": 174.5
+      }
+    ],
+    "subtotal": 2761.3,
+    "desconto": 138.07,
+    "frete": 0,
+    "valor_total": 2623.23,
+    "forma_pagamento": "PIX",
+    "tipo_envio": "Transportadora Parceira (Rodonaves)"
+  },
+  {
+    "id_pedido": 15,
+    "codigo_pedido": "PED-0015",
+    "canal": "Venda Direta",
+    "cliente": "Gráfica e Editora Moderna",
+    "uf": "RS",
+    "diasAtras": 116,
+    "status": "Concluido",
+    "itens": [
+      {
+        "id_produto": 5,
+        "sku": "EXT-K-6L",
+        "nome": "Extintor Classe K 6L (Cozinhas)",
+        "quantidade": 3,
+        "preco_unitario": 749,
+        "subtotal": 2247
+      },
+      {
+        "id_produto": 1,
+        "sku": "EXT-PQS-4KG",
+        "nome": "Extintor Pó Químico ABC 4kg",
+        "quantidade": 2,
+        "preco_unitario": 169.9,
+        "subtotal": 339.8
+      },
+      {
+        "id_produto": 9,
+        "sku": "PLA-FOTO-01",
+        "nome": "Placa Sinalização Fotoluminescente",
+        "quantidade": 5,
+        "preco_unitario": 34.9,
+        "subtotal": 174.5
+      }
+    ],
+    "subtotal": 2761.3,
+    "desconto": 138.07,
+    "frete": 0,
+    "valor_total": 2623.23,
+    "forma_pagamento": "Mercado Pago",
+    "tipo_envio": "Transportadora Parceira (Rodonaves)"
+  },
+  {
+    "id_pedido": 16,
+    "codigo_pedido": "PED-0016",
+    "canal": "Venda Direta",
+    "cliente": "Farmácia Droga Express",
+    "uf": "SP",
+    "diasAtras": 113,
+    "status": "Concluido",
+    "itens": [
+      {
+        "id_produto": 5,
+        "sku": "EXT-K-6L",
+        "nome": "Extintor Classe K 6L (Cozinhas)",
+        "quantidade": 3,
+        "preco_unitario": 749,
+        "subtotal": 2247
+      },
+      {
+        "id_produto": 1,
+        "sku": "EXT-PQS-4KG",
+        "nome": "Extintor Pó Químico ABC 4kg",
+        "quantidade": 2,
+        "preco_unitario": 169.9,
+        "subtotal": 339.8
+      },
+      {
+        "id_produto": 9,
+        "sku": "PLA-FOTO-01",
+        "nome": "Placa Sinalização Fotoluminescente",
+        "quantidade": 5,
+        "preco_unitario": 34.9,
+        "subtotal": 174.5
+      }
+    ],
+    "subtotal": 2761.3,
+    "desconto": 138.07,
+    "frete": 0,
+    "valor_total": 2623.23,
+    "forma_pagamento": "Cartão de Crédito",
+    "tipo_envio": "Transportadora Parceira (Rodonaves)"
+  },
+  {
+    "id_pedido": 17,
+    "codigo_pedido": "PED-0017",
+    "canal": "Venda Direta",
+    "cliente": "Teatro Municipal Carlos Gomes",
+    "uf": "RJ",
+    "diasAtras": 110,
+    "status": "Concluido",
+    "itens": [
+      {
+        "id_produto": 10,
+        "sku": "MAN-MANG-15",
+        "nome": "Mangueira de Incêndio 15m",
+        "quantidade": 4,
+        "preco_unitario": 249,
+        "subtotal": 996
+      },
+      {
+        "id_produto": 9,
+        "sku": "PLA-FOTO-01",
+        "nome": "Placa Sinalização Fotoluminescente",
+        "quantidade": 6,
+        "preco_unitario": 34.9,
+        "subtotal": 209.4
+      }
+    ],
+    "subtotal": 1205.4,
+    "desconto": 60.27,
+    "frete": 0,
+    "valor_total": 1145.13,
+    "forma_pagamento": "Boleto Bancário",
+    "tipo_envio": "Transportadora Parceira (Rodonaves)"
+  },
+  {
+    "id_pedido": 18,
+    "codigo_pedido": "PED-0018",
+    "canal": "Venda Direta",
+    "cliente": "Laboratório Clínico Biolab",
+    "uf": "SP",
+    "diasAtras": 107,
+    "status": "Concluido",
+    "itens": [
+      {
+        "id_produto": 10,
+        "sku": "MAN-MANG-15",
+        "nome": "Mangueira de Incêndio 15m",
+        "quantidade": 4,
+        "preco_unitario": 249,
+        "subtotal": 996
+      },
+      {
+        "id_produto": 9,
+        "sku": "PLA-FOTO-01",
+        "nome": "Placa Sinalização Fotoluminescente",
+        "quantidade": 6,
+        "preco_unitario": 34.9,
+        "subtotal": 209.4
+      }
+    ],
+    "subtotal": 1205.4,
+    "desconto": 60.27,
+    "frete": 0,
+    "valor_total": 1145.13,
+    "forma_pagamento": "PIX",
+    "tipo_envio": "Transportadora Parceira (Rodonaves)"
+  },
+  {
+    "id_pedido": 19,
+    "codigo_pedido": "PED-0019",
+    "canal": "Venda Direta",
+    "cliente": "Escola Técnica Integrada",
+    "uf": "PR",
+    "diasAtras": 104,
+    "status": "Concluido",
+    "itens": [
+      {
+        "id_produto": 10,
+        "sku": "MAN-MANG-15",
+        "nome": "Mangueira de Incêndio 15m",
+        "quantidade": 4,
+        "preco_unitario": 249,
+        "subtotal": 996
+      },
+      {
+        "id_produto": 9,
+        "sku": "PLA-FOTO-01",
+        "nome": "Placa Sinalização Fotoluminescente",
+        "quantidade": 6,
+        "preco_unitario": 34.9,
+        "subtotal": 209.4
+      }
+    ],
+    "subtotal": 1205.4,
+    "desconto": 60.27,
+    "frete": 0,
+    "valor_total": 1145.13,
+    "forma_pagamento": "Mercado Pago",
+    "tipo_envio": "Transportadora Parceira (Rodonaves)"
+  },
+  {
+    "id_pedido": 20,
+    "codigo_pedido": "PED-0020",
+    "canal": "Venda Direta",
+    "cliente": "Centro Empresarial Millennium",
+    "uf": "SP",
+    "diasAtras": 101,
+    "status": "Concluido",
+    "itens": [
+      {
+        "id_produto": 10,
+        "sku": "MAN-MANG-15",
+        "nome": "Mangueira de Incêndio 15m",
+        "quantidade": 4,
+        "preco_unitario": 249,
+        "subtotal": 996
+      },
+      {
+        "id_produto": 9,
+        "sku": "PLA-FOTO-01",
+        "nome": "Placa Sinalização Fotoluminescente",
+        "quantidade": 6,
+        "preco_unitario": 34.9,
+        "subtotal": 209.4
+      }
+    ],
+    "subtotal": 1205.4,
+    "desconto": 60.27,
+    "frete": 0,
+    "valor_total": 1145.13,
+    "forma_pagamento": "Cartão de Crédito",
+    "tipo_envio": "Transportadora Parceira (Rodonaves)"
+  },
+  {
+    "id_pedido": 21,
+    "codigo_pedido": "PED-0021",
+    "canal": "Venda Direta",
+    "cliente": "Condomínio Edifício Mirante do Vale",
+    "uf": "SP",
+    "diasAtras": 98,
+    "status": "Concluido",
+    "itens": [
+      {
+        "id_produto": 10,
+        "sku": "MAN-MANG-15",
+        "nome": "Mangueira de Incêndio 15m",
+        "quantidade": 4,
+        "preco_unitario": 249,
+        "subtotal": 996
+      },
+      {
+        "id_produto": 9,
+        "sku": "PLA-FOTO-01",
+        "nome": "Placa Sinalização Fotoluminescente",
+        "quantidade": 6,
+        "preco_unitario": 34.9,
+        "subtotal": 209.4
+      }
+    ],
+    "subtotal": 1205.4,
+    "desconto": 60.27,
+    "frete": 0,
+    "valor_total": 1145.13,
+    "forma_pagamento": "Boleto Bancário",
+    "tipo_envio": "Transportadora Parceira (Rodonaves)"
+  },
+  {
+    "id_pedido": 22,
+    "codigo_pedido": "PED-0022",
+    "canal": "Venda Direta",
+    "cliente": "Auto Posto Alvorada Ltda",
+    "uf": "SP",
+    "diasAtras": 94,
+    "status": "Concluido",
+    "itens": [
+      {
+        "id_produto": 10,
+        "sku": "MAN-MANG-15",
+        "nome": "Mangueira de Incêndio 15m",
+        "quantidade": 4,
+        "preco_unitario": 249,
+        "subtotal": 996
+      },
+      {
+        "id_produto": 9,
+        "sku": "PLA-FOTO-01",
+        "nome": "Placa Sinalização Fotoluminescente",
+        "quantidade": 6,
+        "preco_unitario": 34.9,
+        "subtotal": 209.4
+      }
+    ],
+    "subtotal": 1205.4,
+    "desconto": 60.27,
+    "frete": 0,
+    "valor_total": 1145.13,
+    "forma_pagamento": "PIX",
+    "tipo_envio": "Transportadora Parceira (Rodonaves)"
+  },
+  {
+    "id_pedido": 23,
+    "codigo_pedido": "MLB-2894012023",
+    "canal": "Mercado Livre",
+    "cliente": "Transportadora Rápido Sudeste",
+    "uf": "RJ",
+    "diasAtras": 91,
+    "status": "Concluido",
+    "itens": [
+      {
+        "id_produto": 3,
+        "sku": "EXT-CO2-6KG",
+        "nome": "Extintor CO2 6kg",
+        "quantidade": 4,
+        "preco_unitario": 459,
+        "subtotal": 1836
+      },
+      {
+        "id_produto": 9,
+        "sku": "PLA-FOTO-01",
+        "nome": "Placa Sinalização Fotoluminescente",
+        "quantidade": 4,
+        "preco_unitario": 34.9,
+        "subtotal": 139.6
+      }
+    ],
+    "subtotal": 1975.6,
+    "desconto": 0,
+    "frete": 0,
+    "valor_total": 1975.6,
+    "forma_pagamento": "Mercado Pago",
+    "tipo_envio": "Mercado Envios Coleta"
+  },
+  {
+    "id_pedido": 24,
+    "codigo_pedido": "MLB-2894012024",
+    "canal": "Mercado Livre",
+    "cliente": "Restaurante e Churrascaria Fogo Nobre",
+    "uf": "MG",
+    "diasAtras": 88,
+    "status": "Concluido",
+    "itens": [
+      {
+        "id_produto": 3,
+        "sku": "EXT-CO2-6KG",
+        "nome": "Extintor CO2 6kg",
+        "quantidade": 4,
+        "preco_unitario": 459,
+        "subtotal": 1836
+      },
+      {
+        "id_produto": 9,
+        "sku": "PLA-FOTO-01",
+        "nome": "Placa Sinalização Fotoluminescente",
+        "quantidade": 4,
+        "preco_unitario": 34.9,
+        "subtotal": 139.6
+      }
+    ],
+    "subtotal": 1975.6,
+    "desconto": 0,
+    "frete": 0,
+    "valor_total": 1975.6,
+    "forma_pagamento": "Cartão de Crédito",
+    "tipo_envio": "Mercado Envios Coleta"
+  },
+  {
+    "id_pedido": 58,
+    "codigo_pedido": "MLB-2894012058",
+    "canal": "Mercado Livre",
+    "cliente": "Logística Express Barueri",
+    "uf": "SP",
+    "diasAtras": 88,
+    "status": "Cancelado",
+    "motivo_cancelamento": "Desistência do comprador após aprovação comercial (estoque estornado).",
+    "itens": [
+      {
+        "id_produto": 1,
+        "sku": "EXT-PQS-4KG",
+        "nome": "Extintor Pó Químico ABC 4kg",
+        "quantidade": 4,
+        "preco_unitario": 169.9,
+        "subtotal": 679.6
+      },
+      {
+        "id_produto": 8,
+        "sku": "SUP-EXT-01",
+        "nome": "Suporte de Parede p/ Extintor",
+        "quantidade": 4,
+        "preco_unitario": 18.9,
+        "subtotal": 75.6
+      }
+    ],
+    "subtotal": 755.2,
+    "desconto": 0,
+    "frete": 0,
+    "valor_total": 755.2,
+    "forma_pagamento": "Cartão de Crédito",
+    "tipo_envio": "Mercado Envios"
+  },
+  {
+    "id_pedido": 25,
+    "codigo_pedido": "MLB-2894012025",
+    "canal": "Mercado Livre",
+    "cliente": "Indústria Metalúrgica Progresso",
+    "uf": "SP",
+    "diasAtras": 85,
+    "status": "Concluido",
+    "itens": [
+      {
+        "id_produto": 3,
+        "sku": "EXT-CO2-6KG",
+        "nome": "Extintor CO2 6kg",
+        "quantidade": 4,
+        "preco_unitario": 459,
+        "subtotal": 1836
+      },
+      {
+        "id_produto": 9,
+        "sku": "PLA-FOTO-01",
+        "nome": "Placa Sinalização Fotoluminescente",
+        "quantidade": 4,
+        "preco_unitario": 34.9,
+        "subtotal": 139.6
+      }
+    ],
+    "subtotal": 1975.6,
+    "desconto": 0,
+    "frete": 0,
+    "valor_total": 1975.6,
+    "forma_pagamento": "Boleto Bancário",
+    "tipo_envio": "Mercado Envios Coleta"
+  },
+  {
+    "id_pedido": 26,
+    "codigo_pedido": "MLB-2894012026",
+    "canal": "Mercado Livre",
+    "cliente": "Supermercado Compre Bem",
+    "uf": "PR",
+    "diasAtras": 82,
+    "status": "Concluido",
+    "itens": [
+      {
+        "id_produto": 4,
+        "sku": "EXT-CO2-4KG",
+        "nome": "Extintor CO2 4kg",
+        "quantidade": 4,
+        "preco_unitario": 389,
+        "subtotal": 1556
+      },
+      {
+        "id_produto": 8,
+        "sku": "SUP-EXT-01",
+        "nome": "Suporte de Parede p/ Extintor",
+        "quantidade": 4,
+        "preco_unitario": 18.9,
+        "subtotal": 75.6
+      }
+    ],
+    "subtotal": 1631.6,
+    "desconto": 0,
+    "frete": 0,
+    "valor_total": 1631.6,
+    "forma_pagamento": "PIX",
+    "tipo_envio": "Mercado Envios Coleta"
+  },
+  {
+    "id_pedido": 27,
+    "codigo_pedido": "MLB-2894012027",
+    "canal": "Mercado Livre",
+    "cliente": "Hospital e Maternidade São Lucas",
+    "uf": "SP",
+    "diasAtras": 79,
+    "status": "Concluido",
+    "itens": [
+      {
+        "id_produto": 11,
+        "sku": "DET-FUM-01",
+        "nome": "Detector de Fumaça Óptico",
+        "quantidade": 8,
+        "preco_unitario": 89.9,
+        "subtotal": 719.2
+      }
+    ],
+    "subtotal": 719.2,
+    "desconto": 0,
+    "frete": 0,
+    "valor_total": 719.2,
+    "forma_pagamento": "Mercado Pago",
+    "tipo_envio": "Mercado Envios Coleta"
+  },
+  {
+    "id_pedido": 28,
+    "codigo_pedido": "MLB-2894012028",
+    "canal": "Mercado Livre",
+    "cliente": "Centro Educacional Futuro",
+    "uf": "SC",
+    "diasAtras": 76,
+    "status": "Concluido",
+    "itens": [
+      {
+        "id_produto": 11,
+        "sku": "DET-FUM-01",
+        "nome": "Detector de Fumaça Óptico",
+        "quantidade": 8,
+        "preco_unitario": 89.9,
+        "subtotal": 719.2
+      }
+    ],
+    "subtotal": 719.2,
+    "desconto": 0,
+    "frete": 0,
+    "valor_total": 719.2,
+    "forma_pagamento": "Cartão de Crédito",
+    "tipo_envio": "Mercado Envios Coleta"
+  },
+  {
+    "id_pedido": 29,
+    "codigo_pedido": "MLB-2894012029",
+    "canal": "Mercado Livre",
+    "cliente": "Distribuidora de Alimentos União",
+    "uf": "GO",
+    "diasAtras": 73,
+    "status": "Concluido",
+    "itens": [
+      {
+        "id_produto": 11,
+        "sku": "DET-FUM-01",
+        "nome": "Detector de Fumaça Óptico",
+        "quantidade": 8,
+        "preco_unitario": 89.9,
+        "subtotal": 719.2
+      }
+    ],
+    "subtotal": 719.2,
+    "desconto": 0,
+    "frete": 0,
+    "valor_total": 719.2,
+    "forma_pagamento": "Boleto Bancário",
+    "tipo_envio": "Mercado Envios Coleta"
+  },
+  {
+    "id_pedido": 30,
+    "codigo_pedido": "MLB-2894012030",
+    "canal": "Mercado Livre",
+    "cliente": "Oficina Mecânica Precision Car",
+    "uf": "SP",
+    "diasAtras": 70,
+    "status": "Concluido",
+    "itens": [
+      {
+        "id_produto": 11,
+        "sku": "DET-FUM-01",
+        "nome": "Detector de Fumaça Óptico",
+        "quantidade": 8,
+        "preco_unitario": 89.9,
+        "subtotal": 719.2
+      }
+    ],
+    "subtotal": 719.2,
+    "desconto": 0,
+    "frete": 0,
+    "valor_total": 719.2,
+    "forma_pagamento": "PIX",
+    "tipo_envio": "Mercado Envios Coleta"
+  },
+  {
+    "id_pedido": 31,
+    "codigo_pedido": "MLB-2894012031",
+    "canal": "Mercado Livre",
+    "cliente": "Hotel Pousada das Palmeiras",
+    "uf": "RJ",
+    "diasAtras": 66,
+    "status": "Concluido",
+    "itens": [
+      {
+        "id_produto": 11,
+        "sku": "DET-FUM-01",
+        "nome": "Detector de Fumaça Óptico",
+        "quantidade": 8,
+        "preco_unitario": 89.9,
+        "subtotal": 719.2
+      }
+    ],
+    "subtotal": 719.2,
+    "desconto": 0,
+    "frete": 0,
+    "valor_total": 719.2,
+    "forma_pagamento": "Mercado Pago",
+    "tipo_envio": "Mercado Envios Coleta"
+  },
+  {
+    "id_pedido": 32,
+    "codigo_pedido": "MLB-2894012032",
+    "canal": "Mercado Livre",
+    "cliente": "Padaria e Confeitaria Bella Vista",
+    "uf": "SP",
+    "diasAtras": 63,
+    "status": "Concluido",
+    "itens": [
+      {
+        "id_produto": 11,
+        "sku": "DET-FUM-01",
+        "nome": "Detector de Fumaça Óptico",
+        "quantidade": 8,
+        "preco_unitario": 89.9,
+        "subtotal": 719.2
+      }
+    ],
+    "subtotal": 719.2,
+    "desconto": 0,
+    "frete": 0,
+    "valor_total": 719.2,
+    "forma_pagamento": "Cartão de Crédito",
+    "tipo_envio": "Mercado Envios Coleta"
+  },
+  {
+    "id_pedido": 33,
+    "codigo_pedido": "PED-0033",
+    "canal": "Venda Direta",
+    "cliente": "Galpão Logístico Bandeirantes",
+    "uf": "SP",
+    "diasAtras": 60,
+    "status": "Concluido",
+    "itens": [
+      {
+        "id_produto": 1,
+        "sku": "EXT-PQS-4KG",
+        "nome": "Extintor Pó Químico ABC 4kg",
+        "quantidade": 4,
+        "preco_unitario": 169.9,
+        "subtotal": 679.6
+      },
+      {
+        "id_produto": 2,
+        "sku": "EXT-H2O-10L",
+        "nome": "Extintor Água Pressurizada 10L",
+        "quantidade": 4,
+        "preco_unitario": 159.9,
+        "subtotal": 639.6
+      },
+      {
+        "id_produto": 3,
+        "sku": "EXT-CO2-6KG",
+        "nome": "Extintor CO2 6kg",
+        "quantidade": 2,
+        "preco_unitario": 459,
+        "subtotal": 918
+      },
+      {
+        "id_produto": 4,
+        "sku": "EXT-CO2-4KG",
+        "nome": "Extintor CO2 4kg",
+        "quantidade": 2,
+        "preco_unitario": 389,
+        "subtotal": 778
+      },
+      {
+        "id_produto": 6,
+        "sku": "EXT-PQS-12KG",
+        "nome": "Extintor Pó Químico BC 12kg",
+        "quantidade": 2,
+        "preco_unitario": 329,
+        "subtotal": 658
+      },
+      {
+        "id_produto": 9,
+        "sku": "PLA-FOTO-01",
+        "nome": "Placa Sinalização Fotoluminescente",
+        "quantidade": 1,
+        "preco_unitario": 34.9,
+        "subtotal": 34.9
+      }
+    ],
+    "subtotal": 3708.1,
+    "desconto": 185.41,
+    "frete": 0,
+    "valor_total": 3522.69,
+    "forma_pagamento": "Boleto Bancário",
+    "tipo_envio": "Transportadora Parceira (Rodonaves)"
+  },
+  {
+    "id_pedido": 34,
+    "codigo_pedido": "PED-0034",
+    "canal": "Venda Direta",
+    "cliente": "Academia Iron Fitness Center",
+    "uf": "MG",
+    "diasAtras": 57,
+    "status": "Concluido",
+    "itens": [
+      {
+        "id_produto": 1,
+        "sku": "EXT-PQS-4KG",
+        "nome": "Extintor Pó Químico ABC 4kg",
+        "quantidade": 4,
+        "preco_unitario": 169.9,
+        "subtotal": 679.6
+      },
+      {
+        "id_produto": 2,
+        "sku": "EXT-H2O-10L",
+        "nome": "Extintor Água Pressurizada 10L",
+        "quantidade": 2,
+        "preco_unitario": 159.9,
+        "subtotal": 319.8
+      },
+      {
+        "id_produto": 3,
+        "sku": "EXT-CO2-6KG",
+        "nome": "Extintor CO2 6kg",
+        "quantidade": 2,
+        "preco_unitario": 459,
+        "subtotal": 918
+      },
+      {
+        "id_produto": 4,
+        "sku": "EXT-CO2-4KG",
+        "nome": "Extintor CO2 4kg",
+        "quantidade": 2,
+        "preco_unitario": 389,
+        "subtotal": 778
+      },
+      {
+        "id_produto": 6,
+        "sku": "EXT-PQS-12KG",
+        "nome": "Extintor Pó Químico BC 12kg",
+        "quantidade": 2,
+        "preco_unitario": 329,
+        "subtotal": 658
+      }
+    ],
+    "subtotal": 3353.4,
+    "desconto": 167.67,
+    "frete": 0,
+    "valor_total": 3185.73,
+    "forma_pagamento": "PIX",
+    "tipo_envio": "Transportadora Parceira (Rodonaves)"
+  },
+  {
+    "id_pedido": 35,
+    "codigo_pedido": "PED-0035",
+    "canal": "Venda Direta",
+    "cliente": "Gráfica e Editora Moderna",
+    "uf": "RS",
+    "diasAtras": 54,
+    "status": "Concluido",
+    "itens": [
+      {
+        "id_produto": 1,
+        "sku": "EXT-PQS-4KG",
+        "nome": "Extintor Pó Químico ABC 4kg",
+        "quantidade": 4,
+        "preco_unitario": 169.9,
+        "subtotal": 679.6
+      },
+      {
+        "id_produto": 3,
+        "sku": "EXT-CO2-6KG",
+        "nome": "Extintor CO2 6kg",
+        "quantidade": 2,
+        "preco_unitario": 459,
+        "subtotal": 918
+      },
+      {
+        "id_produto": 4,
+        "sku": "EXT-CO2-4KG",
+        "nome": "Extintor CO2 4kg",
+        "quantidade": 2,
+        "preco_unitario": 389,
+        "subtotal": 778
+      },
+      {
+        "id_produto": 6,
+        "sku": "EXT-PQS-12KG",
+        "nome": "Extintor Pó Químico BC 12kg",
+        "quantidade": 2,
+        "preco_unitario": 329,
+        "subtotal": 658
+      }
+    ],
+    "subtotal": 3033.6,
+    "desconto": 151.68,
+    "frete": 0,
+    "valor_total": 2881.92,
+    "forma_pagamento": "Mercado Pago",
+    "tipo_envio": "Transportadora Parceira (Rodonaves)"
+  },
+  {
+    "id_pedido": 36,
+    "codigo_pedido": "PED-0036",
+    "canal": "Venda Direta",
+    "cliente": "Farmácia Droga Express",
+    "uf": "SP",
+    "diasAtras": 51,
+    "status": "Concluido",
+    "itens": [
+      {
+        "id_produto": 1,
+        "sku": "EXT-PQS-4KG",
+        "nome": "Extintor Pó Químico ABC 4kg",
+        "quantidade": 4,
+        "preco_unitario": 169.9,
+        "subtotal": 679.6
+      },
+      {
+        "id_produto": 3,
+        "sku": "EXT-CO2-6KG",
+        "nome": "Extintor CO2 6kg",
+        "quantidade": 2,
+        "preco_unitario": 459,
+        "subtotal": 918
+      },
+      {
+        "id_produto": 4,
+        "sku": "EXT-CO2-4KG",
+        "nome": "Extintor CO2 4kg",
+        "quantidade": 2,
+        "preco_unitario": 389,
+        "subtotal": 778
+      },
+      {
+        "id_produto": 6,
+        "sku": "EXT-PQS-12KG",
+        "nome": "Extintor Pó Químico BC 12kg",
+        "quantidade": 2,
+        "preco_unitario": 329,
+        "subtotal": 658
+      }
+    ],
+    "subtotal": 3033.6,
+    "desconto": 151.68,
+    "frete": 0,
+    "valor_total": 2881.92,
+    "forma_pagamento": "Cartão de Crédito",
+    "tipo_envio": "Transportadora Parceira (Rodonaves)"
+  },
+  {
+    "id_pedido": 37,
+    "codigo_pedido": "PED-0037",
+    "canal": "Venda Direta",
+    "cliente": "Teatro Municipal Carlos Gomes",
+    "uf": "RJ",
+    "diasAtras": 48,
+    "status": "Concluido",
+    "itens": [
+      {
+        "id_produto": 1,
+        "sku": "EXT-PQS-4KG",
+        "nome": "Extintor Pó Químico ABC 4kg",
+        "quantidade": 4,
+        "preco_unitario": 169.9,
+        "subtotal": 679.6
+      },
+      {
+        "id_produto": 3,
+        "sku": "EXT-CO2-6KG",
+        "nome": "Extintor CO2 6kg",
+        "quantidade": 2,
+        "preco_unitario": 459,
+        "subtotal": 918
+      },
+      {
+        "id_produto": 4,
+        "sku": "EXT-CO2-4KG",
+        "nome": "Extintor CO2 4kg",
+        "quantidade": 2,
+        "preco_unitario": 389,
+        "subtotal": 778
+      },
+      {
+        "id_produto": 6,
+        "sku": "EXT-PQS-12KG",
+        "nome": "Extintor Pó Químico BC 12kg",
+        "quantidade": 2,
+        "preco_unitario": 329,
+        "subtotal": 658
+      }
+    ],
+    "subtotal": 3033.6,
+    "desconto": 151.68,
+    "frete": 0,
+    "valor_total": 2881.92,
+    "forma_pagamento": "Boleto Bancário",
+    "tipo_envio": "Transportadora Parceira (Rodonaves)"
+  },
+  {
+    "id_pedido": 38,
+    "codigo_pedido": "PED-0038",
+    "canal": "Venda Direta",
+    "cliente": "Laboratório Clínico Biolab",
+    "uf": "SP",
+    "diasAtras": 45,
+    "status": "Concluido",
+    "itens": [
+      {
+        "id_produto": 1,
+        "sku": "EXT-PQS-4KG",
+        "nome": "Extintor Pó Químico ABC 4kg",
+        "quantidade": 4,
+        "preco_unitario": 169.9,
+        "subtotal": 679.6
+      },
+      {
+        "id_produto": 3,
+        "sku": "EXT-CO2-6KG",
+        "nome": "Extintor CO2 6kg",
+        "quantidade": 2,
+        "preco_unitario": 459,
+        "subtotal": 918
+      },
+      {
+        "id_produto": 4,
+        "sku": "EXT-CO2-4KG",
+        "nome": "Extintor CO2 4kg",
+        "quantidade": 2,
+        "preco_unitario": 389,
+        "subtotal": 778
+      },
+      {
+        "id_produto": 6,
+        "sku": "EXT-PQS-12KG",
+        "nome": "Extintor Pó Químico BC 12kg",
+        "quantidade": 2,
+        "preco_unitario": 329,
+        "subtotal": 658
+      }
+    ],
+    "subtotal": 3033.6,
+    "desconto": 151.68,
+    "frete": 0,
+    "valor_total": 2881.92,
+    "forma_pagamento": "PIX",
+    "tipo_envio": "Transportadora Parceira (Rodonaves)"
+  },
+  {
+    "id_pedido": 59,
+    "codigo_pedido": "PED-0059",
+    "canal": "Venda Direta",
+    "cliente": "Restaurante Sabor Mineiro",
+    "uf": "MG",
+    "diasAtras": 42,
+    "status": "Cancelado",
+    "motivo_cancelamento": "Desistência do comprador após aprovação comercial (estoque estornado).",
+    "itens": [
+      {
+        "id_produto": 5,
+        "sku": "EXT-K-6L",
+        "nome": "Extintor Classe K 6L (Cozinhas)",
+        "quantidade": 2,
+        "preco_unitario": 749,
+        "subtotal": 1498
+      }
+    ],
+    "subtotal": 1498,
+    "desconto": 0,
+    "frete": 0,
+    "valor_total": 1498,
+    "forma_pagamento": "Cartão de Crédito",
+    "tipo_envio": "Mercado Envios"
+  },
+  {
+    "id_pedido": 39,
+    "codigo_pedido": "PED-0039",
+    "canal": "Venda Direta",
+    "cliente": "Escola Técnica Integrada",
+    "uf": "PR",
+    "diasAtras": 41,
+    "status": "Concluido",
+    "itens": [
+      {
+        "id_produto": 1,
+        "sku": "EXT-PQS-4KG",
+        "nome": "Extintor Pó Químico ABC 4kg",
+        "quantidade": 3,
+        "preco_unitario": 169.9,
+        "subtotal": 509.7
+      },
+      {
+        "id_produto": 3,
+        "sku": "EXT-CO2-6KG",
+        "nome": "Extintor CO2 6kg",
+        "quantidade": 2,
+        "preco_unitario": 459,
+        "subtotal": 918
+      },
+      {
+        "id_produto": 4,
+        "sku": "EXT-CO2-4KG",
+        "nome": "Extintor CO2 4kg",
+        "quantidade": 2,
+        "preco_unitario": 389,
+        "subtotal": 778
+      },
+      {
+        "id_produto": 6,
+        "sku": "EXT-PQS-12KG",
+        "nome": "Extintor Pó Químico BC 12kg",
+        "quantidade": 2,
+        "preco_unitario": 329,
+        "subtotal": 658
+      }
+    ],
+    "subtotal": 2863.7,
+    "desconto": 143.19,
+    "frete": 0,
+    "valor_total": 2720.51,
+    "forma_pagamento": "Mercado Pago",
+    "tipo_envio": "Transportadora Parceira (Rodonaves)"
+  },
+  {
+    "id_pedido": 40,
+    "codigo_pedido": "PED-0040",
+    "canal": "Venda Direta",
+    "cliente": "Centro Empresarial Millennium",
+    "uf": "SP",
+    "diasAtras": 38,
+    "status": "Concluido",
+    "itens": [
+      {
+        "id_produto": 3,
+        "sku": "EXT-CO2-6KG",
+        "nome": "Extintor CO2 6kg",
+        "quantidade": 2,
+        "preco_unitario": 459,
+        "subtotal": 918
+      },
+      {
+        "id_produto": 4,
+        "sku": "EXT-CO2-4KG",
+        "nome": "Extintor CO2 4kg",
+        "quantidade": 2,
+        "preco_unitario": 389,
+        "subtotal": 778
+      },
+      {
+        "id_produto": 6,
+        "sku": "EXT-PQS-12KG",
+        "nome": "Extintor Pó Químico BC 12kg",
+        "quantidade": 2,
+        "preco_unitario": 329,
+        "subtotal": 658
+      }
+    ],
+    "subtotal": 2354,
+    "desconto": 117.7,
+    "frete": 0,
+    "valor_total": 2236.3,
+    "forma_pagamento": "Cartão de Crédito",
+    "tipo_envio": "Transportadora Parceira (Rodonaves)"
+  },
+  {
+    "id_pedido": 41,
+    "codigo_pedido": "PED-0041",
+    "canal": "Venda Direta",
+    "cliente": "Condomínio Edifício Mirante do Vale",
+    "uf": "SP",
+    "diasAtras": 35,
+    "status": "Concluido",
+    "itens": [
+      {
+        "id_produto": 3,
+        "sku": "EXT-CO2-6KG",
+        "nome": "Extintor CO2 6kg",
+        "quantidade": 2,
+        "preco_unitario": 459,
+        "subtotal": 918
+      },
+      {
+        "id_produto": 4,
+        "sku": "EXT-CO2-4KG",
+        "nome": "Extintor CO2 4kg",
+        "quantidade": 2,
+        "preco_unitario": 389,
+        "subtotal": 778
+      },
+      {
+        "id_produto": 6,
+        "sku": "EXT-PQS-12KG",
+        "nome": "Extintor Pó Químico BC 12kg",
+        "quantidade": 2,
+        "preco_unitario": 329,
+        "subtotal": 658
+      }
+    ],
+    "subtotal": 2354,
+    "desconto": 117.7,
+    "frete": 0,
+    "valor_total": 2236.3,
+    "forma_pagamento": "Boleto Bancário",
+    "tipo_envio": "Transportadora Parceira (Rodonaves)"
+  },
+  {
+    "id_pedido": 42,
+    "codigo_pedido": "PED-0042",
+    "canal": "Venda Direta",
+    "cliente": "Auto Posto Alvorada Ltda",
+    "uf": "SP",
+    "diasAtras": 32,
+    "status": "Concluido",
+    "itens": [
+      {
+        "id_produto": 3,
+        "sku": "EXT-CO2-6KG",
+        "nome": "Extintor CO2 6kg",
+        "quantidade": 2,
+        "preco_unitario": 459,
+        "subtotal": 918
+      },
+      {
+        "id_produto": 4,
+        "sku": "EXT-CO2-4KG",
+        "nome": "Extintor CO2 4kg",
+        "quantidade": 2,
+        "preco_unitario": 389,
+        "subtotal": 778
+      },
+      {
+        "id_produto": 6,
+        "sku": "EXT-PQS-12KG",
+        "nome": "Extintor Pó Químico BC 12kg",
+        "quantidade": 2,
+        "preco_unitario": 329,
+        "subtotal": 658
+      }
+    ],
+    "subtotal": 2354,
+    "desconto": 117.7,
+    "frete": 0,
+    "valor_total": 2236.3,
+    "forma_pagamento": "PIX",
+    "tipo_envio": "Transportadora Parceira (Rodonaves)"
+  },
+  {
+    "id_pedido": 43,
+    "codigo_pedido": "PED-0043",
+    "canal": "Venda Direta",
+    "cliente": "Transportadora Rápido Sudeste",
+    "uf": "RJ",
+    "diasAtras": 29,
+    "status": "Concluido",
+    "itens": [
+      {
+        "id_produto": 3,
+        "sku": "EXT-CO2-6KG",
+        "nome": "Extintor CO2 6kg",
+        "quantidade": 2,
+        "preco_unitario": 459,
+        "subtotal": 918
+      },
+      {
+        "id_produto": 4,
+        "sku": "EXT-CO2-4KG",
+        "nome": "Extintor CO2 4kg",
+        "quantidade": 2,
+        "preco_unitario": 389,
+        "subtotal": 778
+      },
+      {
+        "id_produto": 6,
+        "sku": "EXT-PQS-12KG",
+        "nome": "Extintor Pó Químico BC 12kg",
+        "quantidade": 2,
+        "preco_unitario": 329,
+        "subtotal": 658
+      }
+    ],
+    "subtotal": 2354,
+    "desconto": 117.7,
+    "frete": 0,
+    "valor_total": 2236.3,
+    "forma_pagamento": "Mercado Pago",
+    "tipo_envio": "Transportadora Parceira (Rodonaves)"
+  },
+  {
+    "id_pedido": 44,
+    "codigo_pedido": "PED-0044",
+    "canal": "Venda Direta",
+    "cliente": "Restaurante e Churrascaria Fogo Nobre",
+    "uf": "MG",
+    "diasAtras": 26,
+    "status": "Concluido",
+    "itens": [
+      {
+        "id_produto": 3,
+        "sku": "EXT-CO2-6KG",
+        "nome": "Extintor CO2 6kg",
+        "quantidade": 2,
+        "preco_unitario": 459,
+        "subtotal": 918
+      },
+      {
+        "id_produto": 4,
+        "sku": "EXT-CO2-4KG",
+        "nome": "Extintor CO2 4kg",
+        "quantidade": 2,
+        "preco_unitario": 389,
+        "subtotal": 778
+      },
+      {
+        "id_produto": 6,
+        "sku": "EXT-PQS-12KG",
+        "nome": "Extintor Pó Químico BC 12kg",
+        "quantidade": 2,
+        "preco_unitario": 329,
+        "subtotal": 658
+      }
+    ],
+    "subtotal": 2354,
+    "desconto": 117.7,
+    "frete": 0,
+    "valor_total": 2236.3,
+    "forma_pagamento": "Cartão de Crédito",
+    "tipo_envio": "Transportadora Parceira (Rodonaves)"
+  },
+  {
+    "id_pedido": 45,
+    "codigo_pedido": "PED-0045",
+    "canal": "Venda Direta",
+    "cliente": "Indústria Metalúrgica Progresso",
+    "uf": "SP",
+    "diasAtras": 23,
+    "status": "Concluido",
+    "itens": [
+      {
+        "id_produto": 3,
+        "sku": "EXT-CO2-6KG",
+        "nome": "Extintor CO2 6kg",
+        "quantidade": 2,
+        "preco_unitario": 459,
+        "subtotal": 918
+      },
+      {
+        "id_produto": 4,
+        "sku": "EXT-CO2-4KG",
+        "nome": "Extintor CO2 4kg",
+        "quantidade": 2,
+        "preco_unitario": 389,
+        "subtotal": 778
+      },
+      {
+        "id_produto": 6,
+        "sku": "EXT-PQS-12KG",
+        "nome": "Extintor Pó Químico BC 12kg",
+        "quantidade": 2,
+        "preco_unitario": 329,
+        "subtotal": 658
+      }
+    ],
+    "subtotal": 2354,
+    "desconto": 117.7,
+    "frete": 0,
+    "valor_total": 2236.3,
+    "forma_pagamento": "Boleto Bancário",
+    "tipo_envio": "Transportadora Parceira (Rodonaves)"
+  },
+  {
+    "id_pedido": 46,
+    "codigo_pedido": "PED-0046",
+    "canal": "Venda Direta",
+    "cliente": "Supermercado Compre Bem",
+    "uf": "PR",
+    "diasAtras": 20,
+    "status": "Concluido",
+    "itens": [
+      {
+        "id_produto": 4,
+        "sku": "EXT-CO2-4KG",
+        "nome": "Extintor CO2 4kg",
+        "quantidade": 2,
+        "preco_unitario": 389,
+        "subtotal": 778
+      },
+      {
+        "id_produto": 6,
+        "sku": "EXT-PQS-12KG",
+        "nome": "Extintor Pó Químico BC 12kg",
+        "quantidade": 2,
+        "preco_unitario": 329,
+        "subtotal": 658
+      }
+    ],
+    "subtotal": 1436,
+    "desconto": 71.8,
+    "frete": 0,
+    "valor_total": 1364.2,
+    "forma_pagamento": "PIX",
+    "tipo_envio": "Transportadora Parceira (Rodonaves)"
+  },
+  {
+    "id_pedido": 47,
+    "codigo_pedido": "PED-0047",
+    "canal": "Venda Direta",
+    "cliente": "Hospital e Maternidade São Lucas",
+    "uf": "SP",
+    "diasAtras": 16,
+    "status": "Concluido",
+    "itens": [
+      {
+        "id_produto": 6,
+        "sku": "EXT-PQS-12KG",
+        "nome": "Extintor Pó Químico BC 12kg",
+        "quantidade": 2,
+        "preco_unitario": 329,
+        "subtotal": 658
+      }
+    ],
+    "subtotal": 658,
+    "desconto": 0,
+    "frete": 0,
+    "valor_total": 658,
+    "forma_pagamento": "Mercado Pago",
+    "tipo_envio": "Transportadora Parceira (Rodonaves)"
+  },
+  {
+    "id_pedido": 48,
+    "codigo_pedido": "PED-0048",
+    "canal": "Venda Direta",
+    "cliente": "Centro Educacional Futuro",
+    "uf": "SC",
+    "diasAtras": 13,
+    "status": "Concluido",
+    "itens": [
+      {
+        "id_produto": 6,
+        "sku": "EXT-PQS-12KG",
+        "nome": "Extintor Pó Químico BC 12kg",
+        "quantidade": 2,
+        "preco_unitario": 329,
+        "subtotal": 658
+      }
+    ],
+    "subtotal": 658,
+    "desconto": 0,
+    "frete": 0,
+    "valor_total": 658,
+    "forma_pagamento": "Cartão de Crédito",
+    "tipo_envio": "Transportadora Parceira (Rodonaves)"
+  },
+  {
+    "id_pedido": 60,
+    "codigo_pedido": "MLB-2894012060",
+    "canal": "Mercado Livre",
+    "cliente": "Condomínio Bosque Real",
+    "uf": "RJ",
+    "diasAtras": 12,
+    "status": "Cancelado",
+    "motivo_cancelamento": "Desistência do comprador após aprovação comercial (estoque estornado).",
+    "itens": [
+      {
+        "id_produto": 3,
+        "sku": "EXT-CO2-6KG",
+        "nome": "Extintor CO2 6kg",
+        "quantidade": 2,
+        "preco_unitario": 459,
+        "subtotal": 918
+      },
+      {
+        "id_produto": 9,
+        "sku": "PLA-FOTO-01",
+        "nome": "Placa Sinalização Fotoluminescente",
+        "quantidade": 5,
+        "preco_unitario": 34.9,
+        "subtotal": 174.5
+      }
+    ],
+    "subtotal": 1092.5,
+    "desconto": 0,
+    "frete": 0,
+    "valor_total": 1092.5,
+    "forma_pagamento": "Cartão de Crédito",
+    "tipo_envio": "Mercado Envios"
+  },
+  {
+    "id_pedido": 49,
+    "codigo_pedido": "PED-0049",
+    "canal": "Venda Direta",
+    "cliente": "Distribuidora de Alimentos União",
+    "uf": "GO",
+    "diasAtras": 10,
+    "status": "Concluido",
+    "itens": [
+      {
+        "id_produto": 6,
+        "sku": "EXT-PQS-12KG",
+        "nome": "Extintor Pó Químico BC 12kg",
+        "quantidade": 2,
+        "preco_unitario": 329,
+        "subtotal": 658
+      }
+    ],
+    "subtotal": 658,
+    "desconto": 0,
+    "frete": 0,
+    "valor_total": 658,
+    "forma_pagamento": "Boleto Bancário",
+    "tipo_envio": "Transportadora Parceira (Rodonaves)"
+  },
+  {
+    "id_pedido": 50,
+    "codigo_pedido": "PED-0050",
+    "canal": "Venda Direta",
+    "cliente": "Oficina Mecânica Precision Car",
+    "uf": "SP",
+    "diasAtras": 7,
+    "status": "Concluido",
+    "itens": [
+      {
+        "id_produto": 6,
+        "sku": "EXT-PQS-12KG",
+        "nome": "Extintor Pó Químico BC 12kg",
+        "quantidade": 2,
+        "preco_unitario": 329,
+        "subtotal": 658
+      }
+    ],
+    "subtotal": 658,
+    "desconto": 0,
+    "frete": 0,
+    "valor_total": 658,
+    "forma_pagamento": "PIX",
+    "tipo_envio": "Transportadora Parceira (Rodonaves)"
+  },
+  {
+    "id_pedido": 51,
+    "codigo_pedido": "PED-0051",
+    "canal": "Venda Direta",
+    "cliente": "Hotel Pousada das Palmeiras",
+    "uf": "RJ",
+    "diasAtras": 4,
+    "status": "Concluido",
+    "itens": [
+      {
+        "id_produto": 6,
+        "sku": "EXT-PQS-12KG",
+        "nome": "Extintor Pó Químico BC 12kg",
+        "quantidade": 2,
+        "preco_unitario": 329,
+        "subtotal": 658
+      }
+    ],
+    "subtotal": 658,
+    "desconto": 0,
+    "frete": 0,
+    "valor_total": 658,
+    "forma_pagamento": "Mercado Pago",
+    "tipo_envio": "Transportadora Parceira (Rodonaves)"
+  },
+  {
+    "id_pedido": 52,
+    "codigo_pedido": "PED-0052",
+    "canal": "Venda Direta",
+    "cliente": "Padaria e Confeitaria Bella Vista",
+    "uf": "SP",
+    "diasAtras": 3,
+    "status": "Confirmado",
+    "itens": [
+      {
+        "id_produto": 6,
+        "sku": "EXT-PQS-12KG",
+        "nome": "Extintor Pó Químico BC 12kg",
+        "quantidade": 2,
+        "preco_unitario": 329,
+        "subtotal": 658
+      }
+    ],
+    "subtotal": 658,
+    "desconto": 0,
+    "frete": 0,
+    "valor_total": 658,
+    "forma_pagamento": "Cartão de Crédito",
+    "tipo_envio": "Transportadora Parceira (Rodonaves)"
+  },
+  {
+    "id_pedido": 53,
+    "codigo_pedido": "PED-0053",
+    "canal": "Venda Direta",
+    "cliente": "Galpão Logístico Bandeirantes",
+    "uf": "SP",
+    "diasAtras": 2,
+    "status": "Confirmado",
+    "itens": [
+      {
+        "id_produto": 6,
+        "sku": "EXT-PQS-12KG",
+        "nome": "Extintor Pó Químico BC 12kg",
+        "quantidade": 2,
+        "preco_unitario": 329,
+        "subtotal": 658
+      }
+    ],
+    "subtotal": 658,
+    "desconto": 0,
+    "frete": 0,
+    "valor_total": 658,
+    "forma_pagamento": "Boleto Bancário",
+    "tipo_envio": "Transportadora Parceira (Rodonaves)"
+  },
+  {
+    "id_pedido": 54,
+    "codigo_pedido": "PED-0054",
+    "canal": "Venda Direta",
+    "cliente": "Academia Iron Fitness Center",
+    "uf": "MG",
+    "diasAtras": 1,
+    "status": "Confirmado",
+    "itens": [
+      {
+        "id_produto": 6,
+        "sku": "EXT-PQS-12KG",
+        "nome": "Extintor Pó Químico BC 12kg",
+        "quantidade": 2,
+        "preco_unitario": 329,
+        "subtotal": 658
+      }
+    ],
+    "subtotal": 658,
+    "desconto": 0,
+    "frete": 0,
+    "valor_total": 658,
+    "forma_pagamento": "PIX",
+    "tipo_envio": "Transportadora Parceira (Rodonaves)"
+  },
+  {
+    "id_pedido": 55,
+    "codigo_pedido": "PED-0055",
+    "canal": "Venda Direta",
+    "cliente": "Gráfica e Editora Moderna",
+    "uf": "RS",
+    "diasAtras": 1,
+    "status": "Confirmado",
+    "itens": [
+      {
+        "id_produto": 6,
+        "sku": "EXT-PQS-12KG",
+        "nome": "Extintor Pó Químico BC 12kg",
+        "quantidade": 2,
+        "preco_unitario": 329,
+        "subtotal": 658
+      }
+    ],
+    "subtotal": 658,
+    "desconto": 0,
+    "frete": 0,
+    "valor_total": 658,
+    "forma_pagamento": "Mercado Pago",
+    "tipo_envio": "Transportadora Parceira (Rodonaves)"
+  },
+  {
+    "id_pedido": 56,
+    "codigo_pedido": "PED-0056",
+    "canal": "Venda Direta",
+    "cliente": "Farmácia Droga Express",
+    "uf": "SP",
+    "diasAtras": 0,
+    "status": "Confirmado",
+    "itens": [
+      {
+        "id_produto": 6,
+        "sku": "EXT-PQS-12KG",
+        "nome": "Extintor Pó Químico BC 12kg",
+        "quantidade": 2,
+        "preco_unitario": 329,
+        "subtotal": 658
+      }
+    ],
+    "subtotal": 658,
+    "desconto": 0,
+    "frete": 0,
+    "valor_total": 658,
+    "forma_pagamento": "Cartão de Crédito",
+    "tipo_envio": "Transportadora Parceira (Rodonaves)"
+  },
+  {
+    "id_pedido": 57,
+    "codigo_pedido": "PED-0057",
+    "canal": "Venda Direta",
+    "cliente": "Teatro Municipal Carlos Gomes",
+    "uf": "RJ",
+    "diasAtras": 0,
+    "status": "Confirmado",
+    "itens": [
+      {
+        "id_produto": 6,
+        "sku": "EXT-PQS-12KG",
+        "nome": "Extintor Pó Químico BC 12kg",
+        "quantidade": 2,
+        "preco_unitario": 329,
+        "subtotal": 658
+      }
+    ],
+    "subtotal": 658,
+    "desconto": 0,
+    "frete": 0,
+    "valor_total": 658,
+    "forma_pagamento": "Boleto Bancário",
+    "tipo_envio": "Transportadora Parceira (Rodonaves)"
+  }
+]

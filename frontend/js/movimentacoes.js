@@ -54,7 +54,7 @@ function getPeriodLabel(period) {
 function getMovementsForPeriod(period) {
   if (period === "todos") return [...movements];
   const days = Number(period);
-  const refTime = new Date("2024-10-15T18:00:00Z").getTime();
+  const refTime = Date.now() + 60000;
   const dayMs = 86400000;
   const startTime = refTime - days * dayMs;
   return movements.filter((m) => {

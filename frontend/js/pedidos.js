@@ -61,11 +61,48 @@ function escapeHtml(val) {
     .replaceAll('"', "&quot;");
 }
 
+// ─── Normalização de Dados da Entidade Pedido (API & MySQL) ───────────────────
+function normalizarPedido(p) {
+  if (!p) return null;
+  const statusMapeado = (p.status === "Concluido" || p.status === "Concluído") ? "Concluído" : p.status;
+  const itensMapeados = Array.isArray(p.itens)
+    ? p.itens.map((it) => ({
+        id_item: it.id_item,
+        id_produto: it.id_produto || it.produto?.id_produto,
+        sku: it.produto?.sku || it.sku || `PROD-${it.id_produto}`,
+        nome: it.produto?.nome || it.nome || "Produto",
+        quantidade: Number(it.quantidade || 1),
+        preco_unitario: Number(it.preco_unitario || it.produto?.preco || 0),
+        subtotal: Number(it.subtotal || (Number(it.quantidade || 1) * Number(it.preco_unitario || it.produto?.preco || 0))),
+      }))
+    : [];
+
+  return {
+    ...p,
+    id_pedido: Number(p.id_pedido),
+    codigo_pedido: p.codigo_pedido || `#PED-${p.id_pedido}`,
+    cliente: p.cliente_nome || p.cliente || "Cliente",
+    cliente_nome: p.cliente_nome || p.cliente || "Cliente",
+    canal: p.origem || p.canal || "Venda Direta",
+    origem: p.origem || p.canal || "Venda Direta",
+    uf: p.uf || "SP",
+    status: statusMapeado,
+    status_entrega: p.status_entrega || "A separar",
+    tipo_envio: p.tipo_envio || (p.origem === "Mercado Livre" ? "Mercado Envios" : "Transportadora Própria"),
+    data_pedido: p.data_pedido,
+    valor_total: Number(p.valor_total || 0),
+    itens: itensMapeados,
+    observacoes: p.observacoes || "",
+    motivo_cancelamento: p.motivo_cancelamento || "",
+  };
+}
+
 // ─── Badges de Status Comercial ───────────────────────────────────────────────
 function getBadgeStatusComercial(status) {
   const map = {
     "Confirmado": { cls: "badge-confirmado", label: "Confirmado" },
     "Concluído":  { cls: "badge-concluido", label: "Concluído" },
+    "Concluido":  { cls: "badge-concluido", label: "Concluído" },
     "Cancelado":  { cls: "badge-cancelado", label: "Cancelado" },
   };
   const cfg = map[status] || { cls: "badge-confirmado", label: status };
@@ -199,9 +236,15 @@ function getFilteredAndSortedPedidos() {
 
     // 2. Filtro de Status
     if (state.filtroStatus !== "todos") {
-      if (state.filtroStatus === "Em preparação") {
-        if (!["Confirmado", "Em preparação"].includes(p.status)) return false;
-      } else if (p.status !== state.filtroStatus) {
+      const f = state.filtroStatus.toLowerCase();
+      const s = (p.status || "").toLowerCase();
+      if (f.includes("conclu")) {
+        if (!s.includes("conclu")) return false;
+      } else if (f === "confirmado") {
+        if (s !== "confirmado") return false;
+      } else if (f === "cancelado") {
+        if (s !== "cancelado") return false;
+      } else if (s !== f) {
         return false;
       }
     }
@@ -673,8 +716,11 @@ function populateProdutosSelect() {
   const select = document.getElementById("select-item-produto");
   if (!select) return;
 
-  state.produtos = window.RezFireData.loadProducts();
-  const options = state.produtos
+  const prods = (Array.isArray(state.produtos) && state.produtos.length > 0)
+    ? state.produtos
+    : (window.RezFireData ? window.RezFireData.loadProducts() : []);
+
+  const options = prods
     .filter((p) => p.ativo !== false)
     .map((p) => `<option value="${p.id_produto}" data-preco="${p.preco}" data-sku="${p.sku}">${p.sku} - ${escapeHtml(p.nome)} (${money(p.preco)})</option>`)
     .join("");
@@ -799,7 +845,7 @@ function closeModalCancelamento() {
   pedidoParaCancelar = null;
 }
 
-function executarCancelamento() {
+async function executarCancelamento() {
   if (!pedidoParaCancelar) return;
   const motivo = document.getElementById("cancel-motivo")?.value.trim();
   if (!motivo) {
@@ -808,135 +854,78 @@ function executarCancelamento() {
   }
 
   const p = pedidoParaCancelar;
-  p.status = "Cancelado";
-  p.motivo_cancelamento = motivo;
+  const btn = document.getElementById("btn-confirmar-cancelamento");
+  if (btn) {
+    btn.disabled = true;
+    btn.textContent = "Cancelando e Estornando...";
+  }
 
   const dataCanc = new Date().toISOString();
-  p.historico = p.historico || [];
-  p.historico.push({
-    data: dataCanc,
-    evento: "Cancelamento do Pedido",
-    descricao: `Motivo: ${motivo}. Estoque estornado no sistema.`,
-    usuario: "Gestor RezFire",
-  });
 
-  // Conforme a regra Seção 7 do AGENTS.md:
-  // Cancelamento pós-aprovação estorna o estoque e gera movimentação de Entrada
-  if (window.RezFireData) {
-    let produtos = window.RezFireData.loadProducts();
-    const movements = window.RezFireData.loadMovements();
-    let nextMovId = movements.length > 0 ? Math.max(...movements.map((m) => m.id_movimentacao || 0)) + 1 : 1;
-
-    (p.itens || []).forEach((item) => {
-      const prodCadastrado = produtos.find((pr) => pr.id_produto === item.id_produto || pr.sku === item.sku);
-      const isCombo = prodCadastrado && prodCadastrado.tipo === "Combo" && Array.isArray(prodCadastrado.combo_items) && prodCadastrado.combo_items.length > 0;
-
-      if (isCombo) {
-        prodCadastrado.combo_items.forEach((ci) => {
-          const qtdComp = Number(ci.quantidade || 1) * Number(item.quantidade || 1);
-          const compProd = produtos.find((pr) => pr.id_produto === ci.id_produto);
-
-          produtos = produtos.map((prod) => {
-            if (prod.id_produto === ci.id_produto) {
-              return {
-                ...prod,
-                quantidade_atual: Number(prod.quantidade_atual || 0) + qtdComp,
-              };
-            }
-            return prod;
-          });
-
-          movements.unshift({
-            id_movimentacao: nextMovId++,
-            id_pedido: p.id_pedido,
-            codigo_pedido: p.codigo_pedido,
-            canal: p.canal,
-            tipo_envio: p.tipo_envio,
-            cliente: p.cliente,
-            uf: p.uf,
-            status_pedido: "Cancelado",
-            id_produto: ci.id_produto,
-            sku: compProd ? compProd.sku : "COMP",
-            nome_produto: compProd ? compProd.nome : "Componente",
-            tipo: "Entrada",
-            motivo: `Estorno de Cancelamento (Componente do Combo: ${item.nome})`,
-            quantidade: qtdComp,
-            preco_unitario: compProd ? compProd.preco : 0,
-            valor_total: (compProd ? compProd.preco : 0) * qtdComp,
-            data: dataCanc,
-            responsavel: "Gestor RezFire (Estorno de Combo)",
-            detalhes_remessa: null,
-          });
-        });
-      } else {
-        produtos = produtos.map((prod) => {
-          if (prod.id_produto === item.id_produto || prod.sku === item.sku) {
-            return {
-              ...prod,
-              quantidade_atual: Number(prod.quantidade_atual || 0) + Number(item.quantidade || 0),
-            };
-          }
-          return prod;
-        });
-
-        movements.unshift({
-          id_movimentacao: nextMovId++,
-          id_pedido: p.id_pedido,
-          codigo_pedido: p.codigo_pedido,
-          canal: p.canal,
-          tipo_envio: p.tipo_envio,
-          cliente: p.cliente,
-          uf: p.uf,
-          status_pedido: "Cancelado",
-          id_produto: item.id_produto,
-          sku: item.sku,
-          nome_produto: item.nome,
-          tipo: "Entrada",
-          motivo: "Estorno de Cancelamento de Pedido",
-          quantidade: item.quantidade,
-          preco_unitario: item.preco_unitario,
-          valor_total: item.subtotal || (item.quantidade * item.preco_unitario),
-          data: dataCanc,
-          responsavel: "Gestor RezFire (Estorno Comercial)",
-          detalhes_remessa: null,
-        });
+  try {
+    // 1. Aciona o backend MySQL para estorno transacional automático de estoque
+    if (window.RezFireAPI && p.id_pedido) {
+      const res = await window.RezFireAPI.pedidos.atualizarStatus(p.id_pedido, "Cancelado");
+      if (res && res.sucesso && res.pedido) {
+        const pedIdx = state.pedidos.findIndex((x) => x.id_pedido === p.id_pedido);
+        if (pedIdx >= 0) {
+          state.pedidos[pedIdx] = normalizarPedido(res.pedido);
+        }
       }
+    }
+
+    p.status = "Cancelado";
+    p.motivo_cancelamento = motivo;
+    p.historico = p.historico || [];
+    p.historico.push({
+      data: dataCanc,
+      evento: "Cancelamento do Pedido",
+      descricao: `Motivo: ${motivo}. Estoque estornado no sistema.`,
+      usuario: "Gestor RezFire",
     });
 
-    window.RezFireData.saveProducts(produtos);
-    window.RezFireData.saveMovements(movements);
-  }
-
-  // Sincroniza também no módulo de Entregas, se existir remessa correspondente
-  if (window.RezFireEntregas && typeof window.RezFireEntregas.loadEntregas === "function") {
-    let entregas = window.RezFireEntregas.loadEntregas();
-    let entregaUpdated = false;
-    entregas = entregas.map((ent) => {
-      if (ent.id_pedido_interno === p.id_pedido || ent.codigo_pedido_ml === p.codigo_pedido || ent.codigo_pedido_direto === p.codigo_pedido) {
-        entregaUpdated = true;
-        return {
-          ...ent,
-          status_interno: window.RezFireEntregas.STATUS_INTERNO.CANCELADO,
-          status_logistico: window.RezFireEntregas.STATUS_LOGISTICO.CANCELADO,
-          historico: [
-            ...(ent.historico || []),
-            { data: dataCanc, evento: "Pedido Cancelado no Módulo Comercial", descricao: `Motivo: ${motivo}`, tipo: "erro" }
-          ]
-        };
+    // Sincroniza também no módulo de Entregas, se existir remessa correspondente
+    if (window.RezFireEntregas && typeof window.RezFireEntregas.loadEntregas === "function") {
+      let entregas = window.RezFireEntregas.loadEntregas();
+      let entregaUpdated = false;
+      entregas = entregas.map((ent) => {
+        if (ent.id_pedido_interno === p.id_pedido || ent.codigo_pedido_ml === p.codigo_pedido || ent.codigo_pedido_direto === p.codigo_pedido) {
+          entregaUpdated = true;
+          return {
+            ...ent,
+            status_interno: window.RezFireEntregas.STATUS_INTERNO.CANCELADO,
+            status_logistico: window.RezFireEntregas.STATUS_LOGISTICO.CANCELADO,
+            historico: [
+              ...(ent.historico || []),
+              { data: dataCanc, evento: "Pedido Cancelado no Módulo Comercial", descricao: `Motivo: ${motivo}`, tipo: "erro" }
+            ]
+          };
+        }
+        return ent;
+      });
+      if (entregaUpdated) {
+        window.RezFireEntregas.saveEntregas(entregas);
       }
-      return ent;
-    });
-    if (entregaUpdated) {
-      window.RezFireEntregas.saveEntregas(entregas);
+    }
+
+    if (window.RezFireData) {
+      window.RezFireData.saveOrders(state.pedidos);
+    }
+
+    closeModalCancelamento();
+    closeDetalhePanel();
+    renderKPIs();
+    renderTable();
+    showToast(`Pedido ${p.codigo_pedido} cancelado. Estoque estornado no MySQL com sucesso!`, "sucesso");
+  } catch (err) {
+    console.error("[Pedidos] Erro ao cancelar pedido:", err);
+    alert("Erro ao cancelar pedido na API: " + (err.message || err));
+  } finally {
+    if (btn) {
+      btn.disabled = false;
+      btn.textContent = "Confirmar Cancelamento";
     }
   }
-
-  // Salva pedidos atualizados
-  window.RezFireData.saveOrders(state.pedidos);
-  closeModalCancelamento();
-  renderKPIs();
-  renderTable();
-  showToast(`Pedido ${p.codigo_pedido} cancelado com sucesso. Estoque estornado.`, "sucesso");
 }
 
 // ─── Toasts de Notificação ────────────────────────────────────────────────────
@@ -1034,15 +1023,15 @@ function bindEvents() {
       if (window.RezFireAPI) {
         const res = await window.RezFireAPI.pedidos.listar();
         if (res && res.sucesso && Array.isArray(res.pedidos)) {
-          state.pedidos = res.pedidos;
+          state.pedidos = res.pedidos.map(normalizarPedido);
         } else {
-          state.pedidos = window.RezFireData.loadOrders();
+          state.pedidos = window.RezFireData.loadOrders().map(normalizarPedido);
         }
       } else {
-        state.pedidos = window.RezFireData.loadOrders();
+        state.pedidos = window.RezFireData.loadOrders().map(normalizarPedido);
       }
     } catch (e) {
-      state.pedidos = window.RezFireData.loadOrders();
+      state.pedidos = window.RezFireData.loadOrders().map(normalizarPedido);
     }
     renderKPIs();
     renderTable();
@@ -1141,9 +1130,10 @@ function bindEvents() {
   });
 
   // Submissão do formulário de pedido
-  document.getElementById("form-pedido")?.addEventListener("submit", (e) => {
+  document.getElementById("form-pedido")?.addEventListener("submit", async (e) => {
     e.preventDefault();
     const errorEl = document.getElementById("form-pedido-error");
+    const btnSalvar = document.getElementById("btn-salvar-pedido");
     errorEl.textContent = "";
 
     const editingId = Number(document.getElementById("pedido-id")?.value) || null;
@@ -1175,7 +1165,13 @@ function bindEvents() {
     const agoraIso = new Date().toISOString();
     const dataPedidoIso = new Date(data_pedido).toISOString();
 
-    if (editingId) {
+    if (btnSalvar) {
+      btnSalvar.disabled = true;
+      btnSalvar.textContent = "Processando no Banco...";
+    }
+
+    try {
+      if (editingId) {
       // Edição
       const idx = state.pedidos.findIndex((p) => p.id_pedido === editingId);
       if (idx >= 0) {
@@ -1221,177 +1217,82 @@ function bindEvents() {
       }
       showToast(`Pedido ${codigo_pedido} atualizado com sucesso!`, "sucesso");
     } else {
-      // Criação de novo pedido
-      const novoId = window.RezFireData.nextOrderId(state.pedidos);
-      const novoPedido = {
-        id_pedido: novoId,
-        codigo_pedido,
-        codigo_externo_ml,
-        canal,
-        tipo_envio: canal === "Mercado Livre" ? "Mercado Envios Coleta" : "Transportadora Própria",
-        data_pedido: dataPedidoIso,
-        cliente,
-        uf,
-        status,
-        itens: [...formItens],
-        subtotal_itens: subtotal,
-        desconto,
-        frete,
-        valor_total: total,
-        custo_total: formItens.reduce((s, i) => s + (i.quantidade * (i.preco_unitario * 0.5)), 0),
-        lucro_bruto: total * 0.45,
-        observacoes,
-        historico: [
-          { data: agoraIso, evento: "Pedido registrado", descricao: `Cadastro manual via ${canal}.`, usuario: "Gestor RezFire" },
-        ],
-      };
+      // ─── Criação de Novo Pedido (Baixa Transacional via API & MySQL) ────
+      let novoPedidoCriado = null;
 
-      // Regra Seção 7 AGENTS.md: Débito de estoque físico na aprovação/confirmação
-      if (status !== "Pendente de confirmação" && status !== "Cancelado") {
-        let produtos = window.RezFireData.loadProducts();
-        const movements = window.RezFireData.loadMovements();
-        let nextMovId = movements.length > 0 ? Math.max(...movements.map((m) => m.id_movimentacao || 0)) + 1 : 1;
-
-        (novoPedido.itens || []).forEach((item) => {
-          const prodCadastrado = produtos.find((p) => p.id_produto === item.id_produto || p.sku === item.sku);
-          const isCombo = prodCadastrado && prodCadastrado.tipo === "Combo" && Array.isArray(prodCadastrado.combo_items) && prodCadastrado.combo_items.length > 0;
-
-          if (isCombo) {
-            // Desmembra o combo e debita cada componente físico proporcionalmente
-            prodCadastrado.combo_items.forEach((ci) => {
-              const qtdComponente = Number(ci.quantidade || 1) * Number(item.quantidade || 1);
-              const compProd = produtos.find((p) => p.id_produto === ci.id_produto);
-
-              produtos = produtos.map((p) => {
-                if (p.id_produto === ci.id_produto) {
-                  return {
-                    ...p,
-                    quantidade_atual: Math.max(0, Number(p.quantidade_atual || 0) - qtdComponente),
-                  };
-                }
-                return p;
-              });
-
-              movements.unshift({
-                id_movimentacao: nextMovId++,
-                id_pedido: novoId,
-                codigo_pedido,
-                canal,
-                tipo_envio: novoPedido.tipo_envio,
-                cliente,
-                uf,
-                status_pedido: status,
-                id_produto: ci.id_produto,
-                sku: compProd ? compProd.sku : "COMP",
-                nome_produto: compProd ? compProd.nome : "Componente",
-                tipo: "Saída",
-                motivo: `${canal === "Mercado Livre" ? "Venda ML" : "Venda Direta"} (Componente do Combo: ${item.nome})`,
-                quantidade: qtdComponente,
-                preco_unitario: compProd ? (compProd.preco || 0) : 0,
-                valor_total: (compProd ? (compProd.preco || 0) : 0) * qtdComponente,
-                data: dataPedidoIso,
-                responsavel: "Gestor RezFire (Desmembramento de Combo)",
-                detalhes_remessa: null,
-              });
-            });
-          } else {
-            // Produto simples avulso
-            produtos = produtos.map((p) => {
-              if (p.id_produto === item.id_produto || p.sku === item.sku) {
-                return {
-                  ...p,
-                  quantidade_atual: Math.max(0, Number(p.quantidade_atual || 0) - Number(item.quantidade || 0)),
-                };
-              }
-              return p;
-            });
-
-            movements.unshift({
-              id_movimentacao: nextMovId++,
-              id_pedido: novoId,
-              codigo_pedido,
-              canal,
-              tipo_envio: novoPedido.tipo_envio,
-              cliente,
-              uf,
-              status_pedido: status,
-              id_produto: item.id_produto,
-              sku: item.sku,
-              nome_produto: item.nome,
-              tipo: "Saída",
-              motivo: canal === "Mercado Livre" ? "Venda Mercado Livre" : "Venda Direta",
-              quantidade: item.quantidade,
-              preco_unitario: item.preco_unitario,
-              valor_total: item.subtotal,
-              data: dataPedidoIso,
-              responsavel: "Gestor RezFire",
-              detalhes_remessa: null,
-            });
-          }
-        });
-
-        window.RezFireData.saveProducts(produtos);
-        window.RezFireData.saveMovements(movements);
-      }
-
-      // Integração com a Tela de Entregas:
-      // Todo pedido Confirmado é imediatamente enviado para a fila de entregas com status interno "A separar" e status logístico "Aguardando envio"
-      if (status === "Confirmado" && window.RezFireEntregas && typeof window.RezFireEntregas.loadEntregas === "function") {
-        const entregas = window.RezFireEntregas.loadEntregas();
-        const nextEntId = "ENT-" + String(novoId).padStart(3, "0");
-        const prazoDespacho = new Date(new Date(dataPedidoIso).getTime() + 24 * 3600 * 1000).toISOString();
-        const previsaoEntrega = new Date(new Date(dataPedidoIso).getTime() + 5 * 24 * 3600 * 1000).toISOString();
-
-        entregas.unshift({
-          id_entrega: nextEntId,
-          id_pedido_interno: novoId,
-          codigo_pedido_ml: canal === "Mercado Livre" ? (codigo_externo_ml || codigo_pedido) : null,
-          codigo_pedido_direto: canal !== "Mercado Livre" ? codigo_pedido : null,
-          canal: canal,
-          cliente: cliente,
-          uf: uf,
-          data_venda: dataPedidoIso,
-          prazo_despacho: prazoDespacho,
-          modalidade_envio: novoPedido.tipo_envio,
-          id_envio_ml: null,
-          codigo_rastreio: null,
-          data_despacho: null,
-          previsao_entrega: previsaoEntrega,
-          data_entrega: null,
-          status_interno: window.RezFireEntregas.STATUS_INTERNO.A_SEPARAR,
-          status_logistico: window.RezFireEntregas.STATUS_LOGISTICO.AGUARDANDO_ENVIO,
-          ocorrencias: [],
-          itens: novoPedido.itens.map((i) => ({
-            id_produto: i.id_produto,
-            sku: i.sku,
-            nome: i.nome,
-            quantidade: i.quantidade,
-            preco_unitario: i.preco_unitario,
-            subtotal: i.subtotal,
+      if (window.RezFireAPI) {
+        const payloadAPI = {
+          codigo_pedido: codigo_pedido || undefined,
+          cliente_nome: cliente,
+          origem: canal,
+          exibir_na_entrega: true,
+          itens: formItens.map((it) => ({
+            id_produto: Number(it.id_produto),
+            quantidade: Number(it.quantidade),
+            preco_unitario: Number(it.preco_unitario),
           })),
-          valor_total: total,
-          separacao: null,
-          historico: [
-            {
-              data: agoraIso,
-              evento: "Pedido Registrado para Expedição",
-              descricao: "Aguardando separação física dos extintores no galpão.",
-              tipo: "info",
-            },
-          ],
-        });
-        window.RezFireEntregas.saveEntregas(entregas);
+        };
+
+        try {
+          const apiRes = await window.RezFireAPI.pedidos.criar(payloadAPI);
+          if (apiRes && apiRes.sucesso && apiRes.pedido) {
+            novoPedidoCriado = normalizarPedido(apiRes.pedido);
+          }
+        } catch (apiErr) {
+          console.error("[Pedidos API] Erro ao criar pedido:", apiErr);
+          errorEl.textContent = apiErr.message || "Erro ao gravar pedido no banco MySQL.";
+          return;
+        }
       }
 
-      state.pedidos.unshift(novoPedido);
-      showToast(`Pedido ${codigo_pedido} registrado com sucesso!`, "sucesso");
+      if (!novoPedidoCriado) {
+        const novoId = window.RezFireData ? window.RezFireData.nextOrderId(state.pedidos) : Date.now();
+        novoPedidoCriado = {
+          id_pedido: novoId,
+          codigo_pedido: codigo_pedido || `#PED-${novoId}`,
+          codigo_externo_ml,
+          canal,
+          origem: canal,
+          tipo_envio: canal === "Mercado Livre" ? "Mercado Envios Coleta" : "Transportadora Própria",
+          data_pedido: dataPedidoIso,
+          cliente,
+          cliente_nome: cliente,
+          uf,
+          status: "Confirmado",
+          status_entrega: "A separar",
+          itens: [...formItens],
+          subtotal_itens: subtotal,
+          desconto,
+          frete,
+          valor_total: total,
+          observacoes,
+          historico: [
+            { data: agoraIso, evento: "Pedido registrado", descricao: `Cadastro manual via ${canal}.`, usuario: "Gestor RezFire" },
+          ],
+        };
+      }
+
+      state.pedidos.unshift(novoPedidoCriado);
+      showToast(`Pedido ${novoPedidoCriado.codigo_pedido} criado e baixado no estoque MySQL com sucesso!`, "sucesso");
     }
 
-    window.RezFireData.saveOrders(state.pedidos);
+    if (window.RezFireData) {
+      window.RezFireData.saveOrders(state.pedidos);
+    }
     closeFormModal(true);
     renderKPIs();
     renderTable();
-  });
+  } catch (err) {
+    errorEl.textContent = err.message || "Erro inesperado ao salvar pedido.";
+  } finally {
+    if (btnSalvar) {
+      btnSalvar.disabled = false;
+      btnSalvar.textContent = "Salvar Pedido";
+    }
+  }
+});
+
+
 
   // Cliques na tabela (abrir detalhes ou botões de ação)
   document.getElementById("pedidos-body")?.addEventListener("click", (e) => {
@@ -1439,16 +1340,9 @@ async function init() {
       ]);
 
       if (resPedidos && resPedidos.sucesso && Array.isArray(resPedidos.pedidos) && resPedidos.pedidos.length > 0) {
-        state.pedidos = resPedidos.pedidos.map(p => ({
-          ...p,
-          itens: Array.isArray(p.itens) ? p.itens.map(it => ({
-            ...it,
-            sku: it.produto?.sku || it.sku,
-            nome: it.produto?.nome || it.nome,
-          })) : []
-        }));
+        state.pedidos = resPedidos.pedidos.map(normalizarPedido);
       } else {
-        state.pedidos = window.RezFireData.loadOrders();
+        state.pedidos = window.RezFireData.loadOrders().map(normalizarPedido);
       }
 
       if (resProdutos && resProdutos.sucesso && Array.isArray(resProdutos.produtos)) {
@@ -1457,12 +1351,12 @@ async function init() {
         state.produtos = window.RezFireData.loadProducts();
       }
     } else {
-      state.pedidos = window.RezFireData.loadOrders();
+      state.pedidos = window.RezFireData.loadOrders().map(normalizarPedido);
       state.produtos = window.RezFireData.loadProducts();
     }
   } catch (err) {
     console.warn("[Pedidos] Carregando dados locais:", err);
-    state.pedidos = window.RezFireData.loadOrders();
+    state.pedidos = window.RezFireData.loadOrders().map(normalizarPedido);
     state.produtos = window.RezFireData.loadProducts();
   }
 

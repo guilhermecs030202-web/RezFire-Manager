@@ -10,6 +10,7 @@
 
 let movements = [];
 let products = [];
+let allLotes = [];
 let query = "";
 let filterCanal = "todos";
 let filterPeriodo = "30";
@@ -434,9 +435,15 @@ function bindEvents() {
     const loteSelect = document.getElementById("saida-lote");
 
     if (prod && isExtintorProduct(prod)) {
-      const lotes = window.RezFireData ? window.RezFireData.loadLotes().filter((l) => l.id_produto === pId) : [];
-      loteSelect.innerHTML = `<option value="">— Selecione o lote afetado —</option>` +
-        lotes.map((l) => `<option value="${l.id_lote}">${l.id_lote} (Disp: ${l.quantidade_disponivel} un. · Val: ${l.validade})</option>`).join("");
+      const lotesProd = allLotes.filter((l) => l.id_produto === pId);
+      if (lotesProd.length > 0) {
+        loteSelect.innerHTML = `<option value="">— Selecione o lote afetado —</option>` +
+          lotesProd.map((l) => `<option value="${l.id_lote}">${l.numero_lote || l.id_lote} (Disp: ${l.quantidade_disponivel} un. · Val: ${formatDateOnly(l.data_validade || l.validade)})</option>`).join("");
+      } else {
+        const lotesLocal = window.RezFireData ? window.RezFireData.loadLotes().filter((l) => l.id_produto === pId) : [];
+        loteSelect.innerHTML = `<option value="">— Selecione o lote afetado —</option>` +
+          lotesLocal.map((l) => `<option value="${l.id_lote}">${l.id_lote} (Disp: ${l.quantidade_disponivel} un. · Val: ${l.validade})</option>`).join("");
+      }
       wrapLote.style.display = "block";
     } else {
       wrapLote.style.display = "none";
@@ -444,9 +451,10 @@ function bindEvents() {
   });
 
   // Submissão do Formulário de Entrada (Nota Fiscal)
-  document.getElementById("form-entrada")?.addEventListener("submit", (e) => {
+  document.getElementById("form-entrada")?.addEventListener("submit", async (e) => {
     e.preventDefault();
     const errorEl = document.getElementById("form-entrada-error");
+    const submitBtn = e.target.querySelector("button[type='submit']");
     errorEl.textContent = "";
 
     const nfNumero = document.getElementById("nf-numero").value.trim();
@@ -458,7 +466,6 @@ function bindEvents() {
 
     const itensParaSalvar = [];
     for (const row of itemRows) {
-      const idx = row.getAttribute("data-item-idx");
       const prodId = Number(row.querySelector(".nf-item-prod")?.value);
       const qtd = Number(row.querySelector(".nf-item-qtd")?.value);
       const custo = Number(row.querySelector(".nf-item-custo")?.value || 0);
@@ -487,8 +494,8 @@ function bindEvents() {
 
       itensParaSalvar.push({
         id_produto: prodId,
-        sku: prod.sku,
-        nome_produto: prod.nome,
+        sku: prod?.sku,
+        nome_produto: prod?.nome,
         quantidade: qtd,
         custo,
         isExt,
@@ -498,82 +505,55 @@ function bindEvents() {
       });
     }
 
-    // Processa a Entrada: atualiza produtos, lotes e gera movimentações
-    let lotesAtuais = window.RezFireData ? window.RezFireData.loadLotes() : [];
-    let nextMovId = movements.length > 0 ? Math.max(...movements.map((m) => m.id_movimentacao || 0)) + 1 : 1;
+    if (submitBtn) {
+      submitBtn.disabled = true;
+      submitBtn.textContent = "Gravando no Banco...";
+    }
 
-    itensParaSalvar.forEach((item, i) => {
-      // 1. Atualiza quantidade no cadastro do produto
-      products = products.map((p) => {
-        if (p.id_produto === item.id_produto) {
-          return {
-            ...p,
-            quantidade_atual: Number(p.quantidade_atual || 0) + item.quantidade,
-            custo: item.custo > 0 ? item.custo : p.custo,
-          };
-        }
-        return p;
-      });
-
-      // 2. Se for extintor, cadastra ou incrementa o lote
-      if (item.isExt && item.lote) {
-        const loteExistente = lotesAtuais.find((l) => l.id_lote === item.lote);
-        if (loteExistente) {
-          loteExistente.quantidade_disponivel += item.quantidade;
-        } else {
-          lotesAtuais.unshift({
-            id_lote: item.lote,
+    try {
+      if (window.RezFireAPI) {
+        for (const item of itensParaSalvar) {
+          const payload = {
             id_produto: item.id_produto,
-            sku: item.sku,
-            nome: item.nome_produto,
-            lacre: item.lacre,
-            data_fabricacao: dataIso.split("T")[0],
-            validade: item.validade,
-            quantidade_disponivel: item.quantidade,
-            quantidade_inicial: item.quantidade,
-          });
+            tipo: "Entrada",
+            quantidade: item.quantidade,
+            motivo: `Entrada por Nota Fiscal - ${nfNumero} (${fornecedor})`,
+            novo_lote: item.isExt && item.lote ? {
+              numero_lote: item.lote,
+              numero_lacre_inmetro: item.lacre || undefined,
+              data_fabricacao: dataIso.split("T")[0],
+              data_validade: item.validade,
+            } : undefined,
+          };
+
+          await window.RezFireAPI.movimentacoes.registrar(payload);
+
+          // Se informou custo de aquisição, atualiza cadastro do produto
+          if (item.custo > 0) {
+            window.RezFireAPI.produtos.atualizar(item.id_produto, { custo: item.custo }).catch(() => {});
+          }
         }
       }
 
-      // 3. Registra a movimentação de Entrada
-      movements.unshift({
-        id_movimentacao: nextMovId + i,
-        id_produto: item.id_produto,
-        sku: item.sku,
-        nome_produto: item.nome_produto,
-        tipo: "Entrada",
-        motivo: `Entrada por Nota Fiscal - ${nfNumero}`,
-        quantidade: item.quantidade,
-        preco_unitario: item.custo,
-        valor_total: item.custo * item.quantidade,
-        data: dataIso,
-        responsavel: "Gestor RezFire (Reabastecimento)",
-        fornecedor,
-        codigo_pedido: nfNumero,
-        detalhes_remessa: item.isExt ? {
-          lote: item.lote,
-          lacre: item.lacre,
-          validade: item.validade,
-        } : null,
-      });
-    });
-
-    RezFireData.saveProducts(products);
-    RezFireData.saveMovements(movements);
-    if (window.RezFireData && typeof window.RezFireData.saveLotes === "function") {
-      window.RezFireData.saveLotes(lotesAtuais);
+      await recarregarDados();
+      closeEntradaModal();
+      alert(`Entrada de ${itensParaSalvar.length} produto(s) pela ${nfNumero} registrada com sucesso no MySQL!`);
+    } catch (err) {
+      console.error("[Movimentações API] Erro na entrada:", err);
+      errorEl.textContent = err.message || "Erro ao gravar movimentação no banco MySQL.";
+    } finally {
+      if (submitBtn) {
+        submitBtn.disabled = false;
+        submitBtn.textContent = "Concluir Entrada no Estoque";
+      }
     }
-
-    closeEntradaModal();
-    renderKPIs();
-    renderTable();
-    alert(`Entrada de ${itensParaSalvar.length} produto(s) pela ${nfNumero} registrada com sucesso!`);
   });
 
   // Submissão do Formulário de Saída Avulsa
-  document.getElementById("form-saida")?.addEventListener("submit", (e) => {
+  document.getElementById("form-saida")?.addEventListener("submit", async (e) => {
     e.preventDefault();
     const errorEl = document.getElementById("form-saida-error");
+    const submitBtn = e.target.querySelector("button[type='submit']");
     errorEl.textContent = "";
 
     const prodId = Number(document.getElementById("saida-produto").value);
@@ -597,100 +577,140 @@ function bindEvents() {
       return;
     }
 
-    const agoraIso = new Date().toISOString();
-    let nextMovId = movements.length > 0 ? Math.max(...movements.map((m) => m.id_movimentacao || 0)) + 1 : 1;
+    if (submitBtn) {
+      submitBtn.disabled = true;
+      submitBtn.textContent = "Registrando Baixa...";
+    }
 
-    // Atualiza saldo do produto
-    products = products.map((p) => {
-      if (p.id_produto === prodId) {
-        return {
-          ...p,
-          quantidade_atual: Math.max(0, Number(p.quantidade_atual || 0) - qtd),
+    try {
+      if (window.RezFireAPI) {
+        const payload = {
+          id_produto: prodId,
+          tipo: "Saída",
+          quantidade: qtd,
+          motivo: `Baixa Operacional: ${motivo}${obs ? ' - ' + obs : ''}`,
+          id_lote: idLote ? Number(idLote) : undefined,
         };
-      }
-      return p;
-    });
 
-    // Se tiver lote especificado, baixa do lote
-    let lotesAtuais = window.RezFireData ? window.RezFireData.loadLotes() : [];
-    if (idLote) {
-      const loteObj = lotesAtuais.find((l) => l.id_lote === idLote);
-      if (loteObj) {
-        loteObj.quantidade_disponivel = Math.max(0, Number(loteObj.quantidade_disponivel || 0) - qtd);
+        await window.RezFireAPI.movimentacoes.registrar(payload);
+      } else {
+        // Fallback local se API offline
+        const agoraIso = new Date().toISOString();
+        let nextMovId = movements.length > 0 ? Math.max(...movements.map((m) => m.id_movimentacao || 0)) + 1 : 1;
+        movements.unshift({
+          id_movimentacao: nextMovId,
+          id_produto: prodId,
+          sku: prod ? prod.sku : "PROD",
+          nome_produto: prod ? prod.nome : "Produto",
+          tipo: "Saída",
+          motivo: `Baixa Operacional: ${motivo}`,
+          quantidade: qtd,
+          preco_unitario: prod ? (prod.custo || 0) : 0,
+          valor_total: (prod ? (prod.custo || 0) : 0) * qtd,
+          data: agoraIso,
+          responsavel: "Gestor RezFire",
+          codigo_pedido: obs ? `Obs: ${obs}` : "Baixa Interna",
+          detalhes_remessa: idLote ? { lote: idLote } : null,
+        });
+        if (window.RezFireData) {
+          window.RezFireData.saveMovements(movements);
+        }
+      }
+
+      await recarregarDados();
+      closeSaidaModal();
+      alert(`Saída de ${qtd} un. do produto ${prod ? prod.sku : ''} registrada com sucesso no MySQL!`);
+    } catch (err) {
+      console.error("[Movimentações API] Erro na saída:", err);
+      errorEl.textContent = err.message || "Erro ao registrar saída de estoque.";
+    } finally {
+      if (submitBtn) {
+        submitBtn.disabled = false;
+        submitBtn.textContent = "Confirmar Baixa de Estoque";
       }
     }
-
-    // Registra movimentação de saída
-    movements.unshift({
-      id_movimentacao: nextMovId,
-      id_produto: prodId,
-      sku: prod.sku,
-      nome_produto: prod.nome,
-      tipo: "Saída",
-      motivo: `Baixa Operacional: ${motivo}`,
-      quantidade: qtd,
-      preco_unitario: prod.custo || 0,
-      valor_total: (prod.custo || 0) * qtd,
-      data: agoraIso,
-      responsavel: "Gestor RezFire",
-      fornecedor: null,
-      codigo_pedido: obs ? `Obs: ${obs}` : "Baixa Interna",
-      detalhes_remessa: idLote ? { lote: idLote } : null,
-    });
-
-    RezFireData.saveProducts(products);
-    RezFireData.saveMovements(movements);
-    if (window.RezFireData && typeof window.RezFireData.saveLotes === "function") {
-      window.RezFireData.saveLotes(lotesAtuais);
-    }
-
-    closeSaidaModal();
-    renderKPIs();
-    renderTable();
-    alert(`Saída de ${qtd} un. do produto ${prod.sku} registrada com sucesso.`);
   });
 }
 
-async function init() {
-  RezFireLayout.renderSidebar("movimentacoes");
-
-  try {
-    if (window.RezFireAPI) {
-      const [resMovs, resProds] = await Promise.all([
+async function recarregarDados() {
+  if (window.RezFireAPI) {
+    try {
+      const [resMovs, resProds, resEstoque] = await Promise.all([
         window.RezFireAPI.movimentacoes.listar().catch(() => null),
         window.RezFireAPI.produtos.listar().catch(() => null),
+        window.RezFireAPI.estoque.listar().catch(() => null),
       ]);
 
       if (resMovs && resMovs.sucesso && Array.isArray(resMovs.movimentacoes)) {
-        movements = resMovs.movimentacoes.map(m => ({
-          ...m,
-          sku: m.produto?.sku || m.sku,
-          nome: m.produto?.nome || m.nome,
-          data: m.data_movimentacao || m.data,
-          usuario: m.usuario?.nome || "Gestor RezFire",
-        }));
-      } else {
-        movements = RezFireData.loadMovements();
+        movements = resMovs.movimentacoes.map((m) => {
+          const isNF = m.motivo?.includes("Nota Fiscal") || m.motivo?.includes("NF #") || m.motivo?.includes("Entrada por");
+          const isEstorno = m.motivo?.includes("Estorno");
+          const isVenda = m.motivo?.includes("Venda") || m.motivo?.includes("Pedido");
+          let canal = "Interno";
+          if (m.motivo?.includes("Mercado Livre") || m.motivo?.includes("ML")) canal = "Mercado Livre";
+          else if (isVenda || isEstorno) canal = "Venda Direta";
+
+          return {
+            ...m,
+            id_movimentacao: m.id_movimentacao,
+            id_produto: m.id_produto,
+            sku: m.produto?.sku || m.sku || `PROD-${m.id_produto}`,
+            nome_produto: m.produto?.nome || m.nome || "Produto",
+            tipo: m.tipo,
+            motivo: m.motivo,
+            canal: canal,
+            quantidade: Number(m.quantidade || 0),
+            preco_unitario: Number(m.produto?.custo || m.preco_unitario || 0),
+            valor_total: Number(m.produto?.custo ? m.produto.custo * m.quantidade : (m.valor_total || 0)),
+            data: m.data_movimentacao || m.data,
+            responsavel: m.usuario?.nome || "Gestor RezFire",
+            codigo_pedido: isNF ? (m.motivo.split(" - ")[0] || "NF-e") : (isVenda ? m.motivo.replace("Venda - ", "") : "Ajuste"),
+          };
+        });
+      } else if (window.RezFireData) {
+        movements = window.RezFireData.loadMovements();
       }
 
       if (resProds && resProds.sucesso && Array.isArray(resProds.produtos)) {
         products = resProds.produtos;
-      } else {
-        products = RezFireData.loadProducts();
+      } else if (window.RezFireData) {
+        products = window.RezFireData.loadProducts();
       }
-    } else {
-      products = RezFireData.loadProducts();
-      movements = RezFireData.loadMovements();
+
+      if (resEstoque && resEstoque.sucesso && Array.isArray(resEstoque.estoque)) {
+        allLotes = [];
+        resEstoque.estoque.forEach((p) => {
+          if (Array.isArray(p.lotes)) {
+            p.lotes.forEach((l) => {
+              allLotes.push({
+                ...l,
+                id_produto: p.id_produto,
+                sku: p.sku,
+              });
+            });
+          }
+        });
+      }
+    } catch (e) {
+      console.warn("[Movimentações] Erro ao carregar API:", e);
+      if (window.RezFireData) {
+        products = window.RezFireData.loadProducts();
+        movements = window.RezFireData.loadMovements();
+      }
     }
-  } catch (e) {
-    console.warn("[Movimentações] Carregando dados locais:", e);
-    products = RezFireData.loadProducts();
-    movements = RezFireData.loadMovements();
+  } else if (window.RezFireData) {
+    products = window.RezFireData.loadProducts();
+    movements = window.RezFireData.loadMovements();
   }
 
-  bindEvents();
   renderKPIs();
   renderTable();
+}
+
+async function init() {
+  RezFireLayout.renderSidebar("movimentacoes");
+  bindEvents();
+  await recarregarDados();
 
   // Verifica se veio da tela de Estoque com atalho de entrada (?action=entrada)
   const params = new URLSearchParams(window.location.search);

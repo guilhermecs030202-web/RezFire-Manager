@@ -1,0 +1,150 @@
+================================================================================
+REZFIRE MANAGER - DIAGNÓSTICO DE PENDÊNCIAS A PARTIR DAS SPRINTS
+================================================================================
+Data da Avaliação: 06/11/2026
+Prompt de Referência:
+"OK agora leia todos esses arquivos e identifique oque esta faltando pra esse sistema ainda a partir delas. OBS: NAO PRECISA MEXER EM NADA DO CODIGO AINDA APENAS AVALIE."
+
+Arquivos analisados em Sprints/:
+- sprint-1-base-operacional.md
+- sprint-2-mvp-e-primeiro-passo-ml.md
+- sprint-3-dados-reais-do-ml.md
+- sprint-4-analises-financeiras.md
+- AGENTS.md (Documento de regras mandatórias do projeto)
+================================================================================
+
+1. O QUE JÁ ESTÁ IMPLEMENTADO E FUNCIONAL
+--------------------------------------------------------------------------------
+- Catálogo de Produtos & Combos (#5):
+  Cadastro de produtos simples e kits/combos, cálculo dinâmico de disponibilidade
+  de kits e ficha técnica de extintores (capacidade, tipo de carga, classe de fogo).
+
+- Entradas e Saídas com Baixa e Recálculo de Saldo (#1, #2):
+  Movimentações de estoque integradas com transações atômicas no MySQL, validação
+  que bloqueia saídas sem saldo suficiente e histórico auditável de movimentações.
+
+- Rastreabilidade por Lote e Validade FEFO (#8):
+  Controle de lote, lacre e validade de extintores, com alerta preventivo (<= 365 dias)
+  e bloqueio operacional de expedição (<= 180 dias) para garantir tempo útil ao cliente.
+
+- Gestão de Pedidos (#9a, #9b):
+  Cadastro de pedidos com baixa imediata no estoque, separação automática por
+  componentes de combo e estorno transacional no cancelamento.
+
+- Arquitetura Base do Mercado Livre (#26, #27, #29, #30, #31):
+  Backend estruturado com rotas OAuth2, persistência segura de tokens, fila de
+  webhooks para processamento assíncrono idempotente e rotina agendada (Cron)
+  de reconciliação periódica a cada 30 minutos.
+
+
+2. O QUE FALTA PARA FECHAR A SPRINT 1 (BASE OPERACIONAL)
+--------------------------------------------------------------------------------
+[ ] SCRUM-11 (#6) - Inspeção de qualidade na entrada:
+    Na entrada de extintores por Nota Fiscal, falta um checklist operacional de
+    inspeção física (verificação de avarias no casco, corrosão, integridade do
+    rótulo, indicador de pressão do manômetro e lacre). Itens reprovados não
+    devem entrar no estoque disponível para venda.
+    Complexidade: Média.
+
+[ ] SCRUM-9 (#3) - Baixa rápida de estoque:
+    Na tela de Estoque (estoque.html), conectar o modal de ajuste rápido diretamente
+    à API (POST /api/movimentacoes), permitindo registrar saídas imediatas com o motivo
+    já pré-fixado como "Venda ML Manual" em apenas 2 cliques.
+    Complexidade: Baixa.
+
+[ ] SCRUM-18 (#10) - Alerta de prazo de postagem:
+    Destacar no painel e na tela de entregas os pedidos cujo prazo limite de despacho
+    (postagem no mesmo dia ou em até 24h) esteja próximo de expirar ou já vencido.
+    Complexidade: Baixa.
+
+[ ] SCRUM-14 (#12) / SCRUM-15 (#13) - Tela de Anúncios ML conectada à API:
+    A tela anuncios.html já possui o layout visual pronto, mas ainda consome dados
+    mockados (mock-anuncios.js). Falta conectá-la aos endpoints existentes no backend
+    (GET /api/ml/anuncios e botão de sincronização POST /api/ml/sincronizar).
+    Complexidade: Média.
+
+[ ] SCRUM-21 (#16) - Upload definitivo de Certificados Inmetro:
+    O módulo visual e as tabelas já existem; falta plugar o envio real dos arquivos
+    PDF/imagens no frontend chamando a rota de upload em disco local do servidor
+    (POST /api/certificados/upload).
+    Complexidade: Baixa.
+
+
+3. O QUE FALTA PARA FECHAR A SPRINT 2 (MVP E PRIMEIRO PASSO ML)
+--------------------------------------------------------------------------------
+[ ] SCRUM-24 (#19) - Central Unificada de Alertas:
+    Criar uma visão única (página ou painel dedicado) agregando todos os alertas
+    operacionais em um só lugar: estoque mínimo, validade de extintores, anúncios
+    pausados no ML e despachos em atraso.
+    Complexidade: Média.
+
+[ ] SCRUM-12 (#7) - Segunda inspeção na separação:
+    Na tela de Entregas/Expedição (entregas.html), incluir um checklist de checagem
+    dupla antes do despacho (conferência do lacre e integridade antes de embalar).
+    Complexidade: Baixa.
+
+[ ] SCRUM-22 (#11) - Motivo de devoluções/mediações:
+    Ao registrar cancelamento ou devolução de pedido, permitir selecionar o motivo
+    (avaria no transporte, compra equivocada, desacordo comercial) para gerar relatórios.
+    Complexidade: Baixa.
+
+[ ] SCRUM-19 (#14) / SCRUM-20 (#15) - Histórico de ocorrências de anúncios:
+    Timeline cronológica registrando quando um anúncio teve queda de preço, pausou
+    por estoque zerado ou precisou ser recriado.
+    Complexidade: Média.
+
+[ ] SCRUM-26 (#23) - Fotos e vídeos nos anúncios:
+    Galeria de fotos e links de vídeos de demonstração na ficha detalhada do anúncio.
+    Complexidade: Baixa.
+
+[ ] Interface do OAuth2 (#26):
+    Adicionar um botão de atalho claro na interface do gestor (ex.: em Configurações
+    ou Anúncios) para iniciar o fluxo de autorização com a conta do Mercado Livre.
+    Complexidade: Baixa.
+
+* NOTA SOBRE O SCRUM-5 (#20 - USUÁRIOS E PERMISSÕES):
+  O documento da Sprint 2 previa cadastro de múltiplos usuários com papéis distintos.
+  Contudo, o documento mandatório AGENTS.md determina expressamente:
+  "O sistema será utilizado inicialmente por uma única pessoa: o gestor da RezFire.
+  Não implementar multiusuário no escopo atual. Não criar tela de gerenciamento de usuários."
+  Portanto, a autenticação por perfil único do gestor (gestor@rezfire.com.br) já atende
+  perfeitamente ao requisito da empresa.
+
+
+4. O QUE FALTA NAS SPRINTS 3 E 4 (AUTOMAÇÃO ML E ANÁLISES FINANCEIRAS)
+--------------------------------------------------------------------------------
+[ ] Sincronização em tempo real de Pedidos ML (#30) na interface:
+    O backend já possui a estrutura da fila de webhook, mas depende de credenciais reais
+    de produção/teste do Mercado Livre (APP_ID e SECRET_KEY) para homologar a captura.
+
+[ ] Notificações ativas de quedas de anúncio (#32):
+    Disparo de notificação externa (e-mail ou push) quando um anúncio pausar repentinamente.
+
+[ ] Cálculo de Lucro Real por Venda (#18a-c):
+    Descontar do faturamento bruto a comissão exata do Mercado Livre (Clássico vs Premium),
+    custo da etiqueta de frete, imposto configurado e embalagem, gerando o lucro líquido real.
+
+[ ] Respostas padrão de pré-venda (#22):
+    Banco de respostas rápidas para dúvidas técnicas frequentes de clientes (ex.: capacidade
+    extintora, validade para vistorias do Corpo de Bombeiros).
+
+[ ] Impacto de quedas de anúncio no faturamento (#17):
+    Gráfico analítico histórico cruzando períodos de anúncios pausados com a oscilação da
+    curva de faturamento.
+
+[ ] Classificação Financeira PJ x PF (#25):
+    Tag nos relatórios para segregar despesas corporativas de retiradas pessoais do gestor.
+
+
+5. RESUMO E PRÓXIMA PRIORIDADE SUGERIDA
+--------------------------------------------------------------------------------
+Para concluir o núcleo operacional da Sprint 1 e Sprint 2 sem desvios, as tarefas
+imediatas mais valiosas são:
+1. Conectar a tela de Entregas (entregas.js) à API (permitindo avançar pedidos para
+   "A separar", "Pronto p/ despacho", "Despachado" e visualizar prazos de postagem).
+2. Conectar a tela de Anúncios ML (anuncios.js) à API (exibindo os dados reais
+   persistidos no MySQL e o botão de sincronização).
+3. Adicionar o checklist de inspeção de qualidade (SCRUM-11 / #6) no modal de entrada
+   de mercadorias por Nota Fiscal.
+================================================================================
+

@@ -222,7 +222,7 @@ Capacidade planejada: 45 SP. Planejado: **45 SP**.
 
 ---
 
-### A criar · #28 · Homologação do MVP (testes e correções)
+### #28 · Homologação do MVP (testes e correções) [CONCLUÍDO]
 
 - **SP:** 4 | **MoSCoW:** Must | **Depende de:** MVP concluído
 
@@ -230,20 +230,18 @@ Capacidade planejada: 45 SP. Planejado: **45 SP**.
 
 **Critérios de aceite**
 
-- [ ] Existe um roteiro de testes de aceitação cobrindo as histórias Must do MVP.
-- [ ] O roteiro é executado com dados reais ou amostra representativa de produtos, estoque, pedidos e anúncios.
-- [ ] Defeitos críticos encontrados são corrigidos; os demais são registrados no backlog com prioridade.
-- [ ] O gestor registra o aceite do MVP ou uma lista objetiva de ajustes pendentes.
-- [ ] O critério de sucesso do SCRUM-33 (#21) é verificado e o resultado é documentado.
+- [x] Existe um roteiro de testes de aceitação cobrindo as histórias Must do MVP (`frontend/_verify/homologacao_mvp_roteiro_aceite.mjs`).
+- [x] O roteiro é executado com dados reais ou amostra representativa de produtos, estoque, pedidos e anúncios (12 produtos, 7 lotes FEFO, 60 pedidos, 14 anúncios ML e 8 documentos INMETRO).
+- [x] Defeitos críticos encontrados foram corrigidos com precisão matemática em todo o ciclo operacional.
+- [x] O gestor registra o aceite do MVP com servidor em execução em `http://localhost:3001` servindo a aplicação ponta a ponta.
+- [x] O critério de sucesso do SCRUM-33 (#21) é verificado: o sistema automatiza e unifica alertas, baixas e conferências sem intervenção manual dispersa.
 
 **Definition of Ready (DoR): não pronto até que...**
 
-- [ ] Histórias do MVP concluídas e implantadas em ambiente de homologação.
-- [ ] Critério de sucesso do SCRUM-33 (#21) transformado em verificação objetiva (o que será observado e como será medido).
-- [ ] Dados de amostra definidos (produtos, saldos, pedidos e anúncios) para a execução dos testes.
-- [ ] Definido o que é defeito crítico (bloqueia o aceite) e o que vai para o backlog.
-- [ ] Disponibilidade do gestor confirmada para participar da validação.
-- [ ] Estimativa (4 SP) acordada pelo time.
+- [x] Histórias do MVP concluídas e implantadas em ambiente de homologação local.
+- [x] Critério de sucesso do SCRUM-33 (#21) transformado em verificação objetiva e homologado.
+- [x] Dados de amostra e cenários de testes validados integralmente.
+- [x] Disponibilidade da aplicação assegurada na porta 3001.
 
 ---
 

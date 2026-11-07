@@ -187,3 +187,4 @@ describe('#27 - Consulta de Anúncios via API do Mercado Livre', () => {
     assert.equal(res500.anunciosExibidos.length, 1);
   });
 });
+

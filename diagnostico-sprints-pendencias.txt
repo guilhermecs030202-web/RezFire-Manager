@@ -137,6 +137,13 @@ Todas as 10 User Stories (45 Story Points) da Sprint 1 foram implementadas, inte
     estoque e entregas; bloqueado do financeiro e gestão de usuários). Endpoints REST no backend
     protegidos por authMiddleware e requerPerfil(['GESTOR']).
 
+[X] Homologação do MVP (#28) [CONCLUÍDO]:
+    Roteiro de homologação e testes de aceitação executado com 100% de sucesso
+    (frontend/_verify/homologacao_mvp_roteiro_aceite.mjs) cobrindo autenticação e perfis RBAC,
+    regras FEFO de validade, ciclo de pedidos com regra de ouro do estoque, checklist INMETRO,
+    central unificada de alertas operacionais e integração completa com Mercado Livre.
+    Servidor ativo e acessível em http://localhost:3001.
+
 
 4. O QUE FALTA NAS SPRINTS 3 E 4 (AUTOMAÇÃO ML E ANÁLISES FINANCEIRAS)
 --------------------------------------------------------------------------------

@@ -259,6 +259,10 @@
             <span>💬</span>
             <span>Respostas Pré-Venda</span>
           </button>
+          <button class="btn-ghost" id="btn-abrir-comparativo-modalidades" type="button" style="font-size:0.84rem;padding:8px 14px;display:inline-flex;align-items:center;gap:6px;border-color:#0d9488;color:#0f766e" title="Comparativo de Custos e Prazos por Modalidade de Envio (#24)">
+            <span>🚚</span>
+            <span>Modalidades de Envio (#24)</span>
+          </button>
           <button class="btn-ghost" id="btn-sync-pedidos-ml" type="button" style="font-size:0.84rem;padding:8px 14px;display:inline-flex;align-items:center;gap:6px;border-color:#3b82f6;color:#1e40af" title="Sincronizar pedidos em tempo real do Mercado Livre (#30)">
             <svg id="sync-pedidos-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
               <path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.2" />
@@ -476,6 +480,15 @@
               <option value="Confirmado" selected>Confirmado</option>
               <option value="Concluído">Concluído</option>
               <option value="Cancelado">Cancelado</option>
+            </select>
+          </div>
+          <div class="form-field">
+            <label for="pedido-modalidade">Modalidade de Envio * (#24)</label>
+            <select id="pedido-modalidade" required>
+              <option value="Coleta" selected>Mercado Envios Coleta</option>
+              <option value="Tradicional">Tradicional (Correios / Agência)</option>
+              <option value="Full">Mercado Envios Full</option>
+              <option value="Logística Própria">Logística Própria (Rodonaves / Venda Direta)</option>
             </select>
           </div>
         </div>
@@ -700,6 +713,53 @@
             </thead>
             <tbody id="tbody-ultimas-devolucoes">
               <!-- Preenchido via JS -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal de Comparativo de Modalidades de Envio (#24 / SCRUM-27) ──────────────────────── -->
+  <div class="modal-backdrop" id="modal-comparativo-modalidades" role="dialog" aria-modal="true" aria-labelledby="modal-modalidades-title">
+    <div class="modal" style="width:min(880px, 96vw);max-height:92vh;overflow-y:auto">
+      <div class="modal-header" style="display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid var(--line);padding-bottom:12px;margin-bottom:16px">
+        <h2 id="modal-modalidades-title" style="color:var(--ink);font-size:1.18rem;display:flex;align-items:center;gap:8px">
+          <span>🚚</span>
+          <span>Comparativo de Modalidades de Envio (#24)</span>
+        </h2>
+        <button class="btn-ghost" id="btn-fechar-modal-comparativo" style="padding:4px 8px;font-size:0.8rem">Fechar</button>
+      </div>
+
+      <p style="font-size:0.85rem;color:var(--muted);line-height:1.5;margin-bottom:16px">
+        Avalie o desempenho logístico e financeiro entre as modalidades: <strong>Mercado Envios Full</strong>, <strong>Coleta</strong>, <strong>Tradicional</strong> e <strong>Logística Própria</strong>. Compare prazos médios de entrega, custo de frete suportado e taxa de pontualidade operacional.
+      </p>
+
+      <!-- Grid de Cards por Modalidade -->
+      <div id="grid-cards-modalidades" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:12px;margin-bottom:20px">
+        <!-- Renderizado dinamicamente via JS -->
+      </div>
+
+      <!-- Tabela Comparativa Detalhada -->
+      <div class="card" style="padding:16px">
+        <h3 style="font-size:0.95rem;font-weight:700;margin-bottom:12px;color:var(--ink)">
+          Quadro Comparativo Consolidado
+        </h3>
+        <div style="overflow-x:auto">
+          <table class="table" style="width:100%;font-size:0.84rem">
+            <thead>
+              <tr style="border-bottom:2px solid var(--line);text-align:left">
+                <th style="padding:8px 6px">Modalidade</th>
+                <th style="padding:8px 6px;text-align:center">Pedidos</th>
+                <th style="padding:8px 6px;text-align:right">Frete Médio</th>
+                <th style="padding:8px 6px;text-align:center">Prazo Médio</th>
+                <th style="padding:8px 6px;text-align:center">Pontualidade</th>
+                <th style="padding:8px 6px;text-align:right">Lucro Médio</th>
+                <th style="padding:8px 6px;text-align:right">Margem Média</th>
+              </tr>
+            </thead>
+            <tbody id="tbody-comparativo-modalidades">
+              <!-- Renderizado via JS -->
             </tbody>
           </table>
         </div>

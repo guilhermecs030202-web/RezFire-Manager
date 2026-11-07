@@ -168,20 +168,32 @@ Todas as 10 User Stories (45 Story Points) da Sprint 1 foram implementadas, inte
     registradas e visíveis ao gestor com a data do último sucesso preservada. Botão ⚡ Sincronizar ML adicionado
     na tela de pedidos (pedidos.html).
 
-[X] Notificações ativas de quedas de anúncio (#32):
+[X] Baixa automática de estoque por pedido (#31) [CONCLUÍDO em 07/11/2026]:
+    Baixa imediata transacional com controle de lotes FEFO acionada na importação de pedidos do Mercado Livre,
+    validação prévia de saldo para evitar saldo negativo, disparo de alerta operacional de saldo insuficiente
+    e alerta de estoque mínimo (#4).
+
+[X] Notificações ativas de quedas de anúncio (#32) [CONCLUÍDO em 07/11/2026]:
     Disparo de notificação corporativa ao gestor (e-mail e Central de Alertas) quando um anúncio pausar ou for rebaixado/sob revisão, com regra antirruído/idempotência e reflexo na Central de Alertas (#19).
 
-[X] Cálculo de Lucro Real por Venda (#18a-c) (SCRUM-23 - CONCLUÍDO):
+[X] Cálculo de Lucro Real por Venda (#18a-c) (SCRUM-23 - CONCLUÍDO em 07/11/2026):
     Apuração automatizada por venda descontando da receita bruta os custos fixos (CMV dos produtos/combos,
     impostos Simples Nacional e embalagem reforçada - #18a), tarifas e fretes da plataforma (comissão Clássico vs
     Premium, taxa fixa < R$ 79 e frete do vendedor - #18b) e apurando o lucro líquido real e margem líquida (#18c),
     com demonstrativo financeiro (DRE) detalhado e recálculo personalizado por venda na tela de pedidos (pedidos.html).
 
-[X] Respostas padrão de pré-venda (#22) (SCRUM-28 - CONCLUÍDO):
+[X] Respostas padrão de pré-venda (#22) (SCRUM-28 - CONCLUÍDO em 07/11/2026):
     Base de respostas técnicas e perguntas frequentes (validade de 5 anos veicular, recarga anual,
     vistoria do Corpo de Bombeiros / AVCB, capacidade extintora 2A-20BC / 4A-40BC, selo INMETRO e suportes),
     com busca por palavra-chave, filtro por categoria, cadastro/edição pelo gestor e botão de cópia instantânea
     com 1 clique integrado nas telas de Anúncios (anuncios.html) e Pedidos (pedidos.html).
+
+[X] Modalidades de envio (#24) (SCRUM-27 - CONCLUÍDO em 07/11/2026):
+    Registro da modalidade de envio do pedido entre as 4 modalidades disponíveis (Mercado Envios Full, Coleta,
+    Tradicional e Logística Própria), com prazos estimados automáticos e custos de frete diferenciados.
+    Quadro comparativo consolidado analítico (GET /api/pedidos/comparativo-modalidades) com custo médio de frete,
+    prazo médio de entrega/despacho, taxa de pontualidade operacional, volume de pedidos e margem média,
+    disponível via modal dedicado e badges dinâmicos na tela de pedidos (pedidos.html).
 
 [ ] Impacto de quedas de anúncio no faturamento (#17):
     Gráfico analítico histórico cruzando períodos de anúncios pausados com a oscilação da

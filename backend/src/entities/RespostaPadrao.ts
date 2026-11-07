@@ -40,3 +40,4 @@ export class RespostaPadrao {
   @UpdateDateColumn({ type: 'timestamp' })
   updated_at: Date;
 }
+

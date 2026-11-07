@@ -115,7 +115,23 @@ function normalizarPedido(p) {
     total_tarifas_plataforma: Number(p.total_tarifas_plataforma || 0),
     lucro_liquido: Number(p.lucro_liquido || 0),
     margem_liquida_percentual: Number(p.margem_liquida_percentual || 0),
+    // Modalidade de Envio (#24 / SCRUM-27)
+    modalidade_envio: p.modalidade_envio || (p.origem === "Mercado Livre" ? "Coleta" : "Logística Própria"),
+    prazo_dias_estimado: Number(p.prazo_dias_estimado !== undefined ? p.prazo_dias_estimado : 3),
+    data_entrega_efetiva: p.data_entrega_efetiva || null,
   };
+}
+
+// ─── Badges de Modalidade de Envio (#24) ──────────────────────────────────────
+function getBadgeModalidadeEnvio(mod) {
+  const map = {
+    "Full": { bg: "#fef3c7", color: "#92400e", label: "⚡ Full" },
+    "Coleta": { bg: "#e0f2fe", color: "#0369a1", label: "📦 Coleta" },
+    "Tradicional": { bg: "#f1f5f9", color: "#334155", label: "📮 Tradicional" },
+    "Logística Própria": { bg: "#ecfdf5", color: "#065f46", label: "🚛 Própria" },
+  };
+  const cfg = map[mod] || { bg: "#f3f4f6", color: "#374151", label: mod || "Padrão" };
+  return `<span style="display:inline-block;padding:2px 8px;border-radius:12px;font-size:0.71rem;font-weight:700;background:${cfg.bg};color:${cfg.color};margin-top:2px">${cfg.label}</span>`;
 }
 
 // ─── Badges de Status Comercial ───────────────────────────────────────────────
@@ -382,6 +398,7 @@ function renderTable() {
               : `<span style="width:8px;height:8px;border-radius:50%;background:#3b82f6"></span> Venda Direta`}
           </span>
           <span style="display:block;font-size:0.72rem;color:var(--muted)">${escapeHtml(p.tipo_envio || "Padrão")}</span>
+          <div>${getBadgeModalidadeEnvio(p.modalidade_envio)}</div>
         </td>
         <td style="text-align:center">
           <strong style="color:var(--ink)">${qtdTotalUnidades}</strong>
@@ -505,6 +522,23 @@ function openDetalhePanel(pedidoId) {
               <span style="font-family:monospace;font-weight:700;color:#0e7490">${escapeHtml(pedido.codigo_externo_ml)}</span>
             </div>
           ` : ""}
+          <div class="detalhe-field span-2" style="background:#f8fafc;padding:10px;border-radius:8px;border:1px solid #e2e8f0;margin-top:6px">
+            <span class="detalhe-label" style="display:flex;align-items:center;gap:4px">
+              <span>🚚</span> Modalidade de Envio (#24)
+            </span>
+            <div style="display:flex;align-items:center;gap:8px;margin-top:4px;flex-wrap:wrap">
+              <select id="select-detalhe-modalidade" style="padding:4px 8px;border-radius:6px;border:1px solid var(--line);font-size:0.82rem;font-weight:700">
+                <option value="Coleta" ${pedido.modalidade_envio === 'Coleta' ? 'selected' : ''}>Mercado Envios Coleta</option>
+                <option value="Tradicional" ${pedido.modalidade_envio === 'Tradicional' ? 'selected' : ''}>Tradicional (Correios / Agência)</option>
+                <option value="Full" ${pedido.modalidade_envio === 'Full' ? 'selected' : ''}>Mercado Envios Full</option>
+                <option value="Logística Própria" ${pedido.modalidade_envio === 'Logística Própria' ? 'selected' : ''}>Logística Própria</option>
+              </select>
+              <button class="btn-ghost" id="btn-salvar-modalidade-detalhe" style="padding:4px 10px;font-size:0.8rem;background:#fff;border-color:#0d9488;color:#0f766e" title="Atualizar modalidade de envio e recalcular DRE">
+                Atualizar Modalidade
+              </button>
+              <span style="font-size:0.75rem;color:var(--muted)">Prazo est.: <strong>${pedido.prazo_dias_estimado || 3} dias</strong></span>
+            </div>
+          </div>
         </div>
       </section>
 
@@ -799,6 +833,33 @@ function openDetalhePanel(pedidoId) {
       showToast("Erro ao recalcular custos: " + (err.message || err), "erro");
     }
   });
+
+  // Listener para atualização inline de Modalidade de Envio (#24)
+  document.getElementById("btn-salvar-modalidade-detalhe")?.addEventListener("click", async () => {
+    const novaModalidade = document.getElementById("select-detalhe-modalidade")?.value;
+    if (!novaModalidade) return;
+
+    try {
+      if (window.RezFireAPI?.pedidos?.atualizarModalidade) {
+        const res = await window.RezFireAPI.pedidos.atualizarModalidade(pedido.id_pedido, {
+          modalidade_envio: novaModalidade,
+        });
+
+        if (res && res.sucesso && res.pedido) {
+          const idx = state.pedidos.findIndex((x) => x.id_pedido === pedido.id_pedido);
+          if (idx !== -1) {
+            state.pedidos[idx] = normalizarPedido(res.pedido);
+            openDetalhePanel(pedido.id_pedido);
+          }
+          renderTable();
+          showToast(`Modalidade de envio atualizada para "${novaModalidade}" e DRE recalculado!`, "sucesso");
+        }
+      }
+    } catch (err) {
+      console.error("Erro ao atualizar modalidade de envio:", err);
+      showToast("Erro ao atualizar modalidade: " + (err.message || err), "erro");
+    }
+  });
 }
 
 function closeDetalhePanel() {
@@ -837,6 +898,7 @@ function openFormModal(pedidoParaEditar = null) {
     document.getElementById("pedido-cliente").value = pedidoParaEditar.cliente || "";
     document.getElementById("pedido-uf").value = pedidoParaEditar.uf || "SP";
     document.getElementById("pedido-status").value = pedidoParaEditar.status || "Confirmado";
+    document.getElementById("pedido-modalidade").value = pedidoParaEditar.modalidade_envio || "Coleta";
     document.getElementById("pedido-desconto").value = Number(pedidoParaEditar.desconto || 0).toFixed(2);
     document.getElementById("pedido-frete").value = Number(pedidoParaEditar.frete || 0).toFixed(2);
     document.getElementById("pedido-observacoes").value = pedidoParaEditar.observacoes || "";
@@ -869,6 +931,7 @@ function openFormModal(pedidoParaEditar = null) {
     document.getElementById("pedido-cliente").value = "";
     document.getElementById("pedido-uf").value = "SP";
     document.getElementById("pedido-status").value = "Confirmado";
+    document.getElementById("pedido-modalidade").value = "Coleta";
     document.getElementById("pedido-desconto").value = "0.00";
     document.getElementById("pedido-frete").value = "0.00";
     document.getElementById("pedido-observacoes").value = "";
@@ -1340,6 +1403,133 @@ function closeModalPadroesDevolucoes() {
   if (modal) modal.classList.remove("is-open");
 }
 
+// ─── Modal de Comparativo de Modalidades de Envio (#24 / SCRUM-27) ────────────
+async function openModalComparativoModalidades() {
+  const modal = document.getElementById("modal-comparativo-modalidades");
+  const gridCards = document.getElementById("grid-cards-modalidades");
+  const tbody = document.getElementById("tbody-comparativo-modalidades");
+  if (!modal) return;
+
+  modal.classList.add("is-open");
+  if (gridCards) gridCards.innerHTML = `<div style="grid-column:1/-1;text-align:center;padding:20px;color:var(--muted)">Carregando comparativo analítico...</div>`;
+  if (tbody) tbody.innerHTML = `<tr><td colspan="7" style="text-align:center;padding:16px;color:var(--muted)">Calculando métricas...</td></tr>`;
+
+  try {
+    let comparativo = null;
+    if (window.RezFireAPI?.pedidos?.obterComparativoModalidades) {
+      const res = await window.RezFireAPI.pedidos.obterComparativoModalidades();
+      if (res && res.sucesso && Array.isArray(res.comparativo)) {
+        comparativo = res.comparativo;
+      }
+    }
+
+    if (!comparativo || comparativo.length === 0) {
+      // Fallback analítico a partir do state local
+      const modalidadesDisponiveis = ["Full", "Coleta", "Tradicional", "Logística Própria"];
+      comparativo = modalidadesDisponiveis.map((mod) => {
+        const pedMod = state.pedidos.filter((p) => p.modalidade_envio === mod);
+        const qtd = pedMod.length;
+        const totalFat = pedMod.reduce((s, p) => s + Number(p.valor_total || 0), 0);
+        const freteMedio = qtd > 0 ? pedMod.reduce((s, p) => s + Number(p.custo_frete || p.frete || 0), 0) / qtd : 0;
+        const prazoMedio = qtd > 0 ? pedMod.reduce((s, p) => s + Number(p.prazo_dias_estimado || 3), 0) / qtd : 0;
+        const lucroTotal = pedMod.reduce((s, p) => s + Number(p.lucro_liquido || 0), 0);
+        return {
+          modalidade: mod,
+          quantidade_pedidos: qtd,
+          faturamento_total: totalFat,
+          ticket_medio: qtd > 0 ? totalFat / qtd : 0,
+          frete_medio: freteMedio,
+          prazo_medio_dias: Number(prazoMedio.toFixed(1)),
+          taxa_pontualidade_percentual: 95.0,
+          lucro_total: lucroTotal,
+          lucro_medio_por_pedido: qtd > 0 ? lucroTotal / qtd : 0,
+          margem_media_percentual: totalFat > 0 ? (lucroTotal / totalFat) * 100 : 0,
+        };
+      });
+    }
+
+    // Renderiza Cards
+    const modConfigs = {
+      "Full": { cor: "#b45309", bg: "#fef3c7", icon: "⚡", desc: "Entrega em até 24h, armazenagem e expedição 100% Mercado Livre." },
+      "Coleta": { cor: "#0369a1", bg: "#e0f2fe", icon: "📦", desc: "Caminhão do Mercado Livre retira no galpão RezFire em horário fixo." },
+      "Tradicional": { cor: "#334155", bg: "#f1f5f9", icon: "📮", desc: "Postagem em agências parceiras / Correios pelo gestor." },
+      "Logística Própria": { cor: "#065f46", bg: "#ecfdf5", icon: "🚛", desc: "Frota própria RezFire ou transportadora rodoviária contratada." },
+    };
+
+    if (gridCards) {
+      gridCards.innerHTML = comparativo.map((c) => {
+        const cfg = modConfigs[c.modalidade] || { cor: "var(--ink)", bg: "#f3f4f6", icon: "🚚", desc: "" };
+        const qtdPed = c.total_pedidos !== undefined ? c.total_pedidos : (c.quantidade_pedidos || 0);
+        const freteMed = c.custo_frete_medio !== undefined ? c.custo_frete_medio : (c.frete_medio || 0);
+        return `
+          <div class="card" style="padding:14px;border-top:4px solid ${cfg.cor};background:#fff">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+              <span style="font-size:0.75rem;font-weight:800;color:${cfg.cor};text-transform:uppercase;letter-spacing:0.04em">
+                ${cfg.icon} ${escapeHtml(c.modalidade)}
+              </span>
+              <span style="font-size:0.72rem;background:${cfg.bg};color:${cfg.cor};font-weight:700;padding:2px 6px;border-radius:10px">
+                ${qtdPed} ped.
+              </span>
+            </div>
+            <div style="font-size:1.15rem;font-weight:800;color:var(--ink);margin:4px 0">
+              ${money(freteMed)} <span style="font-size:0.72rem;font-weight:500;color:var(--muted)">frete médio</span>
+            </div>
+            <div style="font-size:0.8rem;color:var(--ink);display:flex;justify-content:space-between;margin-top:6px;border-top:1px dashed #e2e8f0;padding-top:6px">
+              <span style="color:var(--muted)">Prazo médio:</span>
+              <strong>${c.prazo_medio_dias} dias</strong>
+            </div>
+            <div style="font-size:0.8rem;color:var(--ink);display:flex;justify-content:space-between;margin-top:2px">
+              <span style="color:var(--muted)">Pontualidade:</span>
+              <strong style="color:${c.taxa_pontualidade_percentual >= 90 ? '#15803d' : 'var(--down)'}">${Number(c.taxa_pontualidade_percentual || 0).toFixed(1)}%</strong>
+            </div>
+            <p style="font-size:0.72rem;color:var(--muted);margin:8px 0 0;line-height:1.3">
+              ${cfg.desc}
+            </p>
+          </div>
+        `;
+      }).join("");
+    }
+
+    // Renderiza Tabela Consolidada
+    if (tbody) {
+      tbody.innerHTML = comparativo.map((c) => {
+        const qtdPed = c.total_pedidos !== undefined ? c.total_pedidos : (c.quantidade_pedidos || 0);
+        const freteMed = c.custo_frete_medio !== undefined ? c.custo_frete_medio : (c.frete_medio || 0);
+        const lucroTotal = c.lucro_liquido_total !== undefined ? c.lucro_liquido_total : (c.lucro_total || 0);
+        const lucroMed = qtdPed > 0 ? (lucroTotal / qtdPed) : 0;
+        return `
+        <tr style="border-bottom:1px solid #f1f5f9">
+          <td style="padding:10px 6px;font-weight:700;color:var(--ink)">
+            ${getBadgeModalidadeEnvio(c.modalidade)}
+          </td>
+          <td style="padding:10px 6px;text-align:center;font-weight:700">${qtdPed}</td>
+          <td style="padding:10px 6px;text-align:right;font-weight:600;color:#0e7490">${money(freteMed)}</td>
+          <td style="padding:10px 6px;text-align:center;font-weight:600">${c.prazo_medio_dias} d</td>
+          <td style="padding:10px 6px;text-align:center">
+            <span style="display:inline-block;padding:2px 6px;border-radius:10px;font-size:0.75rem;font-weight:700;background:${c.taxa_pontualidade_percentual >= 90 ? '#dcfce7' : '#fee2e2'};color:${c.taxa_pontualidade_percentual >= 90 ? '#15803d' : '#991b1b'}">
+              ${Number(c.taxa_pontualidade_percentual || 0).toFixed(1)}%
+            </span>
+          </td>
+          <td style="padding:10px 6px;text-align:right;font-weight:700;color:${lucroMed >= 0 ? '#15803d' : 'var(--down)'}">
+            ${money(lucroMed)}
+          </td>
+          <td style="padding:10px 6px;text-align:right;font-weight:700;color:${c.margem_media_percentual >= 0 ? '#15803d' : 'var(--down)'}">
+            ${Number(c.margem_media_percentual || 0).toFixed(1)}%
+          </td>
+        </tr>
+      `}).join("");
+    }
+  } catch (err) {
+    console.error("Erro ao carregar comparativo de modalidades:", err);
+    if (gridCards) gridCards.innerHTML = `<div style="grid-column:1/-1;color:var(--down);padding:16px">Falha ao obter comparativo analítico: ${err.message || err}</div>`;
+  }
+}
+
+function closeModalComparativoModalidades() {
+  const modal = document.getElementById("modal-comparativo-modalidades");
+  if (modal) modal.classList.remove("is-open");
+}
+
 // ─── Toasts de Notificação ────────────────────────────────────────────────────
 function showToast(msg, tipo = "info") {
   const container = document.getElementById("toast-container");
@@ -1621,6 +1811,7 @@ function bindEvents() {
     const cliente = document.getElementById("pedido-cliente")?.value.trim();
     const uf = document.getElementById("pedido-uf")?.value;
     const status = document.getElementById("pedido-status")?.value;
+    const modalidade_envio = document.getElementById("pedido-modalidade")?.value || "Coleta";
     const observacoes = document.getElementById("pedido-observacoes")?.value.trim();
     const codigo_externo_ml = canal === "Mercado Livre" ? document.getElementById("pedido-codigo-externo")?.value.trim() : null;
 
@@ -1703,6 +1894,7 @@ function bindEvents() {
           codigo_pedido: codigo_pedido || undefined,
           cliente_nome: cliente,
           origem: canal,
+          modalidade_envio: modalidade_envio,
           exibir_na_entrega: true,
           itens: formItens.map((it) => ({
             id_produto: Number(it.id_produto),
@@ -1731,7 +1923,9 @@ function bindEvents() {
           codigo_externo_ml,
           canal,
           origem: canal,
-          tipo_envio: canal === "Mercado Livre" ? "Mercado Envios Coleta" : "Transportadora Própria",
+          tipo_envio: modalidade_envio,
+          modalidade_envio: modalidade_envio,
+          prazo_dias_estimado: modalidade_envio === "Full" ? 1 : (modalidade_envio === "Coleta" ? 3 : (modalidade_envio === "Tradicional" ? 4 : 2)),
           data_pedido: dataPedidoIso,
           cliente,
           cliente_nome: cliente,
@@ -1807,6 +2001,13 @@ function bindEvents() {
   document.getElementById("btn-fechar-modal-padroes")?.addEventListener("click", closeModalPadroesDevolucoes);
   document.getElementById("modal-padroes-devolucoes")?.addEventListener("click", (e) => {
     if (e.target.id === "modal-padroes-devolucoes") closeModalPadroesDevolucoes();
+  });
+
+  // Modal de Comparativo de Modalidades de Envio (#24 / SCRUM-27)
+  document.getElementById("btn-abrir-comparativo-modalidades")?.addEventListener("click", openModalComparativoModalidades);
+  document.getElementById("btn-fechar-modal-comparativo")?.addEventListener("click", closeModalComparativoModalidades);
+  document.getElementById("modal-comparativo-modalidades")?.addEventListener("click", (e) => {
+    if (e.target.id === "modal-comparativo-modalidades") closeModalComparativoModalidades();
   });
 
   // Fechar overlay

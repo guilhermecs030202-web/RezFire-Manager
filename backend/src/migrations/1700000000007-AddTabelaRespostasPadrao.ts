@@ -135,3 +135,4 @@ export class AddTabelaRespostasPadrao1700000000007 implements MigrationInterface
     }
   }
 }
+

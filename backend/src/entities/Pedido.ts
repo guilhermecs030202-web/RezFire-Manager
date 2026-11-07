@@ -68,6 +68,16 @@ export class Pedido {
   @Column({ type: 'timestamp', nullable: true })
   data_devolucao: Date | null;
 
+  // ── Modalidade de Envio e Prazos (SCRUM-27 / #24) ──
+  @Column({ type: 'varchar', length: 50, default: 'Coleta' })
+  modalidade_envio: 'Tradicional' | 'Coleta' | 'Full' | 'Logística Própria' | string;
+
+  @Column({ type: 'int', default: 3 })
+  prazo_dias_estimado: number;
+
+  @Column({ type: 'timestamp', nullable: true })
+  data_entrega_efetiva: Date | null;
+
   // ── Módulo Financeiro: Lucro Real por Venda (SCRUM-23 / #18abc) ──
   @Column({ type: 'varchar', length: 20, default: 'Classico' })
   tipo_anuncio: 'Classico' | 'Premium' | 'Direta' | string;

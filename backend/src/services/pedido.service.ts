@@ -19,6 +19,9 @@ export interface CriarPedidoDTO {
   itens: CriarItemPedidoDTO[];
   exibir_na_entrega?: boolean;
   prazo_despacho?: Date | string;
+  modalidade_envio?: 'Tradicional' | 'Coleta' | 'Full' | 'Logística Própria' | string;
+  prazo_dias_estimado?: number;
+  data_entrega_efetiva?: Date | string;
 }
 
 export interface DadosDevolucaoDTO {
@@ -256,10 +259,27 @@ export class PedidoService {
       const custoEmbalagem = 5.00;
       const totalCustosFixos = Number((custoProdutos + custoImpostos + custoEmbalagem).toFixed(2));
 
+      const modalidadeEnvio = dados.modalidade_envio || (isML ? 'Coleta' : 'Logística Própria');
+      let prazoDias = dados.prazo_dias_estimado;
+      if (!prazoDias) {
+        if (modalidadeEnvio === 'Full') prazoDias = 1;
+        else if (modalidadeEnvio === 'Coleta') prazoDias = 3;
+        else if (modalidadeEnvio === 'Tradicional') prazoDias = 4;
+        else prazoDias = 2;
+      }
+
+      let fretePadraoModalidade = 0.00;
+      if (isML && valorTotal >= 79.00) {
+        if (modalidadeEnvio === 'Full') fretePadraoModalidade = 22.00;
+        else if (modalidadeEnvio === 'Coleta') fretePadraoModalidade = 26.00;
+        else if (modalidadeEnvio === 'Tradicional') fretePadraoModalidade = 30.00;
+        else fretePadraoModalidade = 18.00;
+      }
+
       const tarifaMlPercentual = isML ? 12.00 : 0.00;
       const tarifaMlComissao = Number((valorTotal * (tarifaMlPercentual / 100)).toFixed(2));
       const tarifaMlFixa = isML && valorTotal < 79.00 ? 6.00 : 0.00;
-      const custoFrete = isML && valorTotal >= 79.00 ? 26.00 : 0.00;
+      const custoFrete = fretePadraoModalidade;
       const custoAds = 0.00;
       const totalTarifasPlataforma = Number((tarifaMlComissao + tarifaMlFixa + custoFrete + custoAds).toFixed(2));
 
@@ -282,6 +302,9 @@ export class PedidoService {
         data_despacho: null,
         exibir_na_entrega: dados.exibir_na_entrega ?? true,
         status_entrega: 'A separar',
+        modalidade_envio: modalidadeEnvio,
+        prazo_dias_estimado: prazoDias,
+        data_entrega_efetiva: dados.data_entrega_efetiva ? new Date(dados.data_entrega_efetiva) : null,
         tipo_anuncio: tipoAnuncio,
         custo_produtos: Number(custoProdutos.toFixed(2)),
         aliquota_imposto_percentual: aliquotaImposto,
@@ -787,6 +810,194 @@ export class PedidoService {
         lucro_liquido_total: Number(lucroLiquidoTotal.toFixed(2)),
         margem_liquida_media: margemMedia,
       },
+    };
+  }
+
+  /**
+   * Atualiza a modalidade de envio de um pedido e recalcula frete/prazos (SCRUM-27 / #24)
+   * Critério 1: É possível registrar a modalidade de envio de um pedido entre as opções disponíveis.
+   */
+  async atualizarModalidadeEnvio(
+    id_pedido: number,
+    dados: {
+      modalidade_envio: string;
+      prazo_dias_estimado?: number;
+      custo_frete?: number;
+      data_entrega_efetiva?: Date | string | null;
+    }
+  ) {
+    const pedido = await this.buscarPorId(id_pedido);
+
+    pedido.modalidade_envio = dados.modalidade_envio;
+
+    if (dados.prazo_dias_estimado !== undefined) {
+      pedido.prazo_dias_estimado = Number(dados.prazo_dias_estimado);
+    } else {
+      if (dados.modalidade_envio === 'Full') pedido.prazo_dias_estimado = 1;
+      else if (dados.modalidade_envio === 'Coleta') pedido.prazo_dias_estimado = 3;
+      else if (dados.modalidade_envio === 'Tradicional') pedido.prazo_dias_estimado = 4;
+      else pedido.prazo_dias_estimado = 2;
+    }
+
+    if (dados.custo_frete !== undefined) {
+      pedido.custo_frete = Number(dados.custo_frete);
+    } else if (Number(pedido.valor_total) >= 79.00 && pedido.origem === 'Mercado Livre') {
+      if (dados.modalidade_envio === 'Full') pedido.custo_frete = 22.00;
+      else if (dados.modalidade_envio === 'Coleta') pedido.custo_frete = 26.00;
+      else if (dados.modalidade_envio === 'Tradicional') pedido.custo_frete = 30.00;
+      else pedido.custo_frete = 18.00;
+    }
+
+    if (dados.data_entrega_efetiva !== undefined) {
+      pedido.data_entrega_efetiva = dados.data_entrega_efetiva ? new Date(dados.data_entrega_efetiva) : null;
+    }
+
+    // Recalcula totais financeiros
+    pedido.total_tarifas_plataforma = Number(
+      (Number(pedido.tarifa_ml_comissao || 0) + Number(pedido.tarifa_ml_fixa || 0) + Number(pedido.custo_frete || 0) + Number(pedido.custo_ads || 0)).toFixed(2)
+    );
+    pedido.lucro_liquido = Number(
+      (Number(pedido.valor_total || 0) - Number(pedido.total_custos_fixos || 0) - Number(pedido.total_tarifas_plataforma || 0)).toFixed(2)
+    );
+    pedido.margem_liquida_percentual = Number(pedido.valor_total || 0) > 0
+      ? Number(((pedido.lucro_liquido / Number(pedido.valor_total)) * 100).toFixed(2))
+      : 0.00;
+
+    await this.pedidoRepo.save(pedido);
+    return pedido;
+  }
+
+  /**
+   * Apura comparativo consolidado de custos, prazos e pontualidade por modalidade de envio (SCRUM-27 / #24)
+   * Critério 2: Custos e prazos podem ser comparados por modalidade.
+   */
+  async obterComparativoModalidadesEnvio() {
+    const pedidos = await this.pedidoRepo.find({
+      order: { data_pedido: 'DESC' },
+    });
+
+    const modalidadesMap: Record<
+      string,
+      {
+        modalidade: string;
+        total_pedidos: number;
+        faturamento_total: number;
+        custo_frete_total: number;
+        soma_prazos_dias: number;
+        pedidos_no_prazo: number;
+        pedidos_atrasados: number;
+        lucro_liquido_total: number;
+      }
+    > = {
+      Tradicional: {
+        modalidade: 'Tradicional',
+        total_pedidos: 0,
+        faturamento_total: 0,
+        custo_frete_total: 0,
+        soma_prazos_dias: 0,
+        pedidos_no_prazo: 0,
+        pedidos_atrasados: 0,
+        lucro_liquido_total: 0,
+      },
+      Coleta: {
+        modalidade: 'Coleta',
+        total_pedidos: 0,
+        faturamento_total: 0,
+        custo_frete_total: 0,
+        soma_prazos_dias: 0,
+        pedidos_no_prazo: 0,
+        pedidos_atrasados: 0,
+        lucro_liquido_total: 0,
+      },
+      Full: {
+        modalidade: 'Full',
+        total_pedidos: 0,
+        faturamento_total: 0,
+        custo_frete_total: 0,
+        soma_prazos_dias: 0,
+        pedidos_no_prazo: 0,
+        pedidos_atrasados: 0,
+        lucro_liquido_total: 0,
+      },
+      'Logística Própria': {
+        modalidade: 'Logística Própria',
+        total_pedidos: 0,
+        faturamento_total: 0,
+        custo_frete_total: 0,
+        soma_prazos_dias: 0,
+        pedidos_no_prazo: 0,
+        pedidos_atrasados: 0,
+        lucro_liquido_total: 0,
+      },
+    };
+
+    const agora = new Date();
+
+    for (const p of pedidos) {
+      const mod = p.modalidade_envio || 'Coleta';
+      if (!modalidadesMap[mod]) {
+        modalidadesMap[mod] = {
+          modalidade: mod,
+          total_pedidos: 0,
+          faturamento_total: 0,
+          custo_frete_total: 0,
+          soma_prazos_dias: 0,
+          pedidos_no_prazo: 0,
+          pedidos_atrasados: 0,
+          lucro_liquido_total: 0,
+        };
+      }
+
+      const item = modalidadesMap[mod];
+      item.total_pedidos += 1;
+      item.faturamento_total += Number(p.valor_total || 0);
+      item.custo_frete_total += Number(p.custo_frete || 0);
+      item.soma_prazos_dias += Number(p.prazo_dias_estimado || 3);
+      item.lucro_liquido_total += Number(p.lucro_liquido || 0);
+
+      // Avaliação de pontualidade
+      if (p.data_despacho && p.prazo_despacho) {
+        if (new Date(p.data_despacho) <= new Date(p.prazo_despacho)) {
+          item.pedidos_no_prazo += 1;
+        } else {
+          item.pedidos_atrasados += 1;
+        }
+      } else if (p.prazo_despacho && new Date(p.prazo_despacho) < agora && p.status_entrega !== 'Entregue' && p.status_entrega !== 'Despachado') {
+        item.pedidos_atrasados += 1;
+      } else {
+        item.pedidos_no_prazo += 1;
+      }
+    }
+
+    const comparativo = Object.values(modalidadesMap).map((m) => {
+      const custoFreteMedio = m.total_pedidos > 0 ? Number((m.custo_frete_total / m.total_pedidos).toFixed(2)) : 0.00;
+      const prazoMedioDias = m.total_pedidos > 0 ? Number((m.soma_prazos_dias / m.total_pedidos).toFixed(1)) : 0.0;
+      const taxaPontualidade = m.total_pedidos > 0
+        ? Number(((m.pedidos_no_prazo / m.total_pedidos) * 100).toFixed(1))
+        : 100.0;
+      const margemMedia = m.faturamento_total > 0
+        ? Number(((m.lucro_liquido_total / m.faturamento_total) * 100).toFixed(1))
+        : 0.0;
+
+      return {
+        modalidade: m.modalidade,
+        total_pedidos: m.total_pedidos,
+        faturamento_total: Number(m.faturamento_total.toFixed(2)),
+        custo_frete_total: Number(m.custo_frete_total.toFixed(2)),
+        custo_frete_medio: custoFreteMedio,
+        prazo_medio_dias: prazoMedioDias,
+        pedidos_no_prazo: m.pedidos_no_prazo,
+        pedidos_atrasados: m.pedidos_atrasados,
+        taxa_pontualidade_percentual: taxaPontualidade,
+        lucro_liquido_total: Number(m.lucro_liquido_total.toFixed(2)),
+        margem_media_percentual: margemMedia,
+      };
+    });
+
+    return {
+      sucesso: true,
+      total_pedidos_geral: pedidos.length,
+      comparativo,
     };
   }
 }

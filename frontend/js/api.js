@@ -199,6 +199,16 @@ window.RezFireAPI = {
     async obterResumoLucro() {
       return window.RezFireAPI.request('/pedidos/resumo-lucro');
     },
+    // Modalidade de Envio (SCRUM-27 / #24)
+    async obterComparativoModalidades() {
+      return window.RezFireAPI.request('/pedidos/comparativo-modalidades');
+    },
+    async atualizarModalidade(id, dados) {
+      return window.RezFireAPI.request(`/pedidos/${id}/modalidade`, {
+        method: 'PATCH',
+        body: JSON.stringify(dados),
+      });
+    },
   },
 
   // Módulo de Dashboard & KPIs (Cálculos Diretos no MySQL)

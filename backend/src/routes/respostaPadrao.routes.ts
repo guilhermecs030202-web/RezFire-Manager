@@ -15,3 +15,4 @@ router.delete('/:id', controller.excluir);
 router.post('/:id/copiar', controller.incrementarUso);
 
 export default router;
+

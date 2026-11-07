@@ -195,5 +195,41 @@ export class PedidoController {
       return res.status(500).json({ sucesso: false, mensagem: error.message });
     }
   }
+
+  // ── Modalidade de Envio e Prazos (SCRUM-27 / #24) ──
+  async obterComparativoModalidades(_req: Request, res: Response) {
+    try {
+      const comparativo = await pedidoService.obterComparativoModalidadesEnvio();
+      return res.json(comparativo);
+    } catch (error: any) {
+      return res.status(500).json({ sucesso: false, mensagem: error.message });
+    }
+  }
+
+  async atualizarModalidade(req: Request, res: Response) {
+    try {
+      const id = Number(req.params.id);
+      const { modalidade_envio, prazo_dias_estimado, custo_frete, data_entrega_efetiva } = req.body;
+
+      if (!modalidade_envio) {
+        return res.status(400).json({ sucesso: false, mensagem: 'modalidade_envio é obrigatória.' });
+      }
+
+      const pedido = await pedidoService.atualizarModalidadeEnvio(id, {
+        modalidade_envio,
+        prazo_dias_estimado,
+        custo_frete,
+        data_entrega_efetiva,
+      });
+
+      return res.json({
+        sucesso: true,
+        mensagem: 'Modalidade de envio atualizada com sucesso.',
+        pedido,
+      });
+    } catch (error: any) {
+      return res.status(400).json({ sucesso: false, mensagem: error.message });
+    }
+  }
 }
 

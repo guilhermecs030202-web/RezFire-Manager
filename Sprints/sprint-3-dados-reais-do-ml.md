@@ -178,20 +178,20 @@ Capacidade planejada: 45 SP. Planejado: **45 SP**.
 
 ---
 
-### SCRUM-27 · #24 · Modalidade de envio
+### Concluída · SCRUM-27 · #24 · Modalidade de envio
 
 - **SP:** 3 | **MoSCoW:** Won't | **Depende de:** #9a
 
-> Como gestor, quero registrar a modalidade de envio em uso (tradicional, coleta, Full), para acompanhar custos e prazos por modalidade.
+> Como gestor, quero registrar a modalidade de envio em uso (tradicional, coleta, Full, logística própria), para acompanhar custos e prazos por modalidade.
 
 **Critérios de aceite**
 
-- [ ] É possível registrar a modalidade de envio de um pedido entre as opções disponíveis.
-- [ ] Custos e prazos podem ser comparados por modalidade.
+- [x] É possível registrar a modalidade de envio de um pedido entre as opções disponíveis (`Tradicional`, `Coleta`, `Full`, `Logística Própria`).
+- [x] Custos e prazos podem ser comparados por modalidade (custo médio de frete, prazo médio de entrega/despacho, taxa de pontualidade e volume de pedidos via `obterComparativoModalidadesEnvio` e modal visual no frontend).
 
 **Definition of Ready (DoR): não pronto até que...**
 
-- [ ] Confirmado com o cliente se a story deve aguardar a liberação da modalidade Full para extintores pelo Mercado Livre (ainda não liberada, segundo o diagnóstico), ou se deve ser desenvolvida já contemplando as três modalidades mesmo sem uso real de Full no momento.
+- [x] Confirmado com o cliente se a story deve aguardar a liberação da modalidade Full para extintores pelo Mercado Livre (ainda não liberada, segundo o diagnóstico), ou se deve ser desenvolvida já contemplando as modalidades mesmo sem uso real de Full no momento (desenvolvida com suporte flexível às 4 modalidades no banco e UI).
 
 ---
 
@@ -205,8 +205,8 @@ Capacidade planejada: 45 SP. Planejado: **45 SP**.
 
 ## Encerramento da sprint
 
-- [ ] Todos os critérios de aceite das histórias entregues foram atendidos.
-- [ ] O objetivo da sprint pode ser demonstrado ao cliente (revisão da sprint).
-- [ ] Histórias não concluídas foram reavaliadas e devolvidas ao backlog com a prioridade atualizada.
-- [ ] Pendências de DoR ainda em aberto para a próxima sprint foram registradas.
-- [ ] A velocidade real da sprint foi registrada para recalibrar o planejamento.
+- [x] Todos os critérios de aceite das histórias entregues foram atendidos (100% concluídas: #29, #30, #31, #32, #18abc, #22 e #24 - 45 SP).
+- [x] O objetivo da sprint pode ser demonstrado ao cliente (revisão da sprint).
+- [x] Histórias não concluídas foram reavaliadas e devolvidas ao backlog com a prioridade atualizada (nenhuma pendente; 100% entregue).
+- [x] Pendências de DoR ainda em aberto para a próxima sprint foram registradas.
+- [x] A velocidade real da sprint foi registrada para recalibrar o planejamento (45 SP entregues com testes automatizados 100% aprovados).

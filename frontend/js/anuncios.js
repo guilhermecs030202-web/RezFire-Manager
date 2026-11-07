@@ -1996,9 +1996,13 @@
         state.syncMeta = state.syncMeta || {};
         state.syncMeta.ultima_falha = null;
         state.syncMeta.ultima_sincronizacao_sucesso = dadosSyncStatus.ultima_sincronizacao || new Date().toISOString();
+        const numNotifs = dadosSyncStatus.notificacoes_enviadas ? dadosSyncStatus.notificacoes_enviadas.length : 0;
+        const msgAlerta = numNotifs > 0
+          ? ` ⚠️ ALERTA: ${numNotifs} anúncio(s) entraram em status PAUSADO ou REBAIXADO. Notificação enviada ao gestor!`
+          : "";
         showFeedbackBanner(
-          "success",
-          `Sincronização de status concluída com sucesso às ${formatData(state.syncMeta.ultima_sincronizacao_sucesso)}! ${dadosSyncStatus.mudancas_status || 0} mudança(s) de status registradas.`
+          numNotifs > 0 ? "warning" : "success",
+          `Sincronização de status concluída com sucesso às ${formatData(state.syncMeta.ultima_sincronizacao_sucesso)}! ${dadosSyncStatus.mudancas_status || 0} mudança(s) de status registradas.${msgAlerta}`
         );
       } else if (!state.syncMeta?.ultima_falha) {
         const totalConsultados = dadosConsulta?.total || state.anuncios.length;
@@ -2024,12 +2028,16 @@
     const el = document.getElementById("sync-feedback-banner");
     if (!el) return;
 
-    const isSuccess = tipo === "success";
-    el.className = isSuccess ? "p-3 bg-emerald-50 border border-emerald-300 text-emerald-800 rounded-lg text-xs flex justify-between items-center" : "p-3 bg-red-50 border border-red-300 text-red-800 rounded-lg text-xs flex justify-between items-center";
-    el.innerHTML = `
-      <div>${isSuccess ? "✅" : "❌"} ${msg}</div>
-      <button type="button" class="text-stone-500 font-bold ml-3" onclick="this.parentElement.style.display='none'">✕</button>
-    `;
+    if (tipo === "success") {
+      el.className = "p-3 bg-emerald-50 border border-emerald-300 text-emerald-800 rounded-lg text-xs flex justify-between items-center";
+      el.innerHTML = `<div>✅ ${msg}</div><button type="button" class="text-stone-500 font-bold ml-3" onclick="this.parentElement.style.display='none'">✕</button>`;
+    } else if (tipo === "warning") {
+      el.className = "p-3 bg-amber-50 border border-amber-300 text-amber-900 rounded-lg text-xs flex justify-between items-center font-medium";
+      el.innerHTML = `<div>⚠️ ${msg}</div><button type="button" class="text-stone-500 font-bold ml-3" onclick="this.parentElement.style.display='none'">✕</button>`;
+    } else {
+      el.className = "p-3 bg-red-50 border border-red-300 text-red-800 rounded-lg text-xs flex justify-between items-center";
+      el.innerHTML = `<div>❌ ${msg}</div><button type="button" class="text-stone-500 font-bold ml-3" onclick="this.parentElement.style.display='none'">✕</button>`;
+    }
     el.style.display = "flex";
 
     setTimeout(() => {

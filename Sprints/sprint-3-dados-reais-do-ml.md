@@ -109,7 +109,7 @@ Capacidade planejada: 45 SP. Planejado: **45 SP**.
 
 ---
 
-### A criar · #32 · Alertas por notificação de pausa/rebaixamento
+### Concluída · #32 · Alertas por notificação de pausa/rebaixamento
 
 - **SP:** 8 | **MoSCoW:** Could | **Depende de:** #29
 
@@ -117,21 +117,21 @@ Capacidade planejada: 45 SP. Planejado: **45 SP**.
 
 **Critérios de aceite**
 
-- [ ] Quando a sincronização detecta mudança para pausado ou rebaixado, uma notificação é enviada ao gestor.
-- [ ] A notificação informa o anúncio, o novo status e a data e hora da mudança.
-- [ ] O mesmo alerta aparece no painel central do #19.
-- [ ] Uma mesma mudança não gera notificações duplicadas.
-- [ ] O tempo entre a mudança no Mercado Livre e a notificação respeita o limite acordado com o cliente.
+- [x] Quando a sincronização detecta mudança para pausado ou rebaixado, uma notificação é enviada ao gestor.
+- [x] A notificação informa o anúncio, o novo status e a data e hora da mudança.
+- [x] O mesmo alerta aparece no painel central do #19.
+- [x] Uma mesma mudança não gera notificações duplicadas.
+- [x] O tempo entre a mudança no Mercado Livre e a notificação respeita o limite acordado com o cliente.
 
 **Definition of Ready (DoR): não pronto até que...**
 
-- [ ] Story #29 concluída.
-- [ ] Canal(is) de notificação definido(s) (por exemplo, e-mail) e sua viabilidade técnica e de custo confirmadas.
-- [ ] Verificado se o Mercado Livre oferece notificações (webhooks) para anúncios; caso contrário, a detecção usa a sincronização periódica.
-- [ ] Expectativa de "tempo quase real" quantificada (tempo máximo aceitável) e alinhada com o cliente.
-- [ ] Destinatários das notificações definidos.
-- [ ] Regra para evitar excesso de notificações (agrupamento ou intervalo mínimo) definida.
-- [ ] Estimativa (8 SP) acordada pelo time.
+- [x] Story #29 concluída.
+- [x] Canal(is) de notificação definido(s) (por exemplo, e-mail) e sua viabilidade técnica e de custo confirmadas.
+- [x] Verificado se o Mercado Livre oferece notificações (webhooks) para anúncios; caso contrário, a detecção usa a sincronização periódica.
+- [x] Expectativa de "tempo quase real" quantificada (tempo máximo aceitável) e alinhada com o cliente.
+- [x] Destinatários das notificações definidos.
+- [x] Regra para evitar excesso de notificações (agrupamento ou intervalo mínimo) definida.
+- [x] Estimativa (8 SP) acordada pelo time.
 
 ---
 

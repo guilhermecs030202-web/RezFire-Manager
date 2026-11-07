@@ -11,6 +11,7 @@ import inspecaoRoutes from './inspecao.routes';
 import alertaRoutes from './alerta.routes';
 import anuncioRoutes from './anuncio.routes';
 import usuarioRoutes from './usuario.routes';
+import notificacaoRoutes from './notificacao.routes';
 
 const router = Router();
 
@@ -26,5 +27,6 @@ router.use('/ml', mlRoutes);
 router.use('/inspecoes', inspecaoRoutes);
 router.use('/alertas', alertaRoutes);
 router.use('/anuncios', anuncioRoutes);
+router.use('/notificacoes', notificacaoRoutes);
 
 export default router;

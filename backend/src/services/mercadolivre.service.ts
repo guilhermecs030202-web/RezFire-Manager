@@ -8,6 +8,7 @@ import { Pedido } from '../entities/Pedido';
 import { EventoMercadoLivre } from '../entities/EventoMercadoLivre';
 import { OcorrenciaAnuncio } from '../entities/OcorrenciaAnuncio';
 import { PedidoService } from './pedido.service';
+import { NotificacaoService } from './notificacao.service';
 import { env } from '../config/env';
 
 export class MercadoLivreService {
@@ -49,6 +50,7 @@ export class MercadoLivreService {
   }
 
   private pedidoService = new PedidoService();
+  private notificacaoService = new NotificacaoService();
 
   /**
    * Obtém ou inicializa a conexão com o Mercado Livre para o gestor
@@ -324,7 +326,14 @@ export class MercadoLivreService {
         if (res.ok) {
           const item = (await res.json()) as any;
           const statusAnterior = anuncio.status;
-          const novoStatus = item.status === 'active' ? 'Ativo' : (item.status === 'closed' ? 'Excluído' : 'Pausado');
+          let novoStatus = 'Ativo';
+          if (item.status === 'under_review') {
+            novoStatus = 'Rebaixado';
+          } else if (item.status === 'paused') {
+            novoStatus = 'Pausado';
+          } else if (item.status === 'closed' || item.status === 'inactive') {
+            novoStatus = 'Excluído';
+          }
           const statusMudou = statusAnterior !== novoStatus;
 
           anuncio.titulo = item.title || anuncio.titulo;
@@ -349,6 +358,19 @@ export class MercadoLivreService {
               data_ocorrencia: new Date(),
             });
             await this.ocorrenciaRepo.save(ocorrencia);
+
+            // User Story #32: Notificação em tempo quase real via webhook ao gestor
+            if (novoStatus === 'Pausado' || novoStatus === 'Rebaixado') {
+              await this.notificacaoService.notificarGestorMudancaStatusAnuncio({
+                id_usuario,
+                id_anuncio: anuncio.id_anuncio,
+                ml_item_id: anuncio.ml_item_id,
+                titulo: anuncio.titulo,
+                status_anterior: statusAnterior,
+                novo_status: novoStatus,
+                data_mudanca: new Date(),
+              });
+            }
           }
         }
     }
@@ -585,6 +607,7 @@ export class MercadoLivreService {
     let mudancasStatus = 0;
     let novosAnuncios = 0;
     let totalProcessados = 0;
+    const notificacoesGeradas: any[] = [];
 
     try {
       // 1. Coleta itens remotos da API do ML ou dados de homologação
@@ -656,7 +679,7 @@ export class MercadoLivreService {
             id: loc.ml_item_id,
             title: loc.titulo,
             price: Number(loc.preco),
-            status: statusRemoto === 'Ativo' ? 'active' : (statusRemoto === 'Excluído' ? 'closed' : 'paused'),
+            status: statusRemoto === 'Ativo' ? 'active' : (statusRemoto === 'Excluído' ? 'closed' : (statusRemoto === 'Rebaixado' || statusRemoto === 'under_review' ? 'under_review' : 'paused')),
             available_quantity: loc.quantidade_disponivel,
             sold_quantity: loc.quantidade_vendida,
             permalink: loc.url,
@@ -670,7 +693,7 @@ export class MercadoLivreService {
               id: novo.ml_item_id,
               title: novo.titulo,
               price: novo.preco,
-              status: novo.status === 'Ativo' ? 'active' : (novo.status === 'Excluído' ? 'closed' : 'paused'),
+              status: novo.status === 'Ativo' ? 'active' : (novo.status === 'Excluído' ? 'closed' : (novo.status === 'Rebaixado' || novo.status === 'under_review' ? 'under_review' : 'paused')),
               available_quantity: novo.quantidade_disponivel || 0,
               sold_quantity: novo.quantidade_vendida || 0,
               permalink: novo.url,
@@ -684,7 +707,9 @@ export class MercadoLivreService {
         totalProcessados++;
         const mlItemId = itemRemoto.id;
         let novoStatus = 'Ativo';
-        if (itemRemoto.status === 'paused' || itemRemoto.status === 'under_review') {
+        if (itemRemoto.status === 'under_review') {
+          novoStatus = 'Rebaixado';
+        } else if (itemRemoto.status === 'paused') {
           novoStatus = 'Pausado';
         } else if (itemRemoto.status === 'closed' || itemRemoto.status === 'inactive') {
           novoStatus = 'Excluído';
@@ -724,6 +749,22 @@ export class MercadoLivreService {
               data_ocorrencia: agora,
             });
             await this.ocorrenciaRepo.save(ocorrencia);
+
+            // User Story #32: Notificação ao gestor quando anúncio for Pausado ou Rebaixado
+            if (novoStatus === 'Pausado' || novoStatus === 'Rebaixado') {
+              const notif = await this.notificacaoService.notificarGestorMudancaStatusAnuncio({
+                id_usuario,
+                id_anuncio: anuncio.id_anuncio,
+                ml_item_id: anuncio.ml_item_id,
+                titulo: anuncio.titulo,
+                status_anterior: statusAnterior,
+                novo_status: novoStatus,
+                data_mudanca: agora,
+              });
+              if (notif) {
+                notificacoesGeradas.push(notif);
+              }
+            }
           }
         } else {
           // Anúncio novo vindo do ML: cria sem duplicar registros
@@ -764,10 +805,11 @@ export class MercadoLivreService {
 
       return {
         sucesso: true,
-        mensagem: `Sincronização de status concluída com sucesso. ${mudancasStatus} mudança(s) de status e ${novosAnuncios} novo(s) anúncio(s) processados.`,
+        mensagem: `Sincronização de status concluída com sucesso. ${mudancasStatus} mudança(s) de status, ${novosAnuncios} novo(s) anúncio(s) e ${notificacoesGeradas.length} notificação(ões) enviada(s) ao gestor.`,
         total_processados: totalProcessados,
         mudancas_status: mudancasStatus,
         novos_anuncios: novosAnuncios,
+        notificacoes_enviadas: notificacoesGeradas,
         ultima_sincronizacao: MercadoLivreService.ultimaSincronizacaoSucesso,
         ultima_falha: null,
       };

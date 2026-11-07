@@ -234,6 +234,19 @@ export class AlertaService {
             dados_origem: a,
             criado_em: agora.toISOString(),
           });
+        } else if (a.status === 'Rebaixado' || a.status === 'Sob Revisão') {
+          alertas.push({
+            id: `anuncio-rebaixado-${a.id_anuncio}`,
+            categoria: 'anuncio',
+            criticidade: 'critico',
+            titulo: `Anúncio REBAIXADO no Mercado Livre: ${a.ml_item_id}`,
+            descricao: `"${a.titulo}". Status atual no ML: ${a.status}. O anúncio sofreu penalidade ou moderação na plataforma.`,
+            impacto: 'Queda drástica de exposição e conversão de vendas nos algoritmos de busca do Mercado Livre.',
+            acao_label: 'Verificar Moderação',
+            acao_url: 'anuncios.html',
+            dados_origem: a,
+            criado_em: agora.toISOString(),
+          });
         } else if (a.status === 'Ativo' && a.estoque_local !== null) {
           const qtdAnunciada = Number(a.quantidade_disponivel || 0);
           const estoqueReal = Number(a.estoque_local || 0);

@@ -13,4 +13,5 @@ export { EventoMercadoLivre } from './EventoMercadoLivre';
 export { InspecaoQualidade, ChecklistQualidadeEntrada } from './InspecaoQualidade';
 export { OcorrenciaAnuncio } from './OcorrenciaAnuncio';
 export { MidiaAnuncio } from './MidiaAnuncio';
+export { Notificacao } from './Notificacao';
 

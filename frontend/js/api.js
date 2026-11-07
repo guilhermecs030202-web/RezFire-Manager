@@ -378,5 +378,22 @@ window.RezFireAPI = {
       });
     },
   },
+
+  // Módulo de Notificações ao Gestor (User Story #32)
+  notificacoes: {
+    async listar(limite = 30) {
+      return window.RezFireAPI.request(`/notificacoes?limite=${limite}`);
+    },
+    async marcarComoLida(id) {
+      return window.RezFireAPI.request(`/notificacoes/${id}/lida`, {
+        method: 'PUT',
+      });
+    },
+    async marcarTodasComoLidas() {
+      return window.RezFireAPI.request('/notificacoes/marcar-todas', {
+        method: 'PUT',
+      });
+    },
+  },
 };
 

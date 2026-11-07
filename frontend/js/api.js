@@ -245,6 +245,9 @@ window.RezFireAPI = {
     async buscarPorId(id) {
       return window.RezFireAPI.request(`/inspecoes/${id}`);
     },
+    async buscarPorPedido(idPedido) {
+      return window.RezFireAPI.request(`/inspecoes/pedido/${idPedido}`);
+    },
     async obterResumo() {
       return window.RezFireAPI.request('/inspecoes/resumo');
     },

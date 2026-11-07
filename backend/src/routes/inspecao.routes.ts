@@ -9,6 +9,7 @@ const controller = new InspecaoController();
 router.use(authMiddleware);
 
 router.get('/resumo', controller.obterResumo);
+router.get('/pedido/:id_pedido', controller.buscarPorPedido);
 router.get('/', controller.listar);
 router.get('/:id', controller.buscarPorId);
 router.post('/', controller.registrar);

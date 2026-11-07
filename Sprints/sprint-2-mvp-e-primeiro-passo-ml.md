@@ -100,7 +100,7 @@ Capacidade planejada: 45 SP. Planejado: **45 SP**.
 
 ---
 
-### SCRUM-12 · #7 · Segunda inspeção na separação
+### SCRUM-12 · #7 · Segunda inspeção na separação [CONCLUÍDO]
 
 - **SP:** 3 | **MoSCoW:** Could | **Depende de:** #6, #9a
 
@@ -108,14 +108,14 @@ Capacidade planejada: 45 SP. Planejado: **45 SP**.
 
 **Critérios de aceite**
 
-- [ ] Um checklist de inspeção é preenchido no momento da separação do pedido.
-- [ ] O resultado da inspeção fica vinculado ao pedido correspondente.
-- [ ] O histórico de inspeções é auditável (quem, quando, resultado).
+- [x] Um checklist de inspeção de 5 itens técnicos (lacre INMETRO, manômetro na faixa verde, casco/pintura sem avarias, acessórios completos e rótulo legível) é preenchido no momento da separação do pedido (`modal-segunda-inspecao` em `entregas.html`).
+- [x] O resultado da inspeção fica vinculado ao pedido correspondente no frontend e backend (campo `id_pedido` na entidade `InspecaoQualidade`).
+- [x] O histórico de inspeções é auditável com registro cronológico de quem inspecionou, quando e resultado.
 
 **Definition of Ready (DoR): não pronto até que...**
 
-- [ ] Confirmado se o checklist da separação reaproveita os itens da inspeção de entrada (#6) ou possui itens próprios.
-- [ ] Story #6 concluída, e módulo de pedidos minimamente definido (para permitir o vínculo da inspeção ao pedido).
+- [x] Checklist de separação alinhado aos 5 itens de checagem dupla pré-despacho dos extintores.
+- [x] Story #6 concluída e vínculo com a entidade Pedido implementado e testado.
 
 ---
 

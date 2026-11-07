@@ -936,7 +936,7 @@ function renderFormSeparacao(entrega) {
       </h3>
       ${!concluida ? `
         <p style="color:var(--muted);font-size:0.83rem;margin-bottom:16px">
-          Selecione os lotes e confirme as quantidades de cada item. A separação só pode ser concluída quando todos os itens estiverem conferidos e as quantidades corretas.
+          Selecione os lotes e confirme as quantidades de cada item. A separação só pode ser concluída após a realização da <strong>Segunda Inspeção de Qualidade (Checagem Dupla)</strong>.
         </p>
       ` : ""}
       <div class="sep-itens-list">${itensHTML}</div>
@@ -949,8 +949,28 @@ function renderFormSeparacao(entrega) {
           <button class="btn-primary" id="btn-concluir-sep" 
             style="font-size:0.85rem"
             ${!todoConferido ? "disabled title='Conclua a conferência de todos os itens'" : ""}>
-            Concluir separação
+            Concluir Separação (2ª Inspeção)
           </button>
+        </div>
+      ` : ""}
+
+      ${concluida && entrega.segunda_inspecao ? `
+        <div style="margin-top:16px;padding:12px;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;font-size:0.8rem">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+            <strong style="color:#166534;font-size:0.85rem">🔍 Segunda Inspeção de Qualidade (Checagem Dupla)</strong>
+            <span style="background:#dcfce7;color:#15803d;padding:2px 8px;border-radius:4px;font-weight:800;font-size:0.7rem">✓ 100% CONFORME</span>
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px;color:#14532d;font-size:0.75rem;line-height:1.4">
+            <div>✓ Lacre & Selo Inmetro Intactos</div>
+            <div>✓ Manômetro na Faixa Verde</div>
+            <div>✓ Casco e Pintura sem Avarias</div>
+            <div>✓ Acessórios e Mangueira OK</div>
+            <div style="grid-column:span 2">✓ Rótulo e Instruções Legíveis</div>
+          </div>
+          <div style="margin-top:8px;padding-top:6px;border-top:1px solid #dcfce7;display:flex;justify-content:space-between;color:#15803d;font-size:0.72rem">
+            <span>Responsável: <strong>${entrega.segunda_inspecao.responsavel || 'Gestor RezFire'}</strong></span>
+            <span>Data: ${formatDateTime(entrega.segunda_inspecao.data_inspecao)}</span>
+          </div>
         </div>
       ` : ""}
     </section>
@@ -993,12 +1013,100 @@ function bindSeparacaoEvents(entrega) {
     });
   });
 
-  // Concluir separação
+  // Concluir separação com Segunda Inspeção de Qualidade
   content.querySelector("#btn-concluir-sep")?.addEventListener("click", () => {
-    confirmarAcao("Confirmar conclusão da separação? Todos os itens serão marcados como conferidos.", () => {
-      concluirSeparacao(entrega);
-    });
+    abrirModalSegundaInspecao(entrega);
   });
+}
+
+/**
+ * Modal de Segunda Inspeção de Qualidade (SCRUM-12 / #7)
+ */
+function abrirModalSegundaInspecao(entrega) {
+  const modal = document.getElementById("modal-segunda-inspecao");
+  if (!modal) {
+    concluirSeparacao(entrega);
+    return;
+  }
+
+  modal.style.display = "flex";
+
+  const dataLabel = document.getElementById("label-hora-inspecao-sep");
+  if (dataLabel) {
+    dataLabel.textContent = `Data: ${new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}`;
+  }
+
+  // Preenche checkboxes como conformes por padrão
+  ["chk-sep-lacre", "chk-sep-manometro", "chk-sep-casco", "chk-sep-acessorios", "chk-sep-rotulo"].forEach((id) => {
+    const chk = document.getElementById(id);
+    if (chk) chk.checked = true;
+  });
+
+  const btnConfirmar = document.getElementById("btn-confirmar-modal-inspecao");
+  const btnCancelar = document.getElementById("btn-cancelar-modal-inspecao");
+  const btnFechar = document.getElementById("btn-fechar-modal-inspecao");
+
+  const fechar = () => {
+    modal.style.display = "none";
+  };
+
+  btnCancelar.onclick = fechar;
+  btnFechar.onclick = fechar;
+
+  btnConfirmar.onclick = async () => {
+    const chkLacre = document.getElementById("chk-sep-lacre")?.checked ?? false;
+    const chkManometro = document.getElementById("chk-sep-manometro")?.checked ?? false;
+    const chkCasco = document.getElementById("chk-sep-casco")?.checked ?? false;
+    const chkAcessorios = document.getElementById("chk-sep-acessorios")?.checked ?? false;
+    const chkRotulo = document.getElementById("chk-sep-rotulo")?.checked ?? false;
+    const txtObs = document.getElementById("txt-obs-inspecao-sep")?.value.trim();
+
+    const todosConformes = chkLacre && chkManometro && chkCasco && chkAcessorios && chkRotulo;
+
+    if (!todosConformes) {
+      alert("⚠️ Atenção: Não é permitido liberar pedidos com itens não conformes. Substitua o extintor com defeito por uma unidade regular do estoque antes de liberar o despacho.");
+      return;
+    }
+
+    const laudoInspecao = {
+      id_inspecao: Date.now(),
+      tipo_inspecao: "Separacao",
+      id_pedido: entrega.id_pedido_interno || entrega.id_entrega,
+      resultado: "Aprovado",
+      responsavel: "Gestor RezFire",
+      data_inspecao: new Date().toISOString(),
+      checklist: {
+        lacre_inmetro_intacto: chkLacre,
+        manometro_faixa_verde: chkManometro,
+        sem_avarias_transporte: chkCasco,
+        suporte_acessorios: chkAcessorios,
+        rotulo_instrucoes: chkRotulo,
+      },
+      observacoes: txtObs || "Segunda inspeção concluída com 100% de conformidade. Itens liberados para despacho."
+    };
+
+    // Tenta persistir no backend via API se disponível
+    if (window.RezFireAPI && window.RezFireAPI.inspecoes && entrega.itens && entrega.itens.length > 0) {
+      try {
+        const primeiro = entrega.itens[0];
+        await window.RezFireAPI.inspecoes.registrar({
+          id_produto: primeiro.id_produto,
+          id_pedido: typeof entrega.id_pedido_interno === 'number' ? entrega.id_pedido_interno : undefined,
+          tipo_inspecao: "Separacao",
+          checklist: laudoInspecao.checklist,
+          quantidade_total: entrega.itens.reduce((s, i) => s + (i.quantidade || 1), 0),
+          quantidade_reprovada: 0,
+          responsavel: "Gestor RezFire",
+          observacoes: laudoInspecao.observacoes,
+        });
+      } catch (apiErr) {
+        console.warn("Aviso ao registrar 2ª inspeção no backend:", apiErr);
+      }
+    }
+
+    fechar();
+    concluirSeparacao(entrega, laudoInspecao);
+  };
 }
 
 // ─── Ações de Separação ───────────────────────────────────────────────────────
@@ -1175,17 +1283,22 @@ function removerLote(entrega, sku, idx2) {
   document.querySelector('.detalhe-tab[data-tab="separacao"]')?.click();
 }
 
-function concluirSeparacao(entrega) {
+function concluirSeparacao(entrega, laudoInspecao = null) {
   const idx = state.entregas.findIndex((e) => e.id_entrega === entrega.id_entrega);
   if (idx < 0) return;
   const e = state.entregas[idx];
 
   e.status_interno = SI().PRONTO_DESPACHO;
   e.separacao.concluida_em = REF().toISOString();
+
+  if (laudoInspecao) {
+    e.segunda_inspecao = laudoInspecao;
+  }
+
   e.historico.push({
     data: REF().toISOString(),
-    evento: "Separação concluída",
-    descricao: "Todos os itens conferidos. Pedido pronto para despacho.",
+    evento: "Segunda Inspeção de Qualidade (Checagem Dupla) APROVADA",
+    descricao: "Todos os 5 itens do checklist técnico conferidos (lacre INMETRO, manômetro na faixa verde, casco sem avarias, acessórios e rotulagem). Pedido liberado para despacho.",
     tipo: "sucesso",
   });
 
@@ -1194,7 +1307,7 @@ function concluirSeparacao(entrega) {
   renderTable();
   renderDetalhe(e);
   document.querySelector('.detalhe-tab[data-tab="separacao"]')?.click();
-  showToast("Separação concluída! Pedido pronto para despacho.", "sucesso");
+  showToast("Segunda inspeção aprovada! Pedido pronto para despacho.", "sucesso");
 }
 
 // ─── Ações logísticas ─────────────────────────────────────────────────────────

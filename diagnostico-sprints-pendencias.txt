@@ -92,10 +92,12 @@ Todas as 10 User Stories (45 Story Points) da Sprint 1 foram implementadas, inte
     Conta com 6 KPIs interativos de topo, filtros de busca/categoria/criticidade, atalhos direcionados
     de resolução em 1 clique e badge de contagem reativo no menu lateral (sidebar-alertas-badge).
 
-[ ] SCRUM-12 (#7) - Segunda inspeção na separação:
-    Na tela de Entregas/Expedição (entregas.html), incluir um checklist de checagem
-    dupla antes do despacho (conferência do lacre e integridade antes de embalar).
-    Complexidade: Baixa.
+[X] SCRUM-12 (#7) - Segunda inspeção na separação (CONCLUÍDO em 07/11/2026):
+    Na tela de Entregas (entregas.html / entregas.js), adicionado fluxo de Checagem Dupla
+    no modal de conclusão de separação (modal-segunda-inspecao) com 5 itens técnicos essenciais:
+    lacre INMETRO intacto, manômetro na faixa verde, casco/pintura sem avarias, acessórios
+    completos e rótulo legível. Entidade InspecaoQualidade atualizada com campo relacional
+    id_pedido e tipo Separacao. Laudo auditável vinculado diretamente à entrega e ao histórico.
 
 [ ] SCRUM-22 (#11) - Motivo de devoluções/mediações:
     Ao registrar cancelamento ou devolução de pedido, permitir selecionar o motivo

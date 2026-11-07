@@ -26,3 +26,4 @@ export class AddModalidadeEnvioPedidos1700000000008 implements MigrationInterfac
     }
   }
 }
+

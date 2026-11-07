@@ -219,6 +219,9 @@ window.RezFireAPI = {
     async obterGraficos(dias = 30) {
       return window.RezFireAPI.request(`/dashboard/graficos?dias=${dias}`);
     },
+    async obterImpactoQuedas(dias = 30) {
+      return window.RezFireAPI.request(`/dashboard/impacto-quedas-anuncios?dias=${dias}`);
+    },
   },
 
   // Módulo de Certificados Inmetro

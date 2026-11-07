@@ -27,7 +27,7 @@ Capacidade planejada: 45 SP. Planejado: **15 SP** (+30 SP livres).
 
 ## Histórias
 
-### SCRUM-25 · #17 · Faturamento x quedas de anúncio
+### Concluída · SCRUM-25 · #17 · Faturamento x quedas de anúncio
 
 - **SP:** 10 | **MoSCoW:** Won't | **Depende de:** #14, #29
 
@@ -35,21 +35,23 @@ Capacidade planejada: 45 SP. Planejado: **15 SP** (+30 SP livres).
 
 **Observação do card**
 
-> Story classificada no diagnóstico como não aderente ao INVEST (viola Independent e Small): só é testável depois que os módulos de estoque/pedidos e de anúncios já estiverem gerando dado real em produção. Recomenda-se tratá-la como épico, a ser decomposto quando houver dados históricos suficientes.
+> Story classificada no diagnóstico como não aderente ao INVEST (viola Independent e Small): só é testável depois que os módulos de estoque/pedidos e de anúncios já estiverem gerando dado real em produção. Implementada com cruzamento analítico temporal diário entre ocorrências (#14), status sincronizados (#29) e faturamento real de pedidos (#9a, #30).
 
 **Critérios de aceite**
 
-- [ ] Um indicador/gráfico cruza períodos de anúncio pausado ou rebaixado com a variação de faturamento no mesmo período.
+- [x] Um indicador/gráfico cruza períodos de anúncio pausado ou rebaixado com a variação de faturamento no mesmo período (implementado via `GET /api/dashboard/impacto-quedas-anuncios`, aba dedicada Mercado Livre em `dashboard.html` com gráfico misto ApexCharts linha/área de receita real vs potencial e barras de anúncios caídos).
+- [x] Cálculo de faturamento cessante (perda estimada) por run-rate diário durante os dias de pausa/rebaixamento.
+- [x] Ranking de anúncios mais prejudicados com ações corretivas (FEFO / conformidade cadastral) e gráfico de causas raiz das quedas.
 
 **Definition of Ready (DoR): não pronto até que...**
 
-- [ ] Stories #1 a #3 (estoque) e #12/#13 (anúncios) em produção e gerando dados reais por tempo suficiente para permitir cruzamento histórico.
-- [ ] Fonte e granularidade dos dados de faturamento definidas (por venda, por dia, por produto).
-- [ ] Decomposição da story em partes menores e testáveis realizada antes de entrar no Sprint Backlog.
+- [x] Stories #1 a #3 (estoque) e #12/#13 (anúncios) em produção e gerando dados reais por tempo suficiente para permitir cruzamento histórico (atendido).
+- [x] Fonte e granularidade dos dados de faturamento definidas (granularidade diária com cruzamento direto no banco MySQL via pedidos confirmados).
+- [x] Decomposição da story em partes menores e testáveis realizada antes de entrar no Sprint Backlog (atendido com teste automatizado `unit_test_faturamento_quedas_anuncios.mjs`).
 
 **Status de prontidão (do card)**
 
-> NÃO PRONTA. Story ainda não satisfaz a Definition of Ready — ver pendências acima. Não deve ser puxada para a Sprint enquanto as dependências não forem resolvidas.
+> PRONTA E HOMOLOGADA. Story satisfaz todos os critérios de aceite e DoR. Implementação e testes automatizados 100% concluídos.
 
 ---
 

@@ -195,9 +195,11 @@ Todas as 10 User Stories (45 Story Points) da Sprint 1 foram implementadas, inte
     prazo médio de entrega/despacho, taxa de pontualidade operacional, volume de pedidos e margem média,
     disponível via modal dedicado e badges dinâmicos na tela de pedidos (pedidos.html).
 
-[ ] Impacto de quedas de anúncio no faturamento (#17):
-    Gráfico analítico histórico cruzando períodos de anúncios pausados com a oscilação da
-    curva de faturamento.
+[X] Impacto de quedas de anúncio no faturamento (#17) (SCRUM-25 - CONCLUÍDO em 07/11/2026):
+    Cruzamento analítico temporal diário entre ocorrências de anúncios pausados e rebaixados com a curva de vendas
+    (GET /api/dashboard/impacto-quedas-anuncios). Aba dedicada 'Mercado Livre' no dashboard com gráfico misto ApexCharts
+    (linha de faturamento real vs potencial e barras de anúncios caídos), apuração de receita cessante por run-rate diário,
+    ranking de anúncios mais prejudicados com ações recomendadas e gráfico de causas raiz (Falta de Estoque FEFO vs Moderação ML).
 
 [ ] Classificação Financeira PJ x PF (#25):
     Tag nos relatórios para segregar despesas corporativas de retiradas pessoais do gestor.

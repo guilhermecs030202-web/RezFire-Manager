@@ -106,3 +106,4 @@ export class AddTabelaNotificacoes1700000000005 implements MigrationInterface {
     }
   }
 }
+

@@ -100,6 +100,21 @@ function normalizarPedido(p) {
     detalhe_devolucao: p.detalhe_devolucao || "",
     protocolo_mediacao: p.protocolo_mediacao || "",
     data_devolucao: p.data_devolucao || null,
+    // Módulo Financeiro: Lucro Real (#18abc)
+    tipo_anuncio: p.tipo_anuncio || (p.origem === "Mercado Livre" ? "Classico" : "Direta"),
+    custo_produtos: Number(p.custo_produtos || 0),
+    aliquota_imposto_percentual: Number(p.aliquota_imposto_percentual || 6.00),
+    custo_impostos: Number(p.custo_impostos || 0),
+    custo_embalagem: Number(p.custo_embalagem !== undefined ? p.custo_embalagem : 5.00),
+    tarifa_ml_percentual: Number(p.tarifa_ml_percentual !== undefined ? p.tarifa_ml_percentual : 12.00),
+    tarifa_ml_comissao: Number(p.tarifa_ml_comissao || 0),
+    tarifa_ml_fixa: Number(p.tarifa_ml_fixa || 0),
+    custo_frete: Number(p.custo_frete || 0),
+    custo_ads: Number(p.custo_ads || 0),
+    total_custos_fixos: Number(p.total_custos_fixos || 0),
+    total_tarifas_plataforma: Number(p.total_tarifas_plataforma || 0),
+    lucro_liquido: Number(p.lucro_liquido || 0),
+    margem_liquida_percentual: Number(p.margem_liquida_percentual || 0),
   };
 }
 
@@ -376,6 +391,11 @@ function renderTable() {
           <strong style="font-size:0.95rem;color:${p.status === "Cancelado" ? "var(--muted)" : "var(--ink)"}">
             ${money(p.valor_total)}
           </strong>
+          ${p.lucro_liquido !== undefined && p.status !== "Cancelado" ? `
+            <span style="display:block;font-size:0.71rem;font-weight:700;color:${p.lucro_liquido >= 0 ? '#15803d' : 'var(--down)'}" title="Lucro Líquido Real (#18abc)">
+              Lucro: ${money(p.lucro_liquido)} (${Number(p.margem_liquida_percentual || 0).toFixed(1)}%)
+            </span>
+          ` : ""}
           ${p.desconto > 0 ? `<span style="display:block;font-size:0.7rem;color:var(--down)">desc. -${money(p.desconto)}</span>` : ""}
         </td>
         <td>
@@ -540,6 +560,85 @@ function openDetalhePanel(pedidoId) {
         </div>
       </section>
 
+      <!-- Apuração do Lucro Real por Venda (SCRUM-23 / #18abc) -->
+      <section class="detalhe-section" style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;padding:14px;margin-bottom:14px">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+          <div style="display:flex;align-items:center;gap:6px">
+            <span style="font-size:1rem">💰</span>
+            <h3 style="margin:0;font-size:0.92rem;font-weight:800;color:#166534">Lucro Real da Venda (#18abc)</h3>
+          </div>
+          <span class="entrega-badge" style="background:#dcfce7;color:#15803d;border:1px solid #86efac;font-size:0.75rem;font-weight:700">
+            ${escapeHtml(pedido.tipo_anuncio || (pedido.origem === 'Mercado Livre' ? 'Clássico' : 'Venda Direta'))}
+          </span>
+        </div>
+
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;font-size:0.82rem;margin-bottom:12px">
+          <div style="background:#fff;border:1px solid #dcfce7;border-radius:6px;padding:8px">
+            <div style="font-size:0.72rem;color:var(--muted);font-weight:700;text-transform:uppercase">Custos Fixos (#18a)</div>
+            <div style="font-weight:700;color:var(--down);font-size:0.95rem;margin:2px 0">- ${money(pedido.total_custos_fixos || 0)}</div>
+            <div style="font-size:0.72rem;color:var(--muted)">CMV: ${money(pedido.custo_produtos || 0)} · Impostos (${pedido.aliquota_imposto_percentual || 6}%): ${money(pedido.custo_impostos || 0)} · Embalagem: ${money(pedido.custo_embalagem || 5)}</div>
+          </div>
+
+          <div style="background:#fff;border:1px solid #dcfce7;border-radius:6px;padding:8px">
+            <div style="font-size:0.72rem;color:var(--muted);font-weight:700;text-transform:uppercase">Tarifas ML & Frete (#18b)</div>
+            <div style="font-weight:700;color:var(--down);font-size:0.95rem;margin:2px 0">- ${money(pedido.total_tarifas_plataforma || 0)}</div>
+            <div style="font-size:0.72rem;color:var(--muted)">Comissão (${pedido.tarifa_ml_percentual || 12}%): ${money(pedido.tarifa_ml_comissao || 0)} · Frete: ${money(pedido.custo_frete || 0)}</div>
+          </div>
+        </div>
+
+        <div style="background:#fff;border:1px solid #86efac;border-radius:6px;padding:10px;display:flex;justify-content:space-between;align-items:center">
+          <div>
+            <div style="font-size:0.72rem;color:var(--muted);font-weight:700;text-transform:uppercase">Lucro Líquido Real (#18c)</div>
+            <div style="font-size:1.15rem;font-weight:800;color:${(pedido.lucro_liquido || 0) >= 0 ? '#15803d' : 'var(--down)'}">
+              ${money(pedido.lucro_liquido || 0)}
+            </div>
+          </div>
+          <div style="text-align:right">
+            <div style="font-size:0.72rem;color:var(--muted);font-weight:700;text-transform:uppercase">Margem Líquida</div>
+            <div style="font-size:1.05rem;font-weight:800;color:${(pedido.lucro_liquido || 0) >= 0 ? '#15803d' : 'var(--down)'}">
+              ${Number(pedido.margem_liquida_percentual || 0).toFixed(1)}%
+            </div>
+          </div>
+        </div>
+
+        <!-- Botão e Formulário de Ajuste Personalizado -->
+        <div style="margin-top:10px;text-align:right">
+          <button type="button" id="btn-toggle-ajuste-lucro" style="background:transparent;border:none;color:#15803d;font-size:0.78rem;font-weight:700;cursor:pointer;text-decoration:underline">
+            ⚙️ Personalizar Parâmetros de Custo / Recalcular
+          </button>
+        </div>
+
+        <div id="form-ajuste-lucro" style="display:none;margin-top:10px;background:#fff;border:1px dashed #86efac;border-radius:6px;padding:10px">
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;font-size:0.78rem">
+            <div>
+              <label style="display:block;font-weight:600;margin-bottom:2px">Tipo de Anúncio:</label>
+              <select id="ajuste-tipo-anuncio" style="width:100%;padding:4px;border:1px solid var(--line);border-radius:4px;font-size:0.78rem">
+                <option value="Classico" ${pedido.tipo_anuncio === 'Classico' ? 'selected' : ''}>Clássico (12% comissão)</option>
+                <option value="Premium" ${pedido.tipo_anuncio === 'Premium' ? 'selected' : ''}>Premium (17% comissão)</option>
+                <option value="Direta" ${pedido.tipo_anuncio === 'Direta' ? 'selected' : ''}>Venda Direta (0% comissão)</option>
+              </select>
+            </div>
+            <div>
+              <label style="display:block;font-weight:600;margin-bottom:2px">Alíquota Imposto (%):</label>
+              <input type="number" id="ajuste-imposto" step="0.1" value="${pedido.aliquota_imposto_percentual || 6}" style="width:100%;padding:4px;border:1px solid var(--line);border-radius:4px;font-size:0.78rem" />
+            </div>
+            <div>
+              <label style="display:block;font-weight:600;margin-bottom:2px">Custo Embalagem (R$):</label>
+              <input type="number" id="ajuste-embalagem" step="0.5" value="${pedido.custo_embalagem ?? 5}" style="width:100%;padding:4px;border:1px solid var(--line);border-radius:4px;font-size:0.78rem" />
+            </div>
+            <div>
+              <label style="display:block;font-weight:600;margin-bottom:2px">Custo Frete Vendedor (R$):</label>
+              <input type="number" id="ajuste-frete" step="1" value="${pedido.custo_frete || 0}" style="width:100%;padding:4px;border:1px solid var(--line);border-radius:4px;font-size:0.78rem" />
+            </div>
+          </div>
+          <div style="margin-top:8px;display:flex;justify-content:flex-end;gap:6px">
+            <button type="button" id="btn-salvar-ajuste-lucro" style="background:#15803d;color:#fff;border:none;padding:5px 12px;border-radius:4px;font-size:0.78rem;font-weight:700;cursor:pointer">
+              Salvar e Recalcular
+            </button>
+          </div>
+        </div>
+      </section>
+
       <!-- Referência Logística / Entregas -->
       <section class="detalhe-section">
         <h3 class="detalhe-section-title">Situação Logística (Módulo Entregas)</h3>
@@ -651,6 +750,54 @@ function openDetalhePanel(pedidoId) {
   document.getElementById("btn-drawer-cancelar")?.addEventListener("click", () => {
     closeDetalhePanel();
     openModalCancelamento(pedido);
+  });
+
+  // Eventos de Apuração de Lucro Real (#18abc)
+  const btnToggleAjuste = document.getElementById("btn-toggle-ajuste-lucro");
+  const formAjuste = document.getElementById("form-ajuste-lucro");
+  btnToggleAjuste?.addEventListener("click", () => {
+    if (formAjuste) {
+      formAjuste.style.display = formAjuste.style.display === "none" ? "block" : "none";
+    }
+  });
+
+  document.getElementById("btn-salvar-ajuste-lucro")?.addEventListener("click", async () => {
+    const tipoAnuncio = document.getElementById("ajuste-tipo-anuncio")?.value || "Classico";
+    const imposto = Number(document.getElementById("ajuste-imposto")?.value || 6);
+    const embalagem = Number(document.getElementById("ajuste-embalagem")?.value || 5);
+    const frete = Number(document.getElementById("ajuste-frete")?.value || 0);
+
+    try {
+      if (window.RezFireAPI?.pedidos?.calcularLucro) {
+        const res = await window.RezFireAPI.pedidos.calcularLucro(pedido.id_pedido, {
+          tipo_anuncio: tipoAnuncio,
+          aliquota_imposto_percentual: imposto,
+          custo_embalagem: embalagem,
+          custo_frete: frete,
+        });
+
+        if (res && res.sucesso) {
+          // Atualiza estado local
+          const idx = state.pedidos.findIndex((x) => x.id_pedido === pedido.id_pedido);
+          if (idx !== -1) {
+            state.pedidos[idx].tipo_anuncio = tipoAnuncio;
+            state.pedidos[idx].aliquota_imposto_percentual = imposto;
+            state.pedidos[idx].custo_embalagem = embalagem;
+            state.pedidos[idx].custo_frete = frete;
+            state.pedidos[idx].total_custos_fixos = res.custos_fixos?.total_custos_fixos;
+            state.pedidos[idx].total_tarifas_plataforma = res.tarifas_plataforma?.total_tarifas_plataforma;
+            state.pedidos[idx].lucro_liquido = res.resultado?.lucro_liquido;
+            state.pedidos[idx].margem_liquida_percentual = res.resultado?.margem_liquida_percentual;
+            openDetalhePanel(pedido.id_pedido);
+          }
+          renderTable();
+          showToast("Lucro real recalculado e parâmetros salvos!", "sucesso");
+        }
+      }
+    } catch (err) {
+      console.error("Erro ao salvar ajuste de custos:", err);
+      showToast("Erro ao recalcular custos: " + (err.message || err), "erro");
+    }
   });
 }
 

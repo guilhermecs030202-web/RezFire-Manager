@@ -211,3 +211,4 @@ runTests().catch((err) => {
   console.error('\n❌ ERRO NA EXECUÇÃO DO TESTE:', err);
   process.exit(1);
 });
+

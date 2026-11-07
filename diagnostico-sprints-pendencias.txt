@@ -171,9 +171,11 @@ Todas as 10 User Stories (45 Story Points) da Sprint 1 foram implementadas, inte
 [X] Notificações ativas de quedas de anúncio (#32):
     Disparo de notificação corporativa ao gestor (e-mail e Central de Alertas) quando um anúncio pausar ou for rebaixado/sob revisão, com regra antirruído/idempotência e reflexo na Central de Alertas (#19).
 
-[ ] Cálculo de Lucro Real por Venda (#18a-c):
-    Descontar do faturamento bruto a comissão exata do Mercado Livre (Clássico vs Premium),
-    custo da etiqueta de frete, imposto configurado e embalagem, gerando o lucro líquido real.
+[X] Cálculo de Lucro Real por Venda (#18a-c) (SCRUM-23 - CONCLUÍDO):
+    Apuração automatizada por venda descontando da receita bruta os custos fixos (CMV dos produtos/combos,
+    impostos Simples Nacional e embalagem reforçada - #18a), tarifas e fretes da plataforma (comissão Clássico vs
+    Premium, taxa fixa < R$ 79 e frete do vendedor - #18b) e apurando o lucro líquido real e margem líquida (#18c),
+    com demonstrativo financeiro (DRE) detalhado e recálculo personalizado por venda na tela de pedidos (pedidos.html).
 
 [ ] Respostas padrão de pré-venda (#22):
     Banco de respostas rápidas para dúvidas técnicas frequentes de clientes (ex.: capacidade

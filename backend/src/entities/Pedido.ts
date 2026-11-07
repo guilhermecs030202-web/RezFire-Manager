@@ -68,6 +68,49 @@ export class Pedido {
   @Column({ type: 'timestamp', nullable: true })
   data_devolucao: Date | null;
 
+  // ── Módulo Financeiro: Lucro Real por Venda (SCRUM-23 / #18abc) ──
+  @Column({ type: 'varchar', length: 20, default: 'Classico' })
+  tipo_anuncio: 'Classico' | 'Premium' | 'Direta' | string;
+
+  @Column({ type: 'decimal', precision: 10, scale: 2, default: 0 })
+  custo_produtos: number;
+
+  @Column({ type: 'decimal', precision: 5, scale: 2, default: 6.00 })
+  aliquota_imposto_percentual: number;
+
+  @Column({ type: 'decimal', precision: 10, scale: 2, default: 0 })
+  custo_impostos: number;
+
+  @Column({ type: 'decimal', precision: 10, scale: 2, default: 5.00 })
+  custo_embalagem: number;
+
+  @Column({ type: 'decimal', precision: 5, scale: 2, default: 12.00 })
+  tarifa_ml_percentual: number;
+
+  @Column({ type: 'decimal', precision: 10, scale: 2, default: 0 })
+  tarifa_ml_comissao: number;
+
+  @Column({ type: 'decimal', precision: 10, scale: 2, default: 0 })
+  tarifa_ml_fixa: number;
+
+  @Column({ type: 'decimal', precision: 10, scale: 2, default: 0 })
+  custo_frete: number;
+
+  @Column({ type: 'decimal', precision: 10, scale: 2, default: 0 })
+  custo_ads: number;
+
+  @Column({ type: 'decimal', precision: 10, scale: 2, default: 0 })
+  total_custos_fixos: number;
+
+  @Column({ type: 'decimal', precision: 10, scale: 2, default: 0 })
+  total_tarifas_plataforma: number;
+
+  @Column({ type: 'decimal', precision: 10, scale: 2, default: 0 })
+  lucro_liquido: number;
+
+  @Column({ type: 'decimal', precision: 5, scale: 2, default: 0 })
+  margem_liquida_percentual: number;
+
   @CreateDateColumn({ type: 'timestamp' })
   created_at: Date;
 

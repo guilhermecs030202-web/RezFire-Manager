@@ -28,6 +28,16 @@ export interface DadosDevolucaoDTO {
   protocolo_mediacao?: string;
 }
 
+export interface ParametrosCalculoLucroDTO {
+  tipo_anuncio?: 'Classico' | 'Premium' | 'Direta' | string;
+  custo_produtos?: number;
+  aliquota_imposto_percentual?: number;
+  custo_embalagem?: number;
+  tarifa_ml_percentual?: number;
+  custo_frete?: number;
+  custo_ads?: number;
+}
+
 export class PedidoService {
   private get pedidoRepo() {
     return AppDataSource.getRepository(Pedido);
@@ -232,7 +242,31 @@ export class PedidoService {
         await movRepoTx.save(mov);
       }
 
-      // 3. Salva o Pedido
+      // 3. Apuração financeira de Lucro Real inicial (SCRUM-23 / #18abc)
+      let custoProdutos = 0;
+      for (const [idProd, { produto, quantidade }] of baixasFisicas.entries()) {
+        custoProdutos += Number(produto.custo || 0) * quantidade;
+      }
+
+      const origemPedido = dados.origem || 'Venda Direta';
+      const isML = origemPedido === 'Mercado Livre';
+      const tipoAnuncio = isML ? 'Classico' : 'Direta';
+      const aliquotaImposto = 6.00;
+      const custoImpostos = Number((valorTotal * (aliquotaImposto / 100)).toFixed(2));
+      const custoEmbalagem = 5.00;
+      const totalCustosFixos = Number((custoProdutos + custoImpostos + custoEmbalagem).toFixed(2));
+
+      const tarifaMlPercentual = isML ? 12.00 : 0.00;
+      const tarifaMlComissao = Number((valorTotal * (tarifaMlPercentual / 100)).toFixed(2));
+      const tarifaMlFixa = isML && valorTotal < 79.00 ? 6.00 : 0.00;
+      const custoFrete = isML && valorTotal >= 79.00 ? 26.00 : 0.00;
+      const custoAds = 0.00;
+      const totalTarifasPlataforma = Number((tarifaMlComissao + tarifaMlFixa + custoFrete + custoAds).toFixed(2));
+
+      const lucroLiquido = Number((valorTotal - totalCustosFixos - totalTarifasPlataforma).toFixed(2));
+      const margemLiquidaPercentual = valorTotal > 0 ? Number(((lucroLiquido / valorTotal) * 100).toFixed(2)) : 0.00;
+
+      // 4. Salva o Pedido
       const prazoDespachoCalculado = dados.prazo_despacho
         ? new Date(dados.prazo_despacho)
         : new Date(agora.getTime() + 24 * 60 * 60 * 1000);
@@ -240,7 +274,7 @@ export class PedidoService {
       const pedido = pedRepoTx.create({
         codigo_pedido: codigoPedido,
         cliente_nome: dados.cliente_nome.trim(),
-        origem: dados.origem || 'Venda Direta',
+        origem: origemPedido,
         status: 'Confirmado',
         valor_total: valorTotal,
         data_pedido: agora,
@@ -248,6 +282,20 @@ export class PedidoService {
         data_despacho: null,
         exibir_na_entrega: dados.exibir_na_entrega ?? true,
         status_entrega: 'A separar',
+        tipo_anuncio: tipoAnuncio,
+        custo_produtos: Number(custoProdutos.toFixed(2)),
+        aliquota_imposto_percentual: aliquotaImposto,
+        custo_impostos: custoImpostos,
+        custo_embalagem: custoEmbalagem,
+        total_custos_fixos: totalCustosFixos,
+        tarifa_ml_percentual: tarifaMlPercentual,
+        tarifa_ml_comissao: tarifaMlComissao,
+        tarifa_ml_fixa: tarifaMlFixa,
+        custo_frete: custoFrete,
+        custo_ads: custoAds,
+        total_tarifas_plataforma: totalTarifasPlataforma,
+        lucro_liquido: lucroLiquido,
+        margem_liquida_percentual: margemLiquidaPercentual,
       });
       const pedidoSalvo = await pedRepoTx.save(pedido);
 
@@ -533,6 +581,212 @@ export class PedidoService {
         necessita_atencao: atrasadosCount + hojeCount,
       },
       pedidos: listaFormatada,
+    };
+  }
+
+  /**
+   * Apura o Lucro Real por Venda (SCRUM-23 / #18abc)
+   * Decompõe receita bruta em custos fixos (#18a), tarifas e fretes (#18b), e apura lucro líquido real (#18c).
+   */
+  async calcularLucroPedido(id_pedido: number, params?: ParametrosCalculoLucroDTO) {
+    const pedido = await this.pedidoRepo.findOne({
+      where: { id_pedido },
+      relations: ['itens', 'itens.produto'],
+    });
+
+    if (!pedido) {
+      throw new Error(`Pedido #${id_pedido} não encontrado.`);
+    }
+
+    const valorTotal = Number(pedido.valor_total || 0);
+
+    // 1. Custo dos Produtos (CMV): manual ou calculado a partir dos produtos/combos
+    let custoProdutos = 0;
+    if (params?.custo_produtos !== undefined) {
+      custoProdutos = Number(params.custo_produtos);
+    } else {
+      for (const item of pedido.itens || []) {
+        const prod = item.produto;
+        if (prod?.tipo === 'Combo' && prod.combo_items && prod.combo_items.length > 0) {
+          const prodRepo = AppDataSource.getRepository(Produto);
+          let custoCombo = 0;
+          for (const ci of prod.combo_items) {
+            const comp = await prodRepo.findOne({ where: { id_produto: ci.id_produto } });
+            custoCombo += Number(comp?.custo || 0) * ci.quantidade;
+          }
+          custoProdutos += custoCombo * item.quantidade;
+        } else {
+          custoProdutos += Number(prod?.custo || 0) * item.quantidade;
+        }
+      }
+    }
+
+    // 2. Custos Fixos / Diretos da Venda (#18a)
+    const aliquotaImposto = params?.aliquota_imposto_percentual !== undefined
+      ? Number(params.aliquota_imposto_percentual)
+      : Number(pedido.aliquota_imposto_percentual || 6.00);
+
+    const custoImpostos = Number((valorTotal * (aliquotaImposto / 100)).toFixed(2));
+
+    const custoEmbalagem = params?.custo_embalagem !== undefined
+      ? Number(params.custo_embalagem)
+      : Number(pedido.custo_embalagem ?? 5.00);
+
+    const totalCustosFixos = Number((custoProdutos + custoImpostos + custoEmbalagem).toFixed(2));
+
+    // 3. Tarifas Variáveis do Mercado Livre e Frete (#18b)
+    const tipoAnuncio = params?.tipo_anuncio || pedido.tipo_anuncio || (pedido.origem === 'Mercado Livre' ? 'Classico' : 'Direta');
+    const isML = tipoAnuncio !== 'Direta';
+
+    let defaultTarifaPercentual = 0.00;
+    if (tipoAnuncio === 'Premium') {
+      defaultTarifaPercentual = 17.00;
+    } else if (tipoAnuncio === 'Classico') {
+      defaultTarifaPercentual = 12.00;
+    }
+
+    const tarifaMlPercentual = params?.tarifa_ml_percentual !== undefined
+      ? Number(params.tarifa_ml_percentual)
+      : defaultTarifaPercentual;
+
+    const tarifaMlComissao = Number((valorTotal * (tarifaMlPercentual / 100)).toFixed(2));
+
+    // Taxa fixa do Mercado Livre para vendas < R$ 79,00
+    const tarifaMlFixa = (isML && valorTotal < 79.00) ? 6.00 : 0.00;
+
+    // Frete: para ML >= R$ 79,00, frete é subsidiado/pago pelo vendedor (média de R$ 26,00 para extintores)
+    const defaultFrete = (isML && valorTotal >= 79.00) ? 26.00 : 0.00;
+    const custoFrete = params?.custo_frete !== undefined
+      ? Number(params.custo_frete)
+      : (Number(pedido.custo_frete) > 0 ? Number(pedido.custo_frete) : defaultFrete);
+
+    const custoAds = params?.custo_ads !== undefined
+      ? Number(params.custo_ads)
+      : Number(pedido.custo_ads || 0.00);
+
+    const totalTarifasPlataforma = Number((tarifaMlComissao + tarifaMlFixa + custoFrete + custoAds).toFixed(2));
+
+    // 4. Lucro Líquido Real e Margem (#18c)
+    const lucroLiquido = Number((valorTotal - totalCustosFixos - totalTarifasPlataforma).toFixed(2));
+    const margemLiquidaPercentual = valorTotal > 0
+      ? Number(((lucroLiquido / valorTotal) * 100).toFixed(2))
+      : 0.00;
+
+    // 5. Persiste valores no Pedido
+    pedido.tipo_anuncio = tipoAnuncio;
+    pedido.custo_produtos = Number(custoProdutos.toFixed(2));
+    pedido.aliquota_imposto_percentual = Number(aliquotaImposto.toFixed(2));
+    pedido.custo_impostos = custoImpostos;
+    pedido.custo_embalagem = Number(custoEmbalagem.toFixed(2));
+    pedido.total_custos_fixos = totalCustosFixos;
+    pedido.tarifa_ml_percentual = Number(tarifaMlPercentual.toFixed(2));
+    pedido.tarifa_ml_comissao = tarifaMlComissao;
+    pedido.tarifa_ml_fixa = tarifaMlFixa;
+    pedido.custo_frete = Number(custoFrete.toFixed(2));
+    pedido.custo_ads = Number(custoAds.toFixed(2));
+    pedido.total_tarifas_plataforma = totalTarifasPlataforma;
+    pedido.lucro_liquido = lucroLiquido;
+    pedido.margem_liquida_percentual = margemLiquidaPercentual;
+
+    await this.pedidoRepo.save(pedido);
+
+    return {
+      sucesso: true,
+      id_pedido: pedido.id_pedido,
+      codigo_pedido: pedido.codigo_pedido,
+      cliente_nome: pedido.cliente_nome,
+      origem: pedido.origem,
+      data_pedido: pedido.data_pedido,
+      valor_total: valorTotal,
+      custos_fixos: {
+        custo_produtos_cmv: Number(custoProdutos.toFixed(2)),
+        aliquota_imposto_percentual: Number(aliquotaImposto.toFixed(2)),
+        custo_impostos: custoImpostos,
+        custo_embalagem: Number(custoEmbalagem.toFixed(2)),
+        total_custos_fixos: totalCustosFixos,
+      },
+      tarifas_plataforma: {
+        tipo_anuncio: tipoAnuncio,
+        tarifa_ml_percentual: Number(tarifaMlPercentual.toFixed(2)),
+        tarifa_ml_comissao: tarifaMlComissao,
+        tarifa_ml_fixa: tarifaMlFixa,
+        custo_frete: Number(custoFrete.toFixed(2)),
+        custo_ads: Number(custoAds.toFixed(2)),
+        total_tarifas_plataforma: totalTarifasPlataforma,
+      },
+      resultado: {
+        lucro_liquido: lucroLiquido,
+        margem_liquida_percentual: margemLiquidaPercentual,
+        status_margem: lucroLiquido >= 0 ? (margemLiquidaPercentual >= 15 ? 'alta' : 'moderada') : 'prejuizo',
+      },
+    };
+  }
+
+  /**
+   * Retorna resumo consolidado de lucro e margem de todas as vendas
+   */
+  async obterResumoFinanceiroLucro() {
+    const pedidos = await this.pedidoRepo.find({
+      where: [
+        { status: 'Confirmado' },
+        { status: 'Concluido' },
+      ],
+      relations: ['itens', 'itens.produto'],
+    });
+
+    let receitaTotal = 0;
+    let cmvTotal = 0;
+    let impostosTotal = 0;
+    let embalagemTotal = 0;
+    let custosFixosTotal = 0;
+    let tarifasMlTotal = 0;
+    let freteTotal = 0;
+    let adsTotal = 0;
+    let tarifasPlataformaTotal = 0;
+    let lucroLiquidoTotal = 0;
+
+    for (const p of pedidos) {
+      // Se ainda não tiver sido calculado, apura
+      if (!p.total_custos_fixos || Number(p.total_custos_fixos) === 0) {
+        await this.calcularLucroPedido(p.id_pedido);
+      }
+
+      receitaTotal += Number(p.valor_total || 0);
+      cmvTotal += Number(p.custo_produtos || 0);
+      impostosTotal += Number(p.custo_impostos || 0);
+      embalagemTotal += Number(p.custo_embalagem || 0);
+      custosFixosTotal += Number(p.total_custos_fixos || 0);
+      tarifasMlTotal += Number(p.tarifa_ml_comissao || 0) + Number(p.tarifa_ml_fixa || 0);
+      freteTotal += Number(p.custo_frete || 0);
+      adsTotal += Number(p.custo_ads || 0);
+      tarifasPlataformaTotal += Number(p.total_tarifas_plataforma || 0);
+      lucroLiquidoTotal += Number(p.lucro_liquido || 0);
+    }
+
+    const margemMedia = receitaTotal > 0
+      ? Number(((lucroLiquidoTotal / receitaTotal) * 100).toFixed(2))
+      : 0.00;
+
+    return {
+      sucesso: true,
+      pedidos_analisados: pedidos.length,
+      faturamento_bruto_total: Number(receitaTotal.toFixed(2)),
+      custos_fixos: {
+        total_cmv: Number(cmvTotal.toFixed(2)),
+        total_impostos: Number(impostosTotal.toFixed(2)),
+        total_embalagem: Number(embalagemTotal.toFixed(2)),
+        total_custos_fixos: Number(custosFixosTotal.toFixed(2)),
+      },
+      tarifas_plataforma: {
+        total_comissao_fixa_ml: Number(tarifasMlTotal.toFixed(2)),
+        total_frete_vendedor: Number(freteTotal.toFixed(2)),
+        total_ads: Number(adsTotal.toFixed(2)),
+        total_taxas_plataforma: Number(tarifasPlataformaTotal.toFixed(2)),
+      },
+      resultado: {
+        lucro_liquido_total: Number(lucroLiquidoTotal.toFixed(2)),
+        margem_liquida_media: margemMedia,
+      },
     };
   }
 }

@@ -186,6 +186,19 @@ window.RezFireAPI = {
     async obterEstatisticasDevolucoes() {
       return window.RezFireAPI.request('/pedidos/estatisticas/devolucoes');
     },
+    // Apuração de Lucro Real por Venda (SCRUM-23 / #18abc)
+    async obterLucro(id) {
+      return window.RezFireAPI.request(`/pedidos/${id}/lucro`);
+    },
+    async calcularLucro(id, params) {
+      return window.RezFireAPI.request(`/pedidos/${id}/lucro`, {
+        method: 'PUT',
+        body: JSON.stringify(params),
+      });
+    },
+    async obterResumoLucro() {
+      return window.RezFireAPI.request('/pedidos/resumo-lucro');
+    },
   },
 
   // Módulo de Dashboard & KPIs (Cálculos Diretos no MySQL)

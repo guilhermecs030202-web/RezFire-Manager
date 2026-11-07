@@ -135,28 +135,28 @@ Capacidade planejada: 45 SP. Planejado: **45 SP**.
 
 ---
 
-### SCRUM-23 · #18abc · Lucro real por venda
+### Concluída · SCRUM-23 · #18abc · Lucro real por venda
 
-- **SP:** 8 | **MoSCoW:** Won't | **Depende de:** #30 (sugerido)
+- **SP:** 8 | **MoSCoW:** Won't (Adiantada) | **Depende de:** #30 (sugerido)
 
 > Como gestor, quero que o sistema calcule automaticamente o lucro real de cada venda (custos, impostos, tarifas do ML, frete, embalagem, ads), para substituir o cálculo hoje feito manualmente em planilha.
 
 **Critérios de aceite**
 
-- [ ] É possível associar custo de produto, impostos e embalagem a cada venda registrada.
-- [ ] O sistema apresenta o total de custos fixos por venda.
-- [ ] O sistema calcula automaticamente a tarifa do Mercado Livre conforme o tipo de anúncio (clássico ou premium).
-- [ ] O frete aplicável é somado ao cálculo da tarifa.
-- [ ] O sistema soma custos fixos (#18a), tarifas variáveis e frete (#18b), ads e transporte, apresentando o lucro líquido por venda.
+- [x] É possível associar custo de produto, impostos e embalagem a cada venda registrada.
+- [x] O sistema apresenta o total de custos fixos por venda.
+- [x] O sistema calcula automaticamente a tarifa do Mercado Livre conforme o tipo de anúncio (clássico ou premium).
+- [x] O frete aplicável é somado ao cálculo da tarifa.
+- [x] O sistema soma custos fixos (#18a), tarifas variáveis e frete (#18b), ads e transporte, apresentando o lucro líquido por venda.
 
 **Definition of Ready (DoR): não pronto até que...**
 
-- [ ] Lista fechada de categorias de custo fixo validada com o cliente.
-- [ ] Confirmado com o cliente se esta story deve entrar no MVP: o diagnóstico indica valor incremental baixo, já que a planilha atual já resolve bem esse cálculo.
-- [ ] Tabela de tarifas do Mercado Livre levantada e definido se será parametrizável pelo gestor (já que é uma regra externa sujeita a mudança) ou fixa no sistema.
-- [ ] Story #18a concluída.
-- [ ] Stories #18a e #18b concluídas.
-- [ ] Confirmada a prioridade real desta story com o cliente: o gestor não relatou esse cálculo consolidado como uma dor não resolvida no diagnóstico.
+- [x] Lista fechada de categorias de custo fixo validada com o cliente.
+- [x] Confirmado com o cliente se esta story deve entrar no MVP: o diagnóstico indica valor incremental baixo, já que a planilha atual já resolve bem esse cálculo.
+- [x] Tabela de tarifas do Mercado Livre levantada e definido se será parametrizável pelo gestor (já que é uma regra externa sujeita a mudança) ou fixa no sistema.
+- [x] Story #18a concluída.
+- [x] Stories #18a e #18b concluídas.
+- [x] Confirmada a prioridade real desta story com o cliente: o gestor não relatou esse cálculo consolidado como uma dor não resolvida no diagnóstico.
 
 ---
 

@@ -50,3 +50,4 @@ export class Notificacao {
   @CreateDateColumn({ type: 'timestamp' })
   created_at: Date;
 }
+

@@ -12,3 +12,4 @@ router.put('/marcar-todas', controller.marcarTodasComoLidas);
 router.put('/:id/lida', controller.marcarComoLida);
 
 export default router;
+

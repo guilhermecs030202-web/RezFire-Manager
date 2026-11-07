@@ -164,5 +164,36 @@ export class PedidoController {
       return res.status(500).json({ sucesso: false, mensagem: error.message });
     }
   }
+
+  // ── Módulo Financeiro: Lucro Real por Venda (SCRUM-23 / #18abc) ──
+  async obterLucroPedido(req: Request, res: Response) {
+    try {
+      const id = Number(req.params.id);
+      const resultado = await pedidoService.calcularLucroPedido(id);
+      return res.json(resultado);
+    } catch (error: any) {
+      return res.status(400).json({ sucesso: false, mensagem: error.message });
+    }
+  }
+
+  async calcularLucroPedido(req: Request, res: Response) {
+    try {
+      const id = Number(req.params.id);
+      const params = req.body;
+      const resultado = await pedidoService.calcularLucroPedido(id, params);
+      return res.json(resultado);
+    } catch (error: any) {
+      return res.status(400).json({ sucesso: false, mensagem: error.message });
+    }
+  }
+
+  async obterResumoLucro(_req: Request, res: Response) {
+    try {
+      const resumo = await pedidoService.obterResumoFinanceiroLucro();
+      return res.json(resumo);
+    } catch (error: any) {
+      return res.status(500).json({ sucesso: false, mensagem: error.message });
+    }
+  }
 }
 

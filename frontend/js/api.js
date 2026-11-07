@@ -247,6 +247,13 @@ window.RezFireAPI = {
     async sincronizar() {
       return window.RezFireAPI.request('/ml/sincronizar', { method: 'POST' });
     },
+    async consultarAnuncios(options = {}) {
+      const page = options.page || 1;
+      const limit = options.limit || 50;
+      return window.RezFireAPI.request(`/ml/anuncios/consultar?page=${page}&limit=${limit}`, {
+        method: 'POST',
+      });
+    },
     async desconectar() {
       return window.RezFireAPI.request('/ml/desconectar', { method: 'POST' });
     },

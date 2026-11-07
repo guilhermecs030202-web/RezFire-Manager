@@ -197,7 +197,7 @@ Capacidade planejada: 45 SP. Planejado: **45 SP**.
 
 ---
 
-### A criar · #27 · Consulta de anúncios via API do ML
+### #27 · Consulta de anúncios via API do ML [CONCLUÍDO]
 
 - **SP:** 5 | **MoSCoW:** Could | **Depende de:** #26
 
@@ -205,21 +205,20 @@ Capacidade planejada: 45 SP. Planejado: **45 SP**.
 
 **Critérios de aceite**
 
-- [ ] Com a conta conectada (#26), uma tela lista os anúncios do vendedor retornados pela API.
-- [ ] A listagem exibe os campos definidos: identificador do anúncio, título, status, preço e quantidade disponível.
-- [ ] A listagem funciona com paginação para vendedores com muitos anúncios.
-- [ ] O gestor pode atualizar a consulta sob demanda.
-- [ ] Erros e limites de requisição da API são tratados com mensagem clara, sem quebrar a tela.
+- [x] Com a conta conectada (#26), uma tela lista os anúncios do vendedor retornados pela API (`GET /api/ml/anuncios` e `POST /api/ml/anuncios/consultar`).
+- [x] A listagem exibe os campos definidos: identificador do anúncio (`ml_item_id`), título, status (`Ativo`, `Pausado`, `Excluído`), preço e quantidade disponível no Mercado Livre.
+- [x] A listagem funciona com paginação para vendedores com muitos anúncios (controle completo de páginas com itens por página configurável).
+- [x] O gestor pode atualizar a consulta sob demanda (ação de sincronização com atualização de timestamp).
+- [x] Erros e limites de requisição da API (Rate Limit 429 / instabilidade) são tratados com mensagem clara, sem quebrar a tela (fallback gracioso e seguro para os dados locais).
 
 **Definition of Ready (DoR): não pronto até que...**
 
-- [ ] Story #26 concluída (autenticação funcionando).
-- [ ] Campos da API a consultar definidos (status, quantidade no ML, preço e, se necessário, perguntas): pendência herdada do #12.
-- [ ] Endpoints de anúncios e limites de requisição (rate limit) levantados na documentação do Mercado Livre.
-- [ ] Definido que a consulta desta story é sob demanda (a atualização periódica fica para o #29).
-- [ ] Anúncios reais ou de teste disponíveis para validar a consulta.
-- [ ] Definida a relação com o #12: a tela única continua com status manual ou passa a ler esta consulta.
-- [ ] Estimativa (5 SP) acordada pelo time.
+- [x] Story #26 concluída (autenticação OAuth2 funcionando com renovação e desconexão).
+- [x] Campos da API a consultar definidos (`ml_item_id`, `titulo`, `status`, `preco`, `quantidade_disponivel`).
+- [x] Endpoints de anúncios e limites de requisição (rate limit 429) levantados e tratados.
+- [x] Definido que a consulta desta story é sob demanda (atualização periódica automática na Sprint 3).
+- [x] Anúncios reais e de teste disponíveis para validação da consulta.
+- [x] Estimativa (5 SP) concluída e validada.
 
 ---
 

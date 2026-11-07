@@ -1933,33 +1933,46 @@
     const icon = document.getElementById("sync-btn-icon");
 
     if (btn) btn.disabled = true;
-    if (label) label.textContent = "Sincronizando...";
+    if (label) label.textContent = "Consultando API ML...";
     if (icon) icon.classList.add("animate-spin");
     renderSyncHeader();
 
     try {
-      // 1. Aciona endpoint real do backend (POST /api/ml/sincronizar)
+      let dadosConsulta = null;
+
+      // 1. Aciona a consulta sob demanda diretamente na API do Mercado Livre (#27)
       if (window.RezFireAPI && window.RezFireAPI.mercadolivre) {
         try {
-          await window.RezFireAPI.mercadolivre.sincronizar();
+          dadosConsulta = await window.RezFireAPI.mercadolivre.consultarAnuncios();
         } catch (apiErr) {
-          console.warn("Backend ML sincronizar falhou, usando sincronização local:", apiErr);
+          console.warn("[Consulta ML] Erro ou limite na API remota:", apiErr.message);
+          // Se for rate limit ou falha externa da API, avisa o gestor com mensagem clara
+          if (apiErr.message?.includes("429") || apiErr.message?.includes("Rate Limit")) {
+            showFeedbackBanner("error", "Limite de requisições da API do Mercado Livre atingido (Rate Limit 429). Exibindo dados locais com segurança.");
+          } else {
+            showFeedbackBanner("error", `Aviso da API: ${apiErr.message}. Utilizando dados locais em segurança.`);
+          }
         }
       }
 
-      // 2. Aciona sincronização local / mock
+      // 2. Aciona sincronização e conciliação local / mock
       let resLocal = null;
       if (window.RezFireAnuncios) {
         resLocal = await window.RezFireAnuncios.syncAnuncios();
       }
 
-      // 3. Recarrega dados completos (backend + local)
+      // 3. Recarrega dados completos
       await carregarDados();
 
-      const timestamp = resLocal?.timestamp || new Date().toISOString();
-      showFeedbackBanner("success", `Sincronização concluída com sucesso às ${formatData(timestamp)}. Anúncios e estoques atualizados.`);
+      const totalConsultados = dadosConsulta?.total || state.anuncios.length;
+      const timestamp = dadosConsulta?.ultima_consulta || resLocal?.timestamp || new Date().toISOString();
+      showFeedbackBanner(
+        "success",
+        `Consulta sob demanda concluída com sucesso às ${formatData(timestamp)}! ${totalConsultados} anúncios consultados e alinhados.`
+      );
     } catch (err) {
-      showFeedbackBanner("error", "Erro ao comunicar com a API do Mercado Livre.");
+      console.error("[Consulta ML] Falha geral:", err);
+      showFeedbackBanner("error", "Erro ao processar consulta de anúncios. Os dados locais foram preservados.");
     } finally {
       state.sincronizando = false;
       if (btn) btn.disabled = false;

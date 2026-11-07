@@ -150,5 +150,25 @@ export class MercadoLivreController {
       return res.status(500).json({ sucesso: false, mensagem: error.message });
     }
   }
+
+  /**
+   * Consulta anúncios diretamente na API do Mercado Livre sob demanda (#27)
+   */
+  async consultarAnunciosSobDemanda(req: Request, res: Response) {
+    try {
+      const id_usuario = req.usuario?.id_usuario || 1;
+      const page = req.query.page ? Number(req.query.page) : 1;
+      const limit = req.query.limit ? Number(req.query.limit) : 50;
+
+      const resultado = await mlService.consultarAnunciosAPI(id_usuario, { page, limit });
+      return res.json(resultado);
+    } catch (error: any) {
+      const status = error.message?.includes('Rate Limit') ? 429 : 502;
+      return res.status(status).json({
+        sucesso: false,
+        mensagem: error.message || 'Falha ao consultar anúncios na API do Mercado Livre.',
+      });
+    }
+  }
 }
 

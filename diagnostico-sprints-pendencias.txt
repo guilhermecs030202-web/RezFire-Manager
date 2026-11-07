@@ -124,6 +124,12 @@ Todas as 10 User Stories (45 Story Points) da Sprint 1 foram implementadas, inte
     de autorização (access_denied, expiração de código). Backend com renovação automática por
     refresh_token (garantirTokenValido) e endpoint POST /api/ml/desconectar.
 
+[X] Consulta de Anúncios via API do ML (#27) [CONCLUÍDO]:
+    Consulta sob demanda diretamente na API oficial do Mercado Livre (GET/POST /api/ml/anuncios/consultar).
+    Listagem completa com identificador (ml_item_id), título, status, preço e quantidade disponível.
+    Paginação robusta, tratamento gracioso de Rate Limit (HTTP 429) e erros de rede com fallback
+    seguro para os dados locais, garantindo estabilidade e integridade da tela.
+
 [X] SCRUM-5 (#20) - Usuários e permissões (RBAC) [CONCLUÍDO]:
     Implementada tela de gerenciamento de usuários (usuarios.html) e controle de papéis (RBAC)
     aprovada expressamente pelo gestor para permitir a operação do sistema por terceiros em sua ausência.

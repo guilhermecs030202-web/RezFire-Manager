@@ -16,6 +16,8 @@ router.get('/auth', authMiddleware, controller.getAuthUrl);
 router.get('/status', authMiddleware, controller.obterStatusConexao);
 router.post('/desconectar', authMiddleware, controller.desconectar);
 router.get('/anuncios', authMiddleware, controller.listarAnuncios);
+router.get('/anuncios/consultar', authMiddleware, controller.consultarAnunciosSobDemanda);
+router.post('/anuncios/consultar', authMiddleware, controller.consultarAnunciosSobDemanda);
 router.post('/anuncios/vincular', authMiddleware, controller.vincularProduto);
 router.post('/sincronizar', authMiddleware, controller.sincronizar);
 

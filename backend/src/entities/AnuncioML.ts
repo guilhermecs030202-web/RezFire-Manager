@@ -11,6 +11,7 @@ import {
 } from 'typeorm';
 import { ConexaoMercadoLivre } from './ConexaoMercadoLivre';
 import { ProdutoAnuncio } from './ProdutoAnuncio';
+import { OcorrenciaAnuncio } from './OcorrenciaAnuncio';
 
 @Entity('anuncios_ml')
 export class AnuncioML {
@@ -51,6 +52,33 @@ export class AnuncioML {
   @Column({ type: 'timestamp', nullable: true })
   ultima_sincronizacao: Date;
 
+  @Column({ type: 'boolean', default: false })
+  foi_recriado: boolean;
+
+  @Column({ type: 'varchar', length: 255, nullable: true })
+  motivo_exclusao: string | null;
+
+  @Column({ type: 'timestamp', nullable: true })
+  data_exclusao: Date | null;
+
+  @Column({ type: 'timestamp', nullable: true })
+  data_recriacao: Date | null;
+
+  @Column({ type: 'int', nullable: true })
+  tempo_reposicionamento_dias: number | null;
+
+  @Column({ type: 'int', unsigned: true, nullable: true })
+  id_anuncio_substituto: number | null;
+
+  @Column({ type: 'varchar', length: 64, nullable: true })
+  ml_item_id_substituto: string | null;
+
+  @Column({ type: 'int', unsigned: true, nullable: true })
+  id_anuncio_origem: number | null;
+
+  @Column({ type: 'varchar', length: 64, nullable: true })
+  ml_item_id_origem: string | null;
+
   @CreateDateColumn({ type: 'timestamp' })
   created_at: Date;
 
@@ -59,5 +87,8 @@ export class AnuncioML {
 
   @OneToMany(() => ProdutoAnuncio, (pa) => pa.anuncio)
   produto_anuncios: ProdutoAnuncio[];
+
+  @OneToMany(() => OcorrenciaAnuncio, (o) => o.anuncio, { cascade: true })
+  ocorrencias: OcorrenciaAnuncio[];
 }
 

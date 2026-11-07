@@ -83,7 +83,7 @@ Capacidade planejada: 45 SP. Planejado: **45 SP**.
 
 ---
 
-### SCRUM-19 · #14 · Histórico de ocorrências do anúncio
+### SCRUM-19 · #14 · Histórico de ocorrências do anúncio [CONCLUÍDO]
 
 - **SP:** 3 | **MoSCoW:** Should | **Depende de:** #12, #13
 
@@ -91,12 +91,12 @@ Capacidade planejada: 45 SP. Planejado: **45 SP**.
 
 **Critérios de aceite**
 
-- [ ] Cada mudança de status relevante de um anúncio gera um registro histórico com data/hora e tipo de ocorrência.
-- [ ] O histórico de um anúncio pode ser consultado de forma cronológica.
+- [x] Cada mudança de status relevante de um anúncio gera um registro histórico com data/hora e tipo de ocorrência (pausas por estoque, alterações de preço, advertências, sincronizações e anotações técnicas manuais).
+- [x] O histórico de um anúncio pode ser consultado de forma cronológica na ficha lateral detalhada do anúncio (Drawer com badges e visualização de timeline auditável).
 
 **Definition of Ready (DoR): não pronto até que...**
 
-- [ ] Stories #12 e #13 concluídas, pois são a fonte dos eventos que compõem o histórico.
+- [x] Stories #12 e #13 concluídas, pois são a fonte dos eventos que compõem o histórico.
 
 ---
 
@@ -137,7 +137,7 @@ Capacidade planejada: 45 SP. Planejado: **45 SP**.
 
 ---
 
-### SCRUM-20 · #15 · Anúncio excluído/recriado
+### SCRUM-20 · #15 · Anúncio excluído/recriado [CONCLUÍDO]
 
 - **SP:** 2 | **MoSCoW:** Could | **Depende de:** #12
 
@@ -145,12 +145,12 @@ Capacidade planejada: 45 SP. Planejado: **45 SP**.
 
 **Critérios de aceite**
 
-- [ ] É possível marcar um anúncio como "excluído/recriado", vinculando o anúncio antigo ao novo.
-- [ ] O sistema registra a data da exclusão e da recriação, permitindo calcular o tempo de reposicionamento.
+- [x] É possível marcar um anúncio como "excluído/recriado", vinculando o anúncio antigo ao novo (modal `#modal-marcar-recriado` vinculando o MLB antigo ao novo com registro bidirecional).
+- [x] O sistema registra a data da exclusão e da recriação, permitindo calcular o tempo de reposicionamento em dias e gerando relatório comparativo (`#modal-relatorio-recriados`).
 
 **Definition of Ready (DoR): não pronto até que...**
 
-- [ ] Mecanismo de vínculo entre anúncio antigo e novo definido — como o novo anúncio é criado do zero no Mercado Livre, não há um identificador comum automático; o vínculo provavelmente será feito manualmente pelo gestor, o que precisa ser confirmado.
+- [x] Mecanismo de vínculo entre anúncio antigo e novo definido — como o novo anúncio é criado do zero no Mercado Livre, o gestor informa o novo `ml_item_id` no modal, preservando herança histórica e cálculo automático de dias de reposicionamento.
 
 ---
 

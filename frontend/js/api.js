@@ -278,5 +278,34 @@ window.RezFireAPI = {
       return window.RezFireAPI.request('/alertas/central');
     },
   },
+
+  // Módulo de Anúncios, Histórico e Recriação (SCRUM-19 / #14 e SCRUM-20 / #15)
+  anuncios: {
+    async listar(params = {}) {
+      const query = new URLSearchParams(params).toString();
+      return window.RezFireAPI.request(`/anuncios${query ? '?' + query : ''}`);
+    },
+    async buscarPorId(id) {
+      return window.RezFireAPI.request(`/anuncios/${id}`);
+    },
+    async listarHistorico(id) {
+      return window.RezFireAPI.request(`/anuncios/${id}/historico`);
+    },
+    async adicionarOcorrencia(id, dados) {
+      return window.RezFireAPI.request(`/anuncios/${id}/historico`, {
+        method: 'POST',
+        body: JSON.stringify(dados),
+      });
+    },
+    async marcarRecriado(id, dados) {
+      return window.RezFireAPI.request(`/anuncios/${id}/marcar-recriado`, {
+        method: 'POST',
+        body: JSON.stringify(dados),
+      });
+    },
+    async listarRecriados() {
+      return window.RezFireAPI.request('/anuncios/relatorios/recriados');
+    },
+  },
 };
 

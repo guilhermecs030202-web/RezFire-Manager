@@ -16,6 +16,7 @@ import {
   DocumentoCertificacao,
   EventoMercadoLivre,
   InspecaoQualidade,
+  OcorrenciaAnuncio,
 } from '../entities';
 
 export const AppDataSource = new DataSource({
@@ -41,6 +42,7 @@ export const AppDataSource = new DataSource({
     DocumentoCertificacao,
     EventoMercadoLivre,
     InspecaoQualidade,
+    OcorrenciaAnuncio,
   ],
   migrations: [path.join(__dirname, '../migrations/*{.ts,.js}')],
   subscribers: [],

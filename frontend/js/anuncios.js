@@ -426,9 +426,13 @@
         if (f.tipo === "unitario" && isKit) return false;
       }
 
-      // 4. Filtro por Status
-      if (f.status !== "todos" && a.status !== f.status) {
-        return false;
+      // 4. Filtro por Status / Recriados (SCRUM-20)
+      if (f.status !== "todos") {
+        if (f.status === "Excluído" || f.status === "recriados") {
+          if (!a.foi_recriado && a.status !== "Excluído") return false;
+        } else if (a.status !== f.status) {
+          return false;
+        }
       }
 
       // 5. Filtro por Categoria
@@ -512,11 +516,17 @@
       const itens = window.RezFireAnuncios.extrairItensAnuncio(a);
       const isMultiItem = itens.length > 1 || (itens.length === 1 && itens[0].quantidade_anunciada > 1);
 
-      // Status Badge
+      // Status Badge & Recriação (SCRUM-20 / #15)
       let statusCls = "encerrado";
       if (a.status === "Ativo") statusCls = "ativo";
       else if (a.status === "Pausado") statusCls = "pausado";
-      const statusBadge = `<span class="badge-anuncio-status ${statusCls}">${a.status}</span>`;
+      else if (a.status === "Excluído") statusCls = "encerrado";
+      let statusBadge = `<span class="badge-anuncio-status ${statusCls}">${a.status}</span>`;
+      if (a.foi_recriado) {
+        statusBadge += `<span class="inline-flex items-center text-[10px] font-bold px-1.5 py-0.5 ml-1 bg-red-100 text-red-800 rounded border border-red-200" title="Anúncio excluído pelo ML e substituído por ${a.ml_item_id_substituto || 'novo'}">Recriado</span>`;
+      } else if (a.ml_item_id_origem) {
+        statusBadge += `<span class="inline-flex items-center text-[10px] font-bold px-1.5 py-0.5 ml-1 bg-blue-100 text-blue-800 rounded border border-blue-200" title="Herdeiro do anúncio excluído ${a.ml_item_id_origem}">Herdeiro</span>`;
+      }
 
       // Divergência Badge
       let divBadge = `<span class="badge-divergencia ok" title="Anúncio alinhado com o armazém">✓ Alinhado</span>`;
@@ -832,28 +842,305 @@
       }
     }
 
-    // Histórico de alterações
-    const histEl = document.getElementById("drawer-historico-lista");
-    if (histEl) {
-      const hist = anuncio.historico || [];
-      if (hist.length === 0) {
-        histEl.innerHTML = `<div class="text-stone-400 italic">Nenhum evento registrado ainda.</div>`;
-      } else {
-        histEl.innerHTML = hist.map(h => `
-          <div class="p-2 bg-white border border-stone-200 rounded">
-            <div class="flex justify-between items-center text-[11px] text-stone-400">
-              <strong class="text-stone-700">${h.evento}</strong>
-              <span>${formatData(h.data)}</span>
-            </div>
-            <div class="text-xs text-stone-600 mt-0.5">${h.detalhe}</div>
-          </div>
-        `).join("");
-      }
-    }
+    // Banner de Substituição / Herança de Anúncio Excluído (SCRUM-20 / #15)
+    renderDrawerBannerRecriado(anuncio);
+
+    // Histórico cronológico de ocorrências (SCRUM-19 / #14)
+    renderDrawerHistorico(anuncio);
 
     overlay.classList.add("is-open");
     drawer.classList.add("is-open");
     drawer.focus();
+  }
+
+  /**
+   * Renderiza o banner de reposicionamento/herança no Drawer Lateral (SCRUM-20 / #15)
+   */
+  function renderDrawerBannerRecriado(anuncio) {
+    const el = document.getElementById("drawer-banner-recriado");
+    if (!el) return;
+
+    if (anuncio.foi_recriado) {
+      el.style.display = "block";
+      el.innerHTML = `
+        <div class="p-3 bg-red-50 border border-red-200 rounded-lg text-xs text-red-900">
+          <div class="flex items-center gap-2 font-bold mb-1">
+            <span>🚨</span> Anúncio Excluído no ML → Substituído por <code>${anuncio.ml_item_id_substituto || 'Novo'}</code>
+          </div>
+          <div class="text-[11px] text-red-800 space-y-0.5">
+            <div><strong>Tempo de Reposicionamento:</strong> ${anuncio.tempo_reposicionamento_dias ?? 0} dia(s)</div>
+            <div><strong>Motivo:</strong> ${anuncio.motivo_exclusao || 'Exclusão pelo Mercado Livre.'}</div>
+          </div>
+        </div>
+      `;
+    } else if (anuncio.ml_item_id_origem) {
+      el.style.display = "block";
+      el.innerHTML = `
+        <div class="p-3 bg-blue-50 border border-blue-200 rounded-lg text-xs text-blue-900">
+          <div class="flex items-center gap-2 font-bold mb-1">
+            <span>🛡️</span> Anúncio Herdeiro ← Recriado do Anúncio <code>${anuncio.ml_item_id_origem}</code>
+          </div>
+          <div class="text-[11px] text-blue-800">
+            Tempo de reposicionamento registrado: <strong>${anuncio.tempo_reposicionamento_dias ?? 0} dia(s)</strong>.
+          </div>
+        </div>
+      `;
+    } else {
+      el.style.display = "none";
+      el.innerHTML = "";
+    }
+  }
+
+  /**
+   * Renderiza a timeline cronológica de ocorrências do anúncio (SCRUM-19 / #14)
+   */
+  function renderDrawerHistorico(anuncio) {
+    const histEl = document.getElementById("drawer-historico-lista");
+    if (!histEl) return;
+
+    const hist = anuncio.historico || [];
+    if (hist.length === 0) {
+      histEl.innerHTML = `<div class="text-stone-400 italic p-3 text-center bg-stone-50 rounded border border-stone-200">Nenhum evento registrado ainda.</div>`;
+      return;
+    }
+
+    histEl.innerHTML = hist.map((h) => {
+      let badgeCls = "bg-stone-100 text-stone-700 border-stone-200";
+      const ev = (h.evento || "").toLowerCase();
+
+      if (ev.includes("estoque") || ev.includes("pausa")) {
+        badgeCls = "bg-red-100 text-red-800 border-red-200";
+      } else if (ev.includes("preço") || ev.includes("preco")) {
+        badgeCls = "bg-blue-100 text-blue-800 border-blue-200";
+      } else if (ev.includes("recria") || ev.includes("exclus")) {
+        badgeCls = "bg-purple-100 text-purple-800 border-purple-200";
+      } else if (ev.includes("herdeiro") || ev.includes("sucessor") || ev.includes("reativa")) {
+        badgeCls = "bg-emerald-100 text-emerald-800 border-emerald-200";
+      } else if (ev.includes("advert") || ev.includes("modera") || ev.includes("aviso")) {
+        badgeCls = "bg-amber-100 text-amber-800 border-amber-200";
+      }
+
+      return `
+        <div class="p-2.5 bg-white border border-stone-200 rounded-lg shadow-sm">
+          <div class="flex justify-between items-center text-[11px] mb-1">
+            <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold border ${badgeCls}">
+              ${h.evento || "Ocorrência"}
+            </span>
+            <span class="text-stone-400">${formatData(h.data)}</span>
+          </div>
+          ${h.titulo && h.titulo !== h.evento ? `
+            <div class="text-xs font-bold text-stone-900 mt-1">${h.titulo}</div>
+          ` : ""}
+          <div class="text-xs text-stone-700 mt-0.5 leading-relaxed">${h.detalhe}</div>
+          ${h.autor ? `
+            <div class="text-[10px] text-stone-400 mt-1.5 flex items-center gap-1">
+              <span>👤</span> ${h.autor}
+            </div>
+          ` : ""}
+        </div>
+      `;
+    }).join("");
+  }
+
+  // ─── Modais de Ocorrência, Recriação e Relatórios (SCRUM-19 e SCRUM-20) ──────
+
+  function openModalOcorrencia() {
+    if (!state.anuncioSelecionado) return;
+    const modal = document.getElementById("modal-nova-ocorrencia");
+    const mlbEl = document.getElementById("modal-ocorrencia-mlb");
+    const titEl = document.getElementById("oc-titulo");
+    const detEl = document.getElementById("oc-detalhe");
+    if (!modal) return;
+
+    if (mlbEl) mlbEl.textContent = state.anuncioSelecionado.ml_item_id;
+    if (titEl) titEl.value = "";
+    if (detEl) detEl.value = "";
+
+    modal.classList.add("is-open");
+  }
+
+  function closeModalOcorrencia() {
+    const modal = document.getElementById("modal-nova-ocorrencia");
+    if (modal) modal.classList.remove("is-open");
+  }
+
+  async function salvarModalOcorrencia(e) {
+    e.preventDefault();
+    if (!state.anuncioSelecionado) return;
+
+    const tipo_evento = document.getElementById("oc-tipo-evento")?.value;
+    const titulo = document.getElementById("oc-titulo")?.value.trim();
+    const detalhe = document.getElementById("oc-detalhe")?.value.trim();
+
+    if (!tipo_evento || !titulo || !detalhe) {
+      alert("Por favor, preencha todos os campos obrigatórios.");
+      return;
+    }
+
+    const payload = {
+      tipo_evento,
+      titulo,
+      detalhe,
+      autor: "Gestor RezFire",
+      data_ocorrencia: new Date().toISOString(),
+    };
+
+    try {
+      if (window.RezFireAPI && state.anuncioSelecionado.id_anuncio) {
+        await window.RezFireAPI.anuncios.adicionarOcorrencia(state.anuncioSelecionado.id_anuncio, payload);
+      }
+
+      if (window.RezFireAnuncios) {
+        window.RezFireAnuncios.adicionarOcorrencia(state.anuncioSelecionado.id_anuncio, payload);
+      }
+
+      state.anuncioSelecionado.historico = state.anuncioSelecionado.historico || [];
+      state.anuncioSelecionado.historico.unshift(payload);
+
+      renderDrawerHistorico(state.anuncioSelecionado);
+      closeModalOcorrencia();
+      showToast("Ocorrência registrada no histórico do anúncio!");
+    } catch (err) {
+      console.error("[Anúncios] Erro ao salvar ocorrência:", err);
+      alert("Erro ao salvar ocorrência: " + (err.message || err));
+    }
+  }
+
+  function openModalRecriar() {
+    if (!state.anuncioSelecionado) return;
+    const modal = document.getElementById("modal-marcar-recriado");
+    const mlbAntigo = document.getElementById("modal-recriado-mlb-antigo");
+    const titAntigo = document.getElementById("modal-recriado-titulo-antigo");
+    const mlbNovo = document.getElementById("rec-mlb-novo");
+    const dExc = document.getElementById("rec-data-exclusao");
+    const dRec = document.getElementById("rec-data-recriacao");
+    const mot = document.getElementById("rec-motivo");
+    if (!modal) return;
+
+    if (mlbAntigo) mlbAntigo.textContent = state.anuncioSelecionado.ml_item_id;
+    if (titAntigo) titAntigo.textContent = state.anuncioSelecionado.titulo;
+    if (mlbNovo) mlbNovo.value = "";
+    if (mot) mot.value = "";
+
+    const hoje = new Date().toISOString().split("T")[0];
+    if (dExc) dExc.value = hoje;
+    if (dRec) dRec.value = hoje;
+
+    modal.classList.add("is-open");
+  }
+
+  function closeModalRecriar() {
+    const modal = document.getElementById("modal-marcar-recriado");
+    if (modal) modal.classList.remove("is-open");
+  }
+
+  async function salvarModalRecriar(e) {
+    e.preventDefault();
+    if (!state.anuncioSelecionado) return;
+
+    const mlbNovo = document.getElementById("rec-mlb-novo")?.value.trim();
+    const dataExclusao = document.getElementById("rec-data-exclusao")?.value;
+    const dataRecriacao = document.getElementById("rec-data-recriacao")?.value;
+    const motivo = document.getElementById("rec-motivo")?.value.trim();
+
+    if (!mlbNovo || !dataExclusao || !dataRecriacao || !motivo) {
+      alert("Por favor, preencha todos os campos obrigatórios.");
+      return;
+    }
+
+    const payload = {
+      ml_item_id_novo: mlbNovo,
+      data_exclusao: dataExclusao,
+      data_recriacao: dataRecriacao,
+      motivo_exclusao: motivo,
+    };
+
+    try {
+      if (window.RezFireAPI && state.anuncioSelecionado.id_anuncio) {
+        await window.RezFireAPI.anuncios.marcarRecriado(state.anuncioSelecionado.id_anuncio, payload);
+      }
+
+      if (window.RezFireAnuncios) {
+        window.RezFireAnuncios.marcarRecriado(state.anuncioSelecionado.id_anuncio, payload);
+      }
+
+      const diffMs = Math.max(0, new Date(dataRecriacao).getTime() - new Date(dataExclusao).getTime());
+      const dias = Math.round(diffMs / (1000 * 60 * 60 * 24));
+
+      state.anuncioSelecionado.foi_recriado = true;
+      state.anuncioSelecionado.status = "Excluído";
+      state.anuncioSelecionado.motivo_exclusao = motivo;
+      state.anuncioSelecionado.data_exclusao = dataExclusao;
+      state.anuncioSelecionado.data_recriacao = dataRecriacao;
+      state.anuncioSelecionado.tempo_reposicionamento_dias = dias;
+      state.anuncioSelecionado.ml_item_id_substituto = mlbNovo;
+
+      renderDrawerBannerRecriado(state.anuncioSelecionado);
+      renderDrawerHistorico(state.anuncioSelecionado);
+      renderTabela();
+      closeModalRecriar();
+      showToast(`Anúncio marcado como substituído! Tempo de reposicionamento: ${dias} dia(s).`);
+    } catch (err) {
+      console.error("[Anúncios] Erro ao registrar recriação:", err);
+      alert("Erro ao registrar recriação: " + (err.message || err));
+    }
+  }
+
+  async function openModalRelatorioRecriados() {
+    const modal = document.getElementById("modal-relatorio-recriados");
+    const totalEl = document.getElementById("stat-total-recriados");
+    const mediaEl = document.getElementById("stat-media-reposicionamento");
+    const tbody = document.getElementById("tbody-relatorio-recriados");
+    if (!modal) return;
+
+    let dados = null;
+    if (window.RezFireAPI && typeof window.RezFireAPI.anuncios.listarRecriados === "function") {
+      try {
+        dados = await window.RezFireAPI.anuncios.listarRecriados();
+      } catch (e) {
+        console.warn("[Anúncios] Erro ao carregar relatório da API:", e);
+      }
+    }
+
+    if (!dados && window.RezFireAnuncios) {
+      dados = window.RezFireAnuncios.listarRecriados();
+    }
+
+    const total = dados?.total_recriados || 0;
+    const media = dados?.media_tempo_reposicionamento_dias || 0;
+    const lista = dados?.anuncios || [];
+
+    if (totalEl) totalEl.textContent = String(total);
+    if (mediaEl) mediaEl.textContent = `${media} dias`;
+
+    if (tbody) {
+      if (lista.length === 0) {
+        tbody.innerHTML = `
+          <tr>
+            <td colspan="5" class="text-center p-4 text-stone-400">
+              Nenhum anúncio excluído/recriado registrado no sistema.
+            </td>
+          </tr>
+        `;
+      } else {
+        tbody.innerHTML = lista.map((a) => `
+          <tr class="border-b border-stone-100">
+            <td class="p-2 font-mono font-bold text-red-700">${a.ml_item_id || a.ml_item_id_antigo}</td>
+            <td class="p-2 font-mono font-bold text-emerald-700">${a.ml_item_id_substituto || a.ml_item_id_novo || '—'}</td>
+            <td class="p-2 font-semibold text-stone-800">${a.tempo_reposicionamento_dias ?? 0} dia(s)</td>
+            <td class="p-2 text-stone-600">${a.motivo_exclusao || '—'}</td>
+            <td class="p-2 text-stone-400">${formatData(a.data_exclusao)}</td>
+          </tr>
+        `).join("");
+      }
+    }
+
+    modal.classList.add("is-open");
+  }
+
+  function closeModalRelatorioRecriados() {
+    const modal = document.getElementById("modal-relatorio-recriados");
+    if (modal) modal.classList.remove("is-open");
   }
 
   /**
@@ -1310,6 +1597,29 @@
     // Botões de Composição Multi-Item no Drawer
     document.getElementById("btn-add-item-composicao")?.addEventListener("click", adicionarProdutoComposicao);
     document.getElementById("btn-salvar-composicao")?.addEventListener("click", salvarComposicaoAnuncio);
+
+    // Modal Nova Ocorrência (SCRUM-19 / #14)
+    document.getElementById("btn-abrir-modal-ocorrencia")?.addEventListener("click", openModalOcorrencia);
+    document.getElementById("btn-cancelar-modal-ocorrencia")?.addEventListener("click", closeModalOcorrencia);
+    document.getElementById("form-nova-ocorrencia")?.addEventListener("submit", salvarModalOcorrencia);
+    document.getElementById("modal-nova-ocorrencia")?.addEventListener("click", (e) => {
+      if (e.target.id === "modal-nova-ocorrencia") closeModalOcorrencia();
+    });
+
+    // Modal Marcar Recriado (SCRUM-20 / #15)
+    document.getElementById("btn-abrir-modal-recriar")?.addEventListener("click", openModalRecriar);
+    document.getElementById("btn-cancelar-modal-recriar")?.addEventListener("click", closeModalRecriar);
+    document.getElementById("form-marcar-recriado")?.addEventListener("submit", salvarModalRecriar);
+    document.getElementById("modal-marcar-recriado")?.addEventListener("click", (e) => {
+      if (e.target.id === "modal-marcar-recriado") closeModalRecriar();
+    });
+
+    // Modal Relatório de Anúncios Recriados (SCRUM-20 / #15)
+    document.getElementById("btn-ver-recriados")?.addEventListener("click", openModalRelatorioRecriados);
+    document.getElementById("btn-fechar-relatorio-recriados")?.addEventListener("click", closeModalRelatorioRecriados);
+    document.getElementById("modal-relatorio-recriados")?.addEventListener("click", (e) => {
+      if (e.target.id === "modal-relatorio-recriados") closeModalRelatorioRecriados();
+    });
 
     document.addEventListener("keydown", (e) => {
       if (e.key === "Escape" && state.anuncioSelecionado) {

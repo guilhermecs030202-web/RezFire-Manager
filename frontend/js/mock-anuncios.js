@@ -73,11 +73,38 @@
     "permalink": "https://produto.mercadolivre.com.br/MLB-2894012110",
     "data_criacao": "2023-08-10T14:20:00Z",
     "ultima_sincronizacao": subDays(0, 2),
+    "ml_item_id_origem": "MLB-190412891",
+    "tempo_reposicionamento_dias": 6,
     "historico": [
       {
         "data": subDays(0, 2),
         "evento": "Sincronização",
-        "detalhe": "Dados atualizados via API Mercado Livre."
+        "titulo": "Sincronização Automática",
+        "detalhe": "Estoque sincronizado: 65 unidades disponíveis no armazém."
+      },
+      {
+        "data": subDays(5),
+        "evento": "Alteração de Preço",
+        "titulo": "Reajuste Promocional",
+        "detalhe": "Preço ajustado de R$ 199,90 para R$ 188,80 para ganho de Buy Box."
+      },
+      {
+        "data": subDays(14),
+        "evento": "Reativação",
+        "titulo": "Anúncio Reativado",
+        "detalhe": "Estoque de suportes reabastecido. Status retornado para Ativo."
+      },
+      {
+        "data": subDays(16),
+        "evento": "Pausa por Estoque",
+        "titulo": "Pausa Automática por Ruptura",
+        "detalhe": "Anúncio pausado automaticamente: estoque do componente Suporte zerado."
+      },
+      {
+        "data": subDays(30),
+        "evento": "Sucessor de Anúncio Excluído",
+        "titulo": "Herdeiro de Anúncio Excluído [MLB-190412891]",
+        "detalhe": "Anúncio recriado do zero em substituição ao MLB-190412891 excluído pelo robô do ML. Tempo de reposicionamento: 6 dias."
       }
     ]
   },
@@ -475,6 +502,49 @@
         "detalhe": "Anúncio ativo no ML sem correspondência no catálogo RezFire."
       }
     ]
+  },
+  {
+    "id_anuncio": 14,
+    "ml_item_id": "MLB-190412891",
+    "titulo": "Extintor Pó ABC 4kg com Suporte Parede RezFire (Antigo)",
+    "tipo_composicao": "kit",
+    "itens_anuncio": [
+      { "id_produto": 1, "quantidade_anunciada": 1 },
+      { "id_produto": 8, "quantidade_anunciada": 1 }
+    ],
+    "preco": 199.9,
+    "quantidade_disponivel": 0,
+    "quantidade_vendida": 480,
+    "visualizacoes": 12500,
+    "status": "Excluído",
+    "foi_recriado": true,
+    "motivo_exclusao": "Exclusão indevida por robô de catálogo do Mercado Livre (alegação de categoria duplicada)",
+    "data_exclusao": subDays(36),
+    "data_recriacao": subDays(30),
+    "tempo_reposicionamento_dias": 6,
+    "ml_item_id_substituto": "MLB-2894012110",
+    "listing_type_id": "gold_special",
+    "tipo_anuncio": "Clássico",
+    "condicao": "Novo",
+    "categoria_ml": "Segurança Contra Incêndio > Extintores",
+    "thumbnail": "https://http2.mlstatic.com/D_NQ_NP_854921-MLB48921829101_012022-V.jpg",
+    "permalink": "https://produto.mercadolivre.com.br/MLB-190412891",
+    "data_criacao": "2022-03-15T10:00:00Z",
+    "ultima_sincronizacao": subDays(30),
+    "historico": [
+      {
+        "data": subDays(30),
+        "evento": "Exclusão e Recriação",
+        "titulo": "Anúncio Excluído e Substituído",
+        "detalhe": "Anúncio excluído pelo ML e substituído por [MLB-2894012110]. Tempo de reposicionamento: 6 dias."
+      },
+      {
+        "data": subDays(36),
+        "evento": "Advertência ML",
+        "titulo": "Infração de Catálogo Detectada",
+        "detalhe": "Robô do ML bloqueou a edição e excluiu a publicação por divergência cadastral."
+      }
+    ]
   }
 ];
 
@@ -866,6 +936,120 @@
     });
   }
 
+  /**
+   * Adiciona uma ocorrência cronológica ao histórico do anúncio (SCRUM-19 / #14)
+   */
+  function adicionarOcorrencia(id_anuncio, dados) {
+    const anuncios = loadAnuncios();
+    const idx = anuncios.findIndex((a) => a.id_anuncio === Number(id_anuncio));
+    if (idx < 0) return null;
+
+    const anuncio = anuncios[idx];
+    anuncio.historico = anuncio.historico || [];
+
+    const novaOcorrencia = {
+      id_ocorrencia: Date.now(),
+      data: dados.data_ocorrencia || new Date().toISOString(),
+      evento: dados.tipo_evento || 'Ocorrência Operacional',
+      titulo: dados.titulo || dados.tipo_evento || 'Registro',
+      detalhe: dados.detalhe || '',
+      autor: dados.autor || 'Gestor RezFire',
+      dados_anteriores: dados.dados_anteriores || null,
+    };
+
+    anuncio.historico.unshift(novaOcorrencia);
+    saveAnuncios(anuncios);
+    return novaOcorrencia;
+  }
+
+  /**
+   * Marca anúncio como excluído/recriado com cálculo de reposicionamento (SCRUM-20 / #15)
+   */
+  function marcarRecriado(id_anuncio_antigo, dados) {
+    const anuncios = loadAnuncios();
+    const idxAntigo = anuncios.findIndex((a) => a.id_anuncio === Number(id_anuncio_antigo));
+    if (idxAntigo < 0) throw new Error("Anúncio antigo não encontrado.");
+
+    const antigo = anuncios[idxAntigo];
+    const dExclusao = new Date(dados.data_exclusao || new Date());
+    const dRecriacao = new Date(dados.data_recriacao || new Date());
+    const diffMs = Math.max(0, dRecriacao.getTime() - dExclusao.getTime());
+    const tempoDias = Math.round(diffMs / (1000 * 60 * 60 * 24));
+
+    const mlNovo = (dados.ml_item_id_novo || '').trim();
+
+    antigo.foi_recriado = true;
+    antigo.status = 'Excluído';
+    antigo.motivo_exclusao = dados.motivo_exclusao || 'Excluído pelo Mercado Livre';
+    antigo.data_exclusao = dExclusao.toISOString();
+    antigo.data_recriacao = dRecriacao.toISOString();
+    antigo.tempo_reposicionamento_dias = tempoDias;
+    antigo.ml_item_id_substituto = mlNovo;
+
+    antigo.historico = antigo.historico || [];
+    antigo.historico.unshift({
+      id_ocorrencia: Date.now(),
+      data: new Date().toISOString(),
+      evento: 'Exclusão e Recriação',
+      titulo: 'Anúncio Excluído no ML e Substituído',
+      detalhe: `Anúncio excluído pelo ML e substituído por [${mlNovo}]. Motivo: ${dados.motivo_exclusao}. Tempo de reposicionamento: ${tempoDias} dia(s).`,
+      autor: 'Gestor RezFire',
+      dados_anteriores: {
+        ml_item_id_antigo: antigo.ml_item_id,
+        ml_item_id_novo: mlNovo,
+        tempo_reposicionamento_dias: tempoDias,
+      },
+    });
+
+    // Se o novo anúncio já existir na base
+    const idxNovo = anuncios.findIndex((a) => a.ml_item_id === mlNovo || a.id_anuncio === Number(dados.id_anuncio_novo));
+    let novo = null;
+    if (idxNovo >= 0) {
+      novo = anuncios[idxNovo];
+      novo.id_anuncio_origem = antigo.id_anuncio;
+      novo.ml_item_id_origem = antigo.ml_item_id;
+      novo.tempo_reposicionamento_dias = tempoDias;
+      novo.historico = novo.historico || [];
+      novo.historico.unshift({
+        id_ocorrencia: Date.now() + 1,
+        data: new Date().toISOString(),
+        evento: 'Sucessor de Anúncio Excluído',
+        titulo: `Herdeiro do Anúncio Excluído [${antigo.ml_item_id}]`,
+        detalhe: `Criado em substituição ao anúncio histórico [${antigo.ml_item_id}], excluído em ${dExclusao.toLocaleDateString('pt-BR')}. Motivo: ${dados.motivo_exclusao}.`,
+        autor: 'Gestor RezFire',
+        dados_anteriores: {
+          ml_item_id_antigo: antigo.ml_item_id,
+          tempo_reposicionamento_dias: tempoDias,
+        },
+      });
+    }
+
+    saveAnuncios(anuncios);
+    return {
+      sucesso: true,
+      anuncio_antigo: antigo,
+      anuncio_novo: novo,
+      tempo_reposicionamento_dias: tempoDias,
+    };
+  }
+
+  /**
+   * Lista anúncios excluídos e recriados para acompanhamento de reposicionamento
+   */
+  function listarRecriados() {
+    const anuncios = loadAnuncios();
+    const recriados = anuncios.filter((a) => a.foi_recriado);
+    const mediaDias = recriados.length > 0
+      ? Number((recriados.reduce((sum, a) => sum + (a.tempo_reposicionamento_dias || 0), 0) / recriados.length).toFixed(1))
+      : 0;
+
+    return {
+      total_recriados: recriados.length,
+      media_tempo_reposicionamento_dias: mediaDias,
+      anuncios: recriados,
+    };
+  }
+
   // Exportação Global
   window.RezFireAnuncios = {
     loadAnuncios,
@@ -878,6 +1062,9 @@
     computeAnunciosKPIs,
     atualizarComposicaoAnuncio,
     syncAnuncios,
+    adicionarOcorrencia,
+    marcarRecriado,
+    listarRecriados,
     REF_DATE
   };
 })();

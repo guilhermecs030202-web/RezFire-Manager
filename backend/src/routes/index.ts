@@ -9,6 +9,7 @@ import certificadoRoutes from './certificado.routes';
 import mlRoutes from './mercadolivre.routes';
 import inspecaoRoutes from './inspecao.routes';
 import alertaRoutes from './alerta.routes';
+import anuncioRoutes from './anuncio.routes';
 
 const router = Router();
 
@@ -22,5 +23,6 @@ router.use('/certificados', certificadoRoutes);
 router.use('/ml', mlRoutes);
 router.use('/inspecoes', inspecaoRoutes);
 router.use('/alertas', alertaRoutes);
+router.use('/anuncios', anuncioRoutes);
 
 export default router;

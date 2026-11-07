@@ -105,10 +105,11 @@ Todas as 10 User Stories (45 Story Points) da Sprint 1 foram implementadas, inte
     Atraso na Entrega, Defeito/Despressurização, Outro). Gera estorno automático de estoque
     em movimentacoes_estoque e disponibiliza modal de análise com ranking percentual e histórico auditável.
 
-[ ] SCRUM-19 (#14) / SCRUM-20 (#15) - Histórico de ocorrências de anúncios:
-    Timeline cronológica registrando quando um anúncio teve queda de preço, pausou
-    por estoque zerado ou precisou ser recriado.
-    Complexidade: Média.
+[X] SCRUM-19 (#14) / SCRUM-20 (#15) - Histórico de ocorrências e recriação de anúncios (CONCLUÍDO):
+    Timeline cronológica auditável no Drawer lateral do anúncio (mudanças de preço, pausas por estoque,
+    advertências do ML, reativações e anotações manuais). Modal de marcação de anúncio excluído/recriado
+    com cálculo do tempo de reposicionamento (em dias) e modal de relatório comparativo. Entidade
+    OcorrenciaAnuncio integrada ao TypeORM e rotas dedicadas no backend.
 
 [ ] SCRUM-26 (#23) - Fotos e vídeos nos anúncios:
     Galeria de fotos e links de vídeos de demonstração na ficha detalhada do anúncio.

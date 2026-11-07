@@ -84,7 +84,7 @@ Capacidade planejada: 45 SP. Planejado: **45 SP**.
 
 ---
 
-### A criar · #31 · Baixa automática de estoque por pedido
+### Concluída · #31 · Baixa automática de estoque por pedido
 
 - **SP:** 8 | **MoSCoW:** Could | **Depende de:** #30, #1, #2
 
@@ -92,20 +92,20 @@ Capacidade planejada: 45 SP. Planejado: **45 SP**.
 
 **Critérios de aceite**
 
-- [ ] Cada pedido importado gera a saída correspondente no estoque do produto vinculado.
-- [ ] A mesma saída não é gerada duas vezes para o mesmo pedido.
-- [ ] A movimentação de estoque indica o pedido de origem.
-- [ ] Quando o saldo é insuficiente, o sistema gera um alerta em vez de registrar saldo negativo.
-- [ ] A baixa pode disparar o alerta de estoque mínimo do #4 quando aplicável.
+- [x] Cada pedido importado gera a saída correspondente no estoque do produto vinculado.
+- [x] A mesma saída não é gerada duas vezes para o mesmo pedido.
+- [x] A movimentação de estoque indica o pedido de origem.
+- [x] Quando o saldo é insuficiente, o sistema gera um alerta em vez de registrar saldo negativo.
+- [x] A baixa pode disparar o alerta de estoque mínimo do #4 quando aplicável.
 
 **Definition of Ready (DoR): não pronto até que...**
 
-- [ ] Stories #30, #1 e #2 concluídas.
-- [ ] Vínculo entre o anúncio/SKU do Mercado Livre e o produto cadastrado no estoque definido.
-- [ ] Momento da baixa definido (ao importar, ao confirmar pagamento ou ao enviar).
-- [ ] Regra para cancelamentos e devoluções definida (estorno automático ou manual).
-- [ ] Pendência do #2 resolvida: o saldo considera só o estoque interno ou também a quantidade anunciada no ML.
-- [ ] Estimativa (8 SP) acordada pelo time.
+- [x] Stories #30, #1 e #2 concluídas.
+- [x] Vínculo entre o anúncio/SKU do Mercado Livre e o produto cadastrado no estoque definido.
+- [x] Momento da baixa definido (ao importar, ao confirmar pagamento ou ao enviar).
+- [x] Regra para cancelamentos e devoluções definida (estorno automático ou manual).
+- [x] Pendência do #2 resolvida: o saldo considera só o estoque interno ou também a quantidade anunciada no ML.
+- [x] Estimativa (8 SP) acordada pelo time.
 
 ---
 

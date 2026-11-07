@@ -3,6 +3,7 @@ import { ConexaoMercadoLivre } from '../entities/ConexaoMercadoLivre';
 import { AnuncioML } from '../entities/AnuncioML';
 import { ProdutoAnuncio } from '../entities/ProdutoAnuncio';
 import { Produto } from '../entities/Produto';
+import { Estoque } from '../entities/Estoque';
 import { Pedido } from '../entities/Pedido';
 import { EventoMercadoLivre } from '../entities/EventoMercadoLivre';
 import { OcorrenciaAnuncio } from '../entities/OcorrenciaAnuncio';
@@ -29,6 +30,10 @@ export class MercadoLivreService {
 
   private get produtoRepo() {
     return AppDataSource.getRepository(Produto);
+  }
+
+  private get estoqueRepo() {
+    return AppDataSource.getRepository(Estoque);
   }
 
   private get pedidoRepo() {
@@ -824,6 +829,8 @@ export class MercadoLivreService {
     let pedidosImportados = 0;
     let pedidosAtualizados = 0;
     let totalProcessados = 0;
+    const alertasSaldoInsuficiente: any[] = [];
+    const alertasEstoqueMinimo: any[] = [];
 
     try {
       let ordersList: any[] = [];
@@ -961,6 +968,35 @@ export class MercadoLivreService {
         }
 
         if (itensParaImportar.length > 0) {
+          // Critério 4 da US #31: Validação prévia de saldo para evitar saldo negativo
+          let saldoInsuficiente = false;
+          for (const itemDesejado of itensParaImportar) {
+            const prod = await this.produtoRepo.findOne({
+              where: { id_produto: itemDesejado.id_produto },
+              relations: ['estoque'],
+            });
+            const saldoDisponivel = prod?.estoque?.quantidade_atual ?? 0;
+            if (saldoDisponivel < itemDesejado.quantidade) {
+              saldoInsuficiente = true;
+              alertasSaldoInsuficiente.push({
+                codigo_pedido: codigoPedido,
+                id_produto: itemDesejado.id_produto,
+                produto_sku: prod?.sku || `PROD-${itemDesejado.id_produto}`,
+                produto_nome: prod?.nome || 'Produto',
+                saldo_atual: saldoDisponivel,
+                quantidade_solicitada: itemDesejado.quantidade,
+                diferenca: itemDesejado.quantidade - saldoDisponivel,
+                mensagem: `⚠️ ALERTA OPERACIONAL: Saldo insuficiente para expedir "${prod?.sku || itemDesejado.id_produto}". Disponível: ${saldoDisponivel} un., Solicitado: ${itemDesejado.quantidade} un. no pedido [${codigoPedido}].`,
+              });
+              break;
+            }
+          }
+
+          if (saldoInsuficiente) {
+            // Não registra saldo negativo e pula a criação do pedido (gera alerta para o gestor!)
+            continue;
+          }
+
           // Extrai ou calcula prazo de postagem (Critério 1 & 4)
           let prazoDespacho: Date;
           if (orderData.prazo_despacho) {
@@ -975,6 +1011,7 @@ export class MercadoLivreService {
 
           const compradorNome = orderData.buyer?.nickname || 'Cliente Mercado Livre';
 
+          // Executa a baixa transacional e registro da movimentação indicando o pedido de origem (Critérios 1 & 3 da #31)
           await this.pedidoService.criarPedido(
             {
               codigo_pedido: codigoPedido,
@@ -988,6 +1025,27 @@ export class MercadoLivreService {
           );
 
           pedidosImportados++;
+
+          // Critério 5 da US #31: Verifica se a baixa disparou alerta de estoque mínimo (#4)
+          for (const itemBaixado of itensParaImportar) {
+            const estApos = await this.estoqueRepo.findOne({
+              where: { id_produto: itemBaixado.id_produto },
+              relations: ['produto'],
+            });
+            if (estApos && estApos.quantidade_atual <= estApos.estoque_minimo) {
+              alertasEstoqueMinimo.push({
+                id_produto: estApos.id_produto,
+                sku: estApos.produto?.sku,
+                nome: estApos.produto?.nome,
+                quantidade_atual: estApos.quantidade_atual,
+                estoque_minimo: estApos.estoque_minimo,
+                criticidade: estApos.quantidade_atual === 0 ? 'ruptura' : 'baixo',
+                mensagem: estApos.quantidade_atual === 0
+                  ? `RUPTURA TOTAL: ${estApos.produto?.sku} atingiu 0 unidades após baixa do pedido ${codigoPedido}.`
+                  : `Estoque Baixo: ${estApos.produto?.sku} atingiu ${estApos.quantidade_atual} un. (mínimo: ${estApos.estoque_minimo}).`,
+              });
+            }
+          }
         }
       }
 
@@ -997,10 +1055,12 @@ export class MercadoLivreService {
 
       return {
         sucesso: true,
-        mensagem: `Sincronização de pedidos concluída com sucesso. ${pedidosImportados} novo(s) pedido(s) importado(s) e ${pedidosAtualizados} atualizado(s).`,
+        mensagem: `Sincronização de pedidos concluída com sucesso. ${pedidosImportados} novo(s) pedido(s) importado(s) com baixa de estoque, ${alertasSaldoInsuficiente.length} alerta(s) de saldo insuficiente e ${alertasEstoqueMinimo.length} alerta(s) de estoque mínimo.`,
         total_processados: totalProcessados,
         pedidos_importados: pedidosImportados,
         pedidos_atualizados: pedidosAtualizados,
+        alertas_saldo_insuficiente: alertasSaldoInsuficiente,
+        alertas_estoque_minimo: alertasEstoqueMinimo,
         ultima_sincronizacao: MercadoLivreService.ultimaSincronizacaoPedidosSucesso,
         ultima_falha: null,
       };

@@ -39,3 +39,4 @@ export class AddColunasPrazosEDevolucoesPedidos1700000000004 implements Migratio
     }
   }
 }
+

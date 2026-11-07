@@ -15,3 +15,4 @@ export class AddDadosAnterioresOcorrencia1700000000003 implements MigrationInter
     }
   }
 }
+

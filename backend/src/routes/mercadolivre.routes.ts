@@ -21,6 +21,8 @@ router.post('/anuncios/consultar', authMiddleware, controller.consultarAnunciosS
 router.get('/anuncios/sincronizar-status', authMiddleware, controller.obterStatusSincronizacao);
 router.post('/anuncios/sincronizar-status', authMiddleware, controller.sincronizarStatusAnuncios);
 router.post('/anuncios/vincular', authMiddleware, controller.vincularProduto);
+router.get('/pedidos/sincronizacao-status', authMiddleware, controller.obterStatusSincronizacaoPedidos);
+router.post('/pedidos/sincronizar', authMiddleware, controller.sincronizarPedidos);
 router.post('/sincronizar', authMiddleware, controller.sincronizar);
 
 export default router;

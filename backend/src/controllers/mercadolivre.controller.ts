@@ -201,5 +201,35 @@ export class MercadoLivreController {
       return res.status(500).json({ sucesso: false, mensagem: error.message });
     }
   }
+
+  /**
+   * Sincroniza pedidos do Mercado Livre (#30)
+   */
+  async sincronizarPedidos(req: Request, res: Response) {
+    try {
+      const id_usuario = req.usuario?.id_usuario || 1;
+      const resultado = await mlService.sincronizarPedidosML(id_usuario, req.body || {});
+      return res.json(resultado);
+    } catch (error: any) {
+      const status = error.message?.includes('Rate Limit') ? 429 : 400;
+      return res.status(status).json({
+        sucesso: false,
+        mensagem: error.message,
+        ...mlService.obterStatusSincronizacaoPedidos(),
+      });
+    }
+  }
+
+  /**
+   * Obtém metadados de sincronização de pedidos (última sincronização com sucesso e última falha)
+   */
+  async obterStatusSincronizacaoPedidos(_req: Request, res: Response) {
+    try {
+      const status = mlService.obterStatusSincronizacaoPedidos();
+      return res.json({ sucesso: true, ...status });
+    } catch (error: any) {
+      return res.status(500).json({ sucesso: false, mensagem: error.message });
+    }
+  }
 }
 

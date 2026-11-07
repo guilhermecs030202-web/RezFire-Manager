@@ -28,7 +28,15 @@ export class MLReconciliationCron {
         const resStatus = await mlService.sincronizarStatusAnuncios(gestor.id_usuario);
         console.log(`✓ [Cron Sincronização Status ML] ${resStatus.mensagem}`);
       } catch (syncErr: any) {
-        console.warn(`⚠️ [Cron Sincronização Status ML] Aviso na sincronização periódica: ${syncErr.message}`);
+        console.warn(`⚠️ [Cron Sincronização Status ML] Aviso na sincronização de anúncios: ${syncErr.message}`);
+      }
+
+      // Executa sincronização periódica de pedidos do Mercado Livre (#30)
+      try {
+        const resPedidos = await mlService.sincronizarPedidosML(gestor.id_usuario);
+        console.log(`✓ [Cron Sincronização Pedidos ML] ${resPedidos.mensagem}`);
+      } catch (pedErr: any) {
+        console.warn(`⚠️ [Cron Sincronização Pedidos ML] Aviso na sincronização de pedidos: ${pedErr.message}`);
       }
     } catch (err) {
       console.error('❌ [Cron Reconciliação ML] Falha na reconciliação periódica:', err);

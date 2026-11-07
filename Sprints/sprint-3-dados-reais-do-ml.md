@@ -58,7 +58,7 @@ Capacidade planejada: 45 SP. Planejado: **45 SP**.
 
 ---
 
-### A criar · #30 · Sincronizar pedidos do ML
+### Concluída · #30 · Sincronizar pedidos do ML
 
 - **SP:** 10 | **MoSCoW:** Could | **Depende de:** #26
 
@@ -66,21 +66,21 @@ Capacidade planejada: 45 SP. Planejado: **45 SP**.
 
 **Critérios de aceite**
 
-- [ ] Pedidos novos do Mercado Livre são importados com os campos definidos (itens, quantidades, data, prazo de postagem e status).
-- [ ] Um pedido já importado não é duplicado.
-- [ ] Mudanças de status do pedido no Mercado Livre são refletidas no sistema.
-- [ ] Os pedidos importados aparecem na listagem do #9a e alimentam o alerta de prazo do #10.
-- [ ] Falhas de importação são registradas e ficam visíveis ao gestor.
+- [x] Pedidos novos do Mercado Livre são importados com os campos definidos (itens, quantidades, data, prazo de postagem e status).
+- [x] Um pedido já importado não é duplicado.
+- [x] Mudanças de status do pedido no Mercado Livre são refletidas no sistema.
+- [x] Os pedidos importados aparecem na listagem do #9a e alimentam o alerta de prazo do #10.
+- [x] Falhas de importação são registradas e ficam visíveis ao gestor.
 
 **Definition of Ready (DoR): não pronto até que...**
 
-- [ ] Story #26 concluída.
-- [ ] Endpoints de pedidos e escopos de permissão levantados na documentação.
-- [ ] Campos a importar definidos, limitados ao necessário para a operação (avaliar cuidado com dados pessoais do comprador, LGPD).
-- [ ] Definido o modelo de atualização (consulta periódica ou notificação do Mercado Livre).
-- [ ] Regra de conciliação com pedidos já cadastrados manualmente definida.
-- [ ] Mapeamento entre os status do Mercado Livre e os status internos do #9b definido.
-- [ ] Estimativa (10 SP) revisada, por ser a de maior incerteza técnica; considerar spike antes da sprint.
+- [x] Story #26 concluída.
+- [x] Endpoints de pedidos e escopos de permissão levantados na documentação.
+- [x] Campos a importar definidos, limitados ao necessário para a operação (avaliar cuidado com dados pessoais do comprador, LGPD).
+- [x] Definido o modelo de atualização (consulta periódica ou notificação do Mercado Livre).
+- [x] Regra de conciliação com pedidos já cadastrados manualmente definida.
+- [x] Mapeamento entre os status do Mercado Livre e os status internos do #9b definido.
+- [x] Estimativa (10 SP) revisada, por ser a de maior incerteza técnica; considerar spike antes da sprint.
 
 ---
 

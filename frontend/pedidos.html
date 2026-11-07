@@ -255,6 +255,12 @@
             </svg>
             Padrões de Devoluções
           </button>
+          <button class="btn-ghost" id="btn-sync-pedidos-ml" type="button" style="font-size:0.84rem;padding:8px 14px;display:inline-flex;align-items:center;gap:6px;border-color:#3b82f6;color:#1e40af" title="Sincronizar pedidos em tempo real do Mercado Livre (#30)">
+            <svg id="sync-pedidos-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.2" />
+            </svg>
+            <span id="sync-pedidos-label">⚡ Sincronizar ML</span>
+          </button>
           <button class="btn-ghost" id="btn-atualizar" style="font-size:0.84rem;padding:8px 14px;display:inline-flex;align-items:center;gap:6px">
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
               <path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8"/>
@@ -271,6 +277,9 @@
           </button>
         </div>
       </div>
+
+      <!-- Banner de Feedback de Sincronização de Pedidos ML (#30) -->
+      <div id="sync-pedidos-feedback-banner" style="display: none; margin-bottom: 16px;"></div>
 
       <!-- Indicadores Comerciais no Topo ─────────────────────── -->
       <section class="kpi-grid" id="pedidos-kpis"

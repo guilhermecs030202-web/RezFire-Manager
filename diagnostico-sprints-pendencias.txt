@@ -157,9 +157,16 @@ Todas as 10 User Stories (45 Story Points) da Sprint 1 foram implementadas, inte
     da última sincronização com sucesso intacta, e anúncios novos/removidos são tratados com idempotência
     estrita por ml_item_id sem duplicação de registros.
 
-[ ] Sincronização em tempo real de Pedidos ML (#30) na interface:
-    O backend já possui a estrutura da fila de webhook, mas depende de credenciais reais
-    de produção/teste do Mercado Livre (APP_ID e SECRET_KEY) para homologar a captura.
+[X] Sincronizar pedidos do Mercado Livre (#30) [CONCLUÍDO em 07/11/2026]:
+    Implementada rotina completa de importação e sincronização de pedidos do Mercado Livre (agendada
+    periodicamente no MLReconciliationCron e sob demanda via POST /api/ml/pedidos/sincronizar).
+    Pedidos novos são importados com itens físicos/anúncios vinculados, cliente, prazo de despacho e status
+    Confirmado, com baixa imediata de estoque e controle FEFO. Idempotência estrita garantida por codigo_pedido
+    (MLB-{orderId}) evitando duplicações. Mudanças de status no ML (como cancelamentos) são refletidas no
+    sistema acionando estorno automático com movimentação de entrada. Os pedidos aparecem na listagem do #9a
+    e alimentam alertas operacionais de postagem atrasada e postar hoje (#10). Falhas de importação são
+    registradas e visíveis ao gestor com a data do último sucesso preservada. Botão ⚡ Sincronizar ML adicionado
+    na tela de pedidos (pedidos.html).
 
 [ ] Notificações ativas de quedas de anúncio (#32):
     Disparo de notificação externa (e-mail ou push) quando um anúncio pausar repentinamente.

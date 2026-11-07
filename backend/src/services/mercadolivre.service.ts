@@ -3,6 +3,7 @@ import { ConexaoMercadoLivre } from '../entities/ConexaoMercadoLivre';
 import { AnuncioML } from '../entities/AnuncioML';
 import { ProdutoAnuncio } from '../entities/ProdutoAnuncio';
 import { Produto } from '../entities/Produto';
+import { Pedido } from '../entities/Pedido';
 import { EventoMercadoLivre } from '../entities/EventoMercadoLivre';
 import { OcorrenciaAnuncio } from '../entities/OcorrenciaAnuncio';
 import { PedidoService } from './pedido.service';
@@ -11,6 +12,8 @@ import { env } from '../config/env';
 export class MercadoLivreService {
   private static ultimaSincronizacaoSucesso: Date | null = null;
   private static ultimaFalhaSincronizacao: { data: Date; mensagem: string } | null = null;
+  private static ultimaSincronizacaoPedidosSucesso: Date | null = null;
+  private static ultimaFalhaSincronizacaoPedidos: { data: Date; mensagem: string } | null = null;
 
   private get conexaoRepo() {
     return AppDataSource.getRepository(ConexaoMercadoLivre);
@@ -26,6 +29,10 @@ export class MercadoLivreService {
 
   private get produtoRepo() {
     return AppDataSource.getRepository(Produto);
+  }
+
+  private get pedidoRepo() {
+    return AppDataSource.getRepository(Pedido);
   }
 
   private get eventoRepo() {
@@ -266,17 +273,6 @@ export class MercadoLivreService {
     const orderId = resource.split('/').pop();
     if (!orderId) return;
 
-    const codigoPedido = `MLB-${orderId}`;
-
-    // IDEMPOTÊNCIA: Se o pedido já foi importado, encerra sem duplicar baixa de estoque
-    const pedidoExistente = await AppDataSource.getRepository('pedidos').findOne({
-      where: { codigo_pedido: codigoPedido },
-    });
-    if (pedidoExistente) {
-      return; // Já importado e baixado
-    }
-
-    // Busca detalhes do pedido (Mock local inteligente ou chamada à API do ML)
     let orderData: any;
     if (env.ML_CLIENT_ID && env.ML_CLIENT_SECRET) {
       const token = await this.garantirTokenValido(id_usuario);
@@ -286,69 +282,23 @@ export class MercadoLivreService {
       if (!res.ok) throw new Error(`Falha ao consultar pedido no Mercado Livre: ${res.statusText}`);
       orderData = await res.json();
     } else {
-      // Simulação para testes de homologação
       orderData = {
         id: orderId,
         status: 'paid',
         buyer: { nickname: 'COMPRADOR_ML_OFICIAL' },
         order_items: [
           {
-            item: { id: 'MLB-2894012410', title: 'Extintor Pó ABC 4kg' },
+            item: { id: 'MLB-2894012110', title: 'Extintor Pó ABC 4kg' },
             quantity: 1,
-            unit_price: 129.9,
+            unit_price: 188.8,
           },
         ],
       };
     }
 
-    // Apenas pedidos com pagamento aprovado são importados como Confirmado
-    if (orderData.status !== 'paid') {
-      return;
-    }
-
-    // Mapeia os itens do pedido com base nos anúncios cadastrados no sistema
-    const itensParaImportar: { id_produto: number; quantidade: number; preco_unitario: number }[] = [];
-
-    for (const orderItem of orderData.order_items || []) {
-      const mlItemId = orderItem.item.id;
-      const anuncio = await this.anuncioRepo.findOne({
-        where: { ml_item_id: mlItemId },
-        relations: ['produto_anuncios'],
-      });
-
-      if (anuncio && anuncio.produto_anuncios.length > 0) {
-        for (const pa of anuncio.produto_anuncios) {
-          itensParaImportar.push({
-            id_produto: pa.id_produto,
-            quantidade: pa.quantidade_anunciada * orderItem.quantity,
-            preco_unitario: Number(orderItem.unit_price) || 0,
-          });
-        }
-      } else {
-        // Fallback: se não estiver explicitamente mapeado, busca pelo primeiro produto disponível
-        const primeiroProd = await this.produtoRepo.findOne({ where: { ativo: true } });
-        if (primeiroProd) {
-          itensParaImportar.push({
-            id_produto: primeiroProd.id_produto,
-            quantidade: orderItem.quantity,
-            preco_unitario: Number(orderItem.unit_price) || Number(primeiroProd.preco),
-          });
-        }
-      }
-    }
-
-    if (itensParaImportar.length > 0) {
-      await this.pedidoService.criarPedido(
-        {
-          codigo_pedido: codigoPedido,
-          cliente_nome: orderData.buyer?.nickname || 'Cliente Mercado Livre',
-          origem: 'Mercado Livre',
-          itens: itensParaImportar,
-          exibir_na_entrega: true,
-        },
-        id_usuario
-      );
-    }
+    await this.sincronizarPedidosML(id_usuario, {
+      pedidosSimulados: [orderData],
+    });
   }
 
   /**
@@ -833,6 +783,244 @@ export class MercadoLivreService {
     return {
       ultima_sincronizacao_sucesso: MercadoLivreService.ultimaSincronizacaoSucesso,
       ultima_falha: MercadoLivreService.ultimaFalhaSincronizacao,
+    };
+  }
+
+  /**
+   * Sincroniza pedidos do Mercado Livre (#30)
+   * - Importa pedidos novos com itens, quantidades, datas, prazos de postagem e status (#9a / #10)
+   * - Garante idempotência: pedidos já importados não são duplicados
+   * - Reflete mudanças de status (cancelamentos estornam estoque automaticamente)
+   * - Alimenta a listagem do #9a e os alertas de prazo do #10
+   * - Registra falhas com visibilidade ao gestor, preservando a data da última sincronização com sucesso
+   */
+  async sincronizarPedidosML(
+    id_usuario: number,
+    opcoes: {
+      pedidosSimulados?: any[];
+      forcarErro?: string;
+    } = {}
+  ) {
+    const conexao = await this.obterConexao(id_usuario);
+    if (conexao.status !== 'Conectado' && !opcoes.pedidosSimulados) {
+      const err = new Error('Nenhuma conta do Mercado Livre conectada. Conecte sua conta via OAuth 2.0 primeiro.');
+      MercadoLivreService.ultimaFalhaSincronizacaoPedidos = {
+        data: new Date(),
+        mensagem: err.message,
+      };
+      throw err;
+    }
+
+    if (opcoes.forcarErro) {
+      const err = new Error(opcoes.forcarErro);
+      MercadoLivreService.ultimaFalhaSincronizacaoPedidos = {
+        data: new Date(),
+        mensagem: err.message,
+      };
+      throw err;
+    }
+
+    const agora = new Date();
+    let pedidosImportados = 0;
+    let pedidosAtualizados = 0;
+    let totalProcessados = 0;
+
+    try {
+      let ordersList: any[] = [];
+
+      if (env.ML_CLIENT_ID && env.ML_CLIENT_SECRET && conexao.access_token) {
+        const token = await this.garantirTokenValido(id_usuario);
+        const sellerId = conexao.ml_user_id || 'me';
+
+        const searchUrl = `https://api.mercadolibre.com/orders/search?seller=${sellerId}&order.status=paid,cancelled,shipped,delivered&sort=date_desc&limit=50`;
+        const res = await fetch(searchUrl, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+
+        if (res.status === 429) {
+          throw new Error('Limite de requisições da API do Mercado Livre atingido (Rate Limit 429). Tente novamente em instantes.');
+        }
+
+        if (!res.ok) {
+          const erroTexto = await res.text();
+          throw new Error(`Falha na API de pedidos do Mercado Livre (${res.status}): ${erroTexto}`);
+        }
+
+        const data = (await res.json()) as any;
+        ordersList = data.results || [];
+      } else {
+        // Homologação / Simulação controlada
+        if (Array.isArray(opcoes.pedidosSimulados)) {
+          ordersList = opcoes.pedidosSimulados;
+        } else {
+          // Exemplo padrão de homologação caso a lista esteja vazia
+          ordersList = [
+            {
+              id: '20000049281729',
+              status: 'paid',
+              date_created: new Date().toISOString(),
+              buyer: { nickname: 'COMPRADOR_ML_OFICIAL' },
+              order_items: [
+                {
+                  item: { id: 'MLB-2894012110', title: 'Extintor De Incêndio Pó ABC 4kg' },
+                  quantity: 1,
+                  unit_price: 188.8,
+                },
+              ],
+              shipping: {
+                shipping_option: {
+                  estimated_handling_limit: {
+                    date: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
+                  },
+                },
+              },
+            },
+          ];
+        }
+      }
+
+      for (const orderData of ordersList) {
+        totalProcessados++;
+        const orderId = String(orderData.id || orderData.order_id);
+        const codigoPedido = `MLB-${orderId}`;
+
+        // Verifica existência para garantir IDEMPOTÊNCIA (Critério 2)
+        const pedidoExistente = await this.pedidoRepo.findOne({
+          where: { codigo_pedido: codigoPedido },
+          relations: ['itens'],
+        });
+
+        if (pedidoExistente) {
+          // Atualização de status existente no Mercado Livre (Critério 3)
+          if (orderData.status === 'cancelled' && pedidoExistente.status !== 'Cancelado') {
+            await this.pedidoService.atualizarStatus(
+              pedidoExistente.id_pedido,
+              'Cancelado',
+              undefined,
+              id_usuario,
+              {
+                motivo_devolucao: 'Cancelado pelo comprador no Mercado Livre',
+                tipo_ocorrencia: 'Cancelamento',
+              }
+            );
+            pedidosAtualizados++;
+          } else if (
+            (orderData.status === 'shipped' || orderData.status === 'delivered') &&
+            pedidoExistente.status === 'Confirmado'
+          ) {
+            const novoStatusEntrega = orderData.status === 'delivered' ? 'Entregue' : 'Despachado';
+            const novoStatusComercial = orderData.status === 'delivered' ? 'Concluido' : 'Confirmado';
+            await this.pedidoService.atualizarStatus(
+              pedidoExistente.id_pedido,
+              novoStatusComercial,
+              novoStatusEntrega,
+              id_usuario
+            );
+            pedidosAtualizados++;
+          }
+          continue; // Já importado, encerra sem duplicar baixa nem pedido!
+        }
+
+        // Apenas pedidos com pagamento aprovado geram novo pedido no sistema
+        if (orderData.status !== 'paid' && orderData.status !== 'confirmed') {
+          continue;
+        }
+
+        // Mapeia itens do pedido
+        const itensParaImportar: { id_produto: number; quantidade: number; preco_unitario: number }[] = [];
+
+        for (const orderItem of orderData.order_items || []) {
+          const mlItemId = orderItem.item?.id || orderItem.ml_item_id;
+          const anuncio = await this.anuncioRepo.findOne({
+            where: { ml_item_id: mlItemId },
+            relations: ['produto_anuncios'],
+          });
+
+          if (anuncio && anuncio.produto_anuncios && anuncio.produto_anuncios.length > 0) {
+            for (const pa of anuncio.produto_anuncios) {
+              itensParaImportar.push({
+                id_produto: pa.id_produto,
+                quantidade: (pa.quantidade_anunciada || 1) * (orderItem.quantity || 1),
+                preco_unitario: Number(orderItem.unit_price) || 0,
+              });
+            }
+          } else {
+            // Se o anúncio não estiver vinculado ou for produto direto
+            const prodAlvo = orderItem.id_produto
+              ? await this.produtoRepo.findOne({ where: { id_produto: Number(orderItem.id_produto) } })
+              : await this.produtoRepo.findOne({ where: { ativo: true } });
+
+            if (prodAlvo) {
+              itensParaImportar.push({
+                id_produto: prodAlvo.id_produto,
+                quantidade: orderItem.quantity || 1,
+                preco_unitario: Number(orderItem.unit_price) || Number(prodAlvo.preco),
+              });
+            }
+          }
+        }
+
+        if (itensParaImportar.length > 0) {
+          // Extrai ou calcula prazo de postagem (Critério 1 & 4)
+          let prazoDespacho: Date;
+          if (orderData.prazo_despacho) {
+            prazoDespacho = new Date(orderData.prazo_despacho);
+          } else if (orderData.shipping?.shipping_option?.estimated_handling_limit?.date) {
+            prazoDespacho = new Date(orderData.shipping.shipping_option.estimated_handling_limit.date);
+          } else {
+            // Default 24h a partir da data do pedido
+            const dataPed = orderData.date_created ? new Date(orderData.date_created) : agora;
+            prazoDespacho = new Date(dataPed.getTime() + 24 * 60 * 60 * 1000);
+          }
+
+          const compradorNome = orderData.buyer?.nickname || 'Cliente Mercado Livre';
+
+          await this.pedidoService.criarPedido(
+            {
+              codigo_pedido: codigoPedido,
+              cliente_nome: compradorNome,
+              origem: 'Mercado Livre',
+              itens: itensParaImportar,
+              prazo_despacho: prazoDespacho,
+              exibir_na_entrega: true,
+            },
+            id_usuario
+          );
+
+          pedidosImportados++;
+        }
+      }
+
+      // Sucesso na sincronização
+      MercadoLivreService.ultimaSincronizacaoPedidosSucesso = agora;
+      MercadoLivreService.ultimaFalhaSincronizacaoPedidos = null;
+
+      return {
+        sucesso: true,
+        mensagem: `Sincronização de pedidos concluída com sucesso. ${pedidosImportados} novo(s) pedido(s) importado(s) e ${pedidosAtualizados} atualizado(s).`,
+        total_processados: totalProcessados,
+        pedidos_importados: pedidosImportados,
+        pedidos_atualizados: pedidosAtualizados,
+        ultima_sincronizacao: MercadoLivreService.ultimaSincronizacaoPedidosSucesso,
+        ultima_falha: null,
+      };
+    } catch (err: any) {
+      // Registra a falha preservando a data da última sincronização bem-sucedida (Critério 5)
+      MercadoLivreService.ultimaFalhaSincronizacaoPedidos = {
+        data: new Date(),
+        mensagem: err.message || 'Erro ao sincronizar pedidos com o Mercado Livre.',
+      };
+      throw err;
+    }
+  }
+
+  /**
+   * Retorna os metadados de sincronização de pedidos
+   */
+  obterStatusSincronizacaoPedidos() {
+    return {
+      ultima_sincronizacao_sucesso: MercadoLivreService.ultimaSincronizacaoPedidosSucesso,
+      ultima_falha: MercadoLivreService.ultimaFalhaSincronizacaoPedidos,
     };
   }
 }

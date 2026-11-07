@@ -1312,6 +1312,63 @@ function bindEvents() {
     showToast("Dados de pedidos atualizados.", "info");
   });
 
+  // Sincronizar Pedidos do Mercado Livre (#30)
+  document.getElementById("btn-sync-pedidos-ml")?.addEventListener("click", async () => {
+    const btn = document.getElementById("btn-sync-pedidos-ml");
+    const icon = document.getElementById("sync-pedidos-icon");
+    const label = document.getElementById("sync-pedidos-label");
+    if (btn) btn.disabled = true;
+    if (icon) icon.classList.add("animate-spin");
+    if (label) label.textContent = "Sincronizando...";
+
+    try {
+      let resultado = null;
+      if (window.RezFireAPI && window.RezFireAPI.mercadolivre) {
+        resultado = await window.RezFireAPI.mercadolivre.sincronizarPedidos();
+      }
+
+      // Recarrega listagem atualizada
+      if (window.RezFireAPI) {
+        const res = await window.RezFireAPI.pedidos.listar();
+        if (res && res.sucesso && Array.isArray(res.pedidos)) {
+          state.pedidos = res.pedidos.map(normalizarPedido);
+        }
+      }
+
+      renderKPIs();
+      renderTable();
+
+      const msg = resultado?.mensagem || "Pedidos sincronizados com o Mercado Livre com sucesso!";
+      showSyncPedidosFeedbackBanner("sucesso", msg);
+      showToast("Pedidos sincronizados com o Mercado Livre!", "sucesso");
+    } catch (err) {
+      console.error("[Sincronização Pedidos ML] Erro:", err);
+      showSyncPedidosFeedbackBanner("erro", `Falha na sincronização de pedidos: ${err.message || err}`);
+      showToast("Falha na sincronização com Mercado Livre.", "erro");
+    } finally {
+      if (btn) btn.disabled = false;
+      if (icon) icon.classList.remove("animate-spin");
+      if (label) label.textContent = "⚡ Sincronizar ML";
+    }
+  });
+
+  function showSyncPedidosFeedbackBanner(tipo, msg) {
+    const banner = document.getElementById("sync-pedidos-feedback-banner");
+    if (!banner) return;
+    const isSucesso = tipo === "sucesso";
+    banner.style.display = "flex";
+    banner.className = isSucesso
+      ? "p-3 bg-emerald-50 border border-emerald-300 text-emerald-800 rounded-lg text-xs flex justify-between items-center"
+      : "p-3 bg-red-50 border border-red-300 text-red-800 rounded-lg text-xs flex justify-between items-center";
+    banner.innerHTML = `
+      <div>${isSucesso ? "✅" : "⚠️"} ${escapeHtml(msg)}</div>
+      <button type="button" class="text-stone-500 font-bold ml-3" onclick="this.parentElement.style.display='none'">✕</button>
+    `;
+    setTimeout(() => {
+      if (banner) banner.style.display = "none";
+    }, 6000);
+  }
+
   // Abertura de Modal Novo Pedido
   document.getElementById("btn-novo-pedido")?.addEventListener("click", () => openFormModal(null));
   document.getElementById("btn-fechar-modal-pedido")?.addEventListener("click", () => closeFormModal(false));

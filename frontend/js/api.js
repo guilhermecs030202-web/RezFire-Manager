@@ -222,5 +222,25 @@ window.RezFireAPI = {
       return window.RezFireAPI.request('/ml/sincronizar', { method: 'POST' });
     },
   },
+
+  // Módulo de Inspeção de Qualidade (SCRUM-11 / #6)
+  inspecoes: {
+    async listar(params = {}) {
+      const query = new URLSearchParams(params).toString();
+      return window.RezFireAPI.request(`/inspecoes${query ? '?' + query : ''}`);
+    },
+    async buscarPorId(id) {
+      return window.RezFireAPI.request(`/inspecoes/${id}`);
+    },
+    async obterResumo() {
+      return window.RezFireAPI.request('/inspecoes/resumo');
+    },
+    async registrar(dados) {
+      return window.RezFireAPI.request('/inspecoes', {
+        method: 'POST',
+        body: JSON.stringify(dados),
+      });
+    },
+  },
 };
 

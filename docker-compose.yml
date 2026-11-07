@@ -1,0 +1,91 @@
+services:
+  # ============================================================================
+  # 1. Banco de Dados MySQL 8.0
+  # ============================================================================
+  mysql:
+    image: mysql:8.0
+    container_name: rezfire-mysql
+    command: >
+      --default-authentication-plugin=mysql_native_password
+      --character-set-server=utf8mb4
+      --collation-server=utf8mb4_unicode_ci
+    environment:
+      MYSQL_ROOT_PASSWORD: ${DB_PASSWORD:-root}
+      MYSQL_DATABASE: ${DB_NAME:-RezFireDB}
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h localhost -u root -p$$MYSQL_ROOT_PASSWORD || exit 1"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+    networks:
+      - rezfire-network
+    restart: unless-stopped
+
+  # ============================================================================
+  # 2. Aplicação RezFire Manager (Backend API + Frontend Estático)
+  # ============================================================================
+  backend:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    container_name: rezfire-backend
+    depends_on:
+      mysql:
+        condition: service_healthy
+    environment:
+      PORT: ${PORT:-3001}
+      DB_HOST: mysql
+      DB_PORT: 3306
+      DB_USER: ${DB_USER:-root}
+      DB_PASSWORD: ${DB_PASSWORD:-root}
+      DB_NAME: ${DB_NAME:-RezFireDB}
+      JWT_SECRET: ${JWT_SECRET:-rezfire_super_secret_jwt_key_change_in_production}
+      COOKIE_SECRET: ${COOKIE_SECRET:-rezfire_cookie_secret_key}
+      UPLOAD_DIR: /app/backend/uploads/certificados
+      ML_CLIENT_ID: ${ML_CLIENT_ID:-}
+      ML_CLIENT_SECRET: ${ML_CLIENT_SECRET:-}
+      ML_REDIRECT_URI: ${ML_REDIRECT_URI:-http://localhost:3001/api/ml/callback}
+    ports:
+      - "3001:3001"
+    volumes:
+      - uploads_data:/app/backend/uploads
+    networks:
+      - rezfire-network
+    restart: unless-stopped
+
+  # ============================================================================
+  # 3. Gerenciador Web do Banco de Dados (phpMyAdmin - Opcional para devs)
+  # ============================================================================
+  phpmyadmin:
+    image: phpmyadmin/phpmyadmin:latest
+    container_name: rezfire-phpmyadmin
+    depends_on:
+      mysql:
+        condition: service_healthy
+    environment:
+      PMA_HOST: mysql
+      PMA_PORT: 3306
+      PMA_USER: ${DB_USER:-root}
+      PMA_PASSWORD: ${DB_PASSWORD:-root}
+      UPLOAD_LIMIT: 64M
+    ports:
+      - "8080:80"
+    networks:
+      - rezfire-network
+    restart: unless-stopped
+
+networks:
+  rezfire-network:
+    driver: bridge
+
+volumes:
+  mysql_data:
+    driver: local
+  uploads_data:
+    driver: local
+

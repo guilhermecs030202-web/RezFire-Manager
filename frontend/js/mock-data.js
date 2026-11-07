@@ -11,6 +11,7 @@ const STORAGE_KEY = "rezfire.produtos";
 const ORDERS_KEY = "rezfire.pedidos";
 const MOVEMENTS_KEY = "rezfire.movimentacoes";
 const LOTES_KEY = "rezfire.lotes";
+const INSPECOES_KEY = "rezfire.inspecoes";
 const FINANCIAL_SETTINGS_KEY = "rezfire.config.financeiro";
 const MOCK_VERSION_KEY = "rezfire.mock_version";
 const CURRENT_MOCK_VERSION = "rezfire_v2_2026";
@@ -2793,6 +2794,7 @@ function resetarDadosPadrao() {
     localStorage.removeItem(ORDERS_KEY);
     localStorage.removeItem(MOVEMENTS_KEY);
     localStorage.removeItem(LOTES_KEY);
+    localStorage.removeItem(INSPECOES_KEY);
     localStorage.removeItem(FINANCIAL_SETTINGS_KEY);
     localStorage.removeItem("rezfire.anuncios");
     localStorage.removeItem("rezfire.anuncios.sync");
@@ -3717,6 +3719,133 @@ function saveLotes(lotes) {
   }
 }
 
+// ─── Inspeções de Qualidade na Entrada (SCRUM-11 / #6) ───────────────────────
+const DEFAULT_INSPECOES = [
+  {
+    id_inspecao: 1,
+    id_produto: 1,
+    sku: "EXT-PQS-4KG",
+    nome_produto: "Extintor Pó Químico ABC 4kg",
+    id_lote: "LT-2024/01",
+    numero_lote: "LT-2024/01",
+    tipo_inspecao: "Entrada",
+    checklist: {
+      avarias_casco: true,
+      sem_corrosao: true,
+      rotulo_legivel: true,
+      manometro_pressao: true,
+      lacre_acessorios: true,
+    },
+    resultado: "Aprovado",
+    quantidade_total: 45,
+    quantidade_aprovada: 45,
+    quantidade_reprovada: 0,
+    motivo_reprovacao: null,
+    destino_reprovados: null,
+    observacoes: "Lote 100% conforme na chegada. Todos manômetros na faixa verde.",
+    responsavel: "Gestor RezFire",
+    data_inspecao: subDaysDate(120),
+  },
+  {
+    id_inspecao: 2,
+    id_produto: 2,
+    sku: "EXT-H2O-10L",
+    nome_produto: "Extintor Água Pressurizada 10L",
+    id_lote: "LT-2023/12",
+    numero_lote: "LT-2023/12",
+    tipo_inspecao: "Entrada",
+    checklist: {
+      avarias_casco: true,
+      sem_corrosao: true,
+      rotulo_legivel: true,
+      manometro_pressao: true,
+      lacre_acessorios: true,
+    },
+    resultado: "Aprovado",
+    quantidade_total: 30,
+    quantidade_aprovada: 30,
+    quantidade_reprovada: 0,
+    motivo_reprovacao: null,
+    destino_reprovados: null,
+    observacoes: "Conferência física sem irregularidades.",
+    responsavel: "Gestor RezFire",
+    data_inspecao: subDaysDate(140),
+  },
+  {
+    id_inspecao: 3,
+    id_produto: 3,
+    sku: "EXT-CO2-6KG",
+    nome_produto: "Extintor Dióxido de Carbono CO2 6kg",
+    id_lote: "LT-2024/03",
+    numero_lote: "LT-2024/03",
+    tipo_inspecao: "Entrada",
+    checklist: {
+      avarias_casco: true,
+      sem_corrosao: true,
+      rotulo_legivel: true,
+      manometro_pressao: true,
+      lacre_acessorios: true,
+    },
+    resultado: "Aprovado",
+    quantidade_total: 22,
+    quantidade_aprovada: 22,
+    quantidade_reprovada: 0,
+    motivo_reprovacao: null,
+    destino_reprovados: null,
+    observacoes: "Lacre Inmetro inviolado e bocal difusor íntegro.",
+    responsavel: "Gestor RezFire",
+    data_inspecao: subDaysDate(80),
+  },
+  {
+    id_inspecao: 4,
+    id_produto: 1,
+    sku: "EXT-PQS-4KG",
+    nome_produto: "Extintor Pó Químico ABC 4kg",
+    id_lote: "LT-2024/02-BLOQ",
+    numero_lote: "LT-2024/02",
+    tipo_inspecao: "Entrada",
+    checklist: {
+      avarias_casco: true,
+      sem_corrosao: true,
+      rotulo_legivel: true,
+      manometro_pressao: false,
+      lacre_acessorios: true,
+    },
+    resultado: "Aprovado Parcial",
+    quantidade_total: 22,
+    quantidade_aprovada: 20,
+    quantidade_reprovada: 2,
+    motivo_reprovacao: "Manômetro com perda de pressão / ponteiro fora da faixa verde operacional.",
+    destino_reprovados: "Devolucao Fornecedor",
+    observacoes: "2 cilindros com despressurização retidos para devolução. 20 unidades conformes liberadas para o estoque.",
+    responsavel: "Gestor RezFire",
+    data_inspecao: subDaysDate(30),
+  },
+];
+
+function loadInspecoes() {
+  verificarVersaoMocks();
+  try {
+    const raw = localStorage.getItem(INSPECOES_KEY);
+    if (!raw) {
+      localStorage.setItem(INSPECOES_KEY, JSON.stringify(DEFAULT_INSPECOES));
+      return DEFAULT_INSPECOES;
+    }
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) && parsed.length > 0 ? parsed : DEFAULT_INSPECOES;
+  } catch {
+    return DEFAULT_INSPECOES;
+  }
+}
+
+function saveInspecoes(inspecoes) {
+  try {
+    localStorage.setItem(INSPECOES_KEY, JSON.stringify(inspecoes));
+  } catch (err) {
+    console.error("Erro ao salvar inspeções:", err);
+  }
+}
+
 // ─── Exportação Global ───────────────────────────────────────────────────────
 window.RezFireData = {
   loadProducts,
@@ -3741,6 +3870,8 @@ window.RezFireData = {
   saveFinancialSettings,
   loadLotes,
   saveLotes,
+  loadInspecoes,
+  saveInspecoes,
   computeLoteStatus,
   resetarDadosPadrao,
 };

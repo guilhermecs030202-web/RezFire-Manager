@@ -1,0 +1,39 @@
+# Git e IDEs
+.git
+.gitignore
+.vscode
+.idea
+.gemini
+.system_generated
+
+# Dependências
+**/node_modules
+**/.pnpm-store
+package-lock.json
+
+# Builds locais
+backend/dist
+backend/build
+*.tsbuildinfo
+
+# Variáveis locais e segredos
+**/.env
+**/.env.local
+**/.env.*.local
+*.pem
+*.key
+
+# Uploads locais de teste
+uploads
+backend/uploads
+Amostras
+_verify
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+Thumbs.db
+.DS_Store
+

@@ -10,4 +10,5 @@ export { AnuncioML } from './AnuncioML';
 export { ProdutoAnuncio } from './ProdutoAnuncio';
 export { DocumentoCertificacao } from './DocumentoCertificacao';
 export { EventoMercadoLivre } from './EventoMercadoLivre';
+export { InspecaoQualidade, ChecklistQualidadeEntrada } from './InspecaoQualidade';
 

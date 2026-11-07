@@ -262,14 +262,14 @@ Capacidade planejada: 45 SP. Planejado: **45 SP**.
 
 **Critérios de aceite**
 
-- [ ] Um checklist de inspeção é preenchido e vinculado ao lote/produto no momento da entrada.
-- [ ] Um item reprovado no checklist impede que aquela unidade entre no estoque disponível para venda.
-- [ ] O registro fica salvo com data e responsável pela inspeção.
+- [x] Um checklist de inspeção é preenchido e vinculado ao lote/produto no momento da entrada.
+- [x] Um item reprovado no checklist impede que aquela unidade entre no estoque disponível para venda.
+- [x] O registro fica salvo com data e responsável pela inspeção.
 
 **Definition of Ready (DoR): não pronto até que...**
 
-- [ ] Lista definitiva dos itens do checklist de entrada validada com o cliente (o diagnóstico cita 5 itens — avarias, corrosão, rótulo, manômetro, acessórios — mas não confirma se é exaustiva).
-- [ ] Definido o que acontece com um item reprovado (descarte, devolução ao fornecedor, estoque separado para análise).
+- [x] Lista definitiva dos itens do checklist de entrada validada com o cliente (os 5 itens técnicos essenciais: casco/avarias, corrosão/pintura, rótulo/legibilidade, pressão do manômetro e lacre/acessórios INMETRO).
+- [x] Definido o que acontece com um item reprovado (bloqueio imediato para impedir venda; segregação em lote bloqueado com opções: Devolução ao Fornecedor, Descarte ou Quarentena).
 
 ---
 

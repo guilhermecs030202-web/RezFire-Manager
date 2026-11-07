@@ -39,12 +39,12 @@ Arquivos analisados em Sprints/:
 
 2. O QUE FALTA PARA FECHAR A SPRINT 1 (BASE OPERACIONAL)
 --------------------------------------------------------------------------------
-[ ] SCRUM-11 (#6) - Inspeção de qualidade na entrada:
-    Na entrada de extintores por Nota Fiscal, falta um checklist operacional de
-    inspeção física (verificação de avarias no casco, corrosão, integridade do
-    rótulo, indicador de pressão do manômetro e lacre). Itens reprovados não
-    devem entrar no estoque disponível para venda.
-    Complexidade: Média.
+[X] SCRUM-11 (#6) - Inspeção de qualidade na entrada (CONCLUÍDO em 07/11/2026):
+    Checklist operacional de 5 itens obrigatórios (casco, corrosão, rótulo,
+    manômetro e lacre) integrado ao modal de Entrada por Nota Fiscal. Entidade
+    e tabela MySQL inspecoes_qualidade criadas com auditoria por lote e data.
+    Regra de Ouro implementada: unidades reprovadas são bloqueadas e NÃO entram
+    no estoque vendível. Modais de Laudo e Histórico de Inspeções disponíveis.
 
 [ ] SCRUM-9 (#3) - Baixa rápida de estoque:
     Na tela de Estoque (estoque.html), conectar o modal de ajuste rápido diretamente

@@ -23,7 +23,7 @@ export class MovimentacaoController {
 
   async registrar(req: Request, res: Response) {
     try {
-      const { id_produto, tipo, quantidade, motivo, id_lote, novo_lote } = req.body;
+      const { id_produto, tipo, quantidade, motivo, id_lote, novo_lote, inspecao } = req.body;
       const id_usuario = req.usuario?.id_usuario;
 
       if (!id_produto || !tipo || !quantidade || !motivo) {
@@ -41,6 +41,7 @@ export class MovimentacaoController {
         motivo: String(motivo),
         id_lote: id_lote ? Number(id_lote) : undefined,
         novo_lote,
+        inspecao,
       });
 
       return res.status(201).json(resultado);

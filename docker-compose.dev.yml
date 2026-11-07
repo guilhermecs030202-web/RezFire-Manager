@@ -1,0 +1,12 @@
+# Compose de Desenvolvimento com Hot-Reload (Opcional)
+# Uso: docker compose -f docker-compose.yml -f docker-compose.dev.yml up
+services:
+  backend:
+    command: npm run dev
+    volumes:
+      - ./backend/src:/app/backend/src
+      - ./frontend:/app/frontend
+      - /app/backend/node_modules
+    environment:
+      NODE_ENV: development
+

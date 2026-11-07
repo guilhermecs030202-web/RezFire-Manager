@@ -48,6 +48,10 @@
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
             Painel de Vendas
           </a>
+          <button class="btn-ghost" id="btn-ver-inspecoes" type="button" style="padding: 10px 14px; font-size: 0.88rem; color: #0284c7; border-color: #bae6fd; display: inline-flex; align-items: center; gap: 6px;">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/></svg>
+            Inspeções de Qualidade
+          </button>
           <button class="btn-ghost" id="btn-nova-saida" type="button" style="padding: 10px 14px; font-size: 0.88rem; color: var(--down); border-color: #fca5a5; display: inline-flex; align-items: center; gap: 6px;">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="5" y1="12" x2="19" y2="12"/></svg>
             - Saída Avulsa (Perda / Avaria)
@@ -229,6 +233,59 @@
         <button class="icon-btn" id="btn-fechar-modal-venda" type="button" aria-label="Fechar">✕</button>
       </div>
       <div id="modal-venda-conteudo"></div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════════ -->
+  <!-- MODAL 4: PAINEL DE INSPEÇÕES DE QUALIDADE DE ENTRADA        -->
+  <!-- ═══════════════════════════════════════════════════════════ -->
+  <div class="modal-backdrop" id="modal-inspecoes-lista" role="dialog" aria-modal="true" aria-labelledby="modal-inspecoes-title">
+    <div class="modal" style="width: min(880px, 96vw); max-height: 90vh; overflow-y: auto;">
+      <div class="modal-header">
+        <div>
+          <h2 id="modal-inspecoes-title" style="display:flex;align-items:center;gap:8px">
+            <span>🛡️ Inspeções de Qualidade na Entrada</span>
+          </h2>
+          <p style="font-size:0.82rem;color:var(--muted);margin-top:2px">
+            Auditoria de conformidade física realizada nos extintores e lotes recebidos por Nota Fiscal.
+          </p>
+        </div>
+        <button class="icon-btn" id="btn-fechar-inspecoes-lista" type="button" aria-label="Fechar">✕</button>
+      </div>
+
+      <!-- Resumo Rápido de Conformidade -->
+      <div id="inspecoes-kpis-wrap" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;margin-bottom:16px"></div>
+
+      <!-- Tabela de Histórico de Inspeções -->
+      <div class="table-wrap">
+        <table class="products-table">
+          <thead>
+            <tr>
+              <th>DATA</th>
+              <th>PRODUTO / ITEM</th>
+              <th>LOTE</th>
+              <th>CHECKLIST</th>
+              <th>RESULTADO</th>
+              <th>UNIDADES</th>
+              <th>RESPONSÁVEL</th>
+            </tr>
+          </thead>
+          <tbody id="inspecoes-table-body"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════════ -->
+  <!-- MODAL 5: DETALHES DE UMA INSPEÇÃO ESPECÍFICA (CHECKLIST)   -->
+  <!-- ═══════════════════════════════════════════════════════════ -->
+  <div class="modal-backdrop" id="modal-inspecao-detalhe" role="dialog" aria-modal="true" aria-labelledby="modal-detalhe-title">
+    <div class="modal" style="width: min(640px, 94vw);">
+      <div class="modal-header">
+        <h2 id="modal-detalhe-title">Laudo de Inspeção Física</h2>
+        <button class="icon-btn" id="btn-fechar-inspecao-detalhe" type="button" aria-label="Fechar">✕</button>
+      </div>
+      <div id="inspecao-detalhe-conteudo" style="padding-top:10px"></div>
     </div>
   </div>
 

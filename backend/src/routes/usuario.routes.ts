@@ -17,3 +17,4 @@ router.patch('/:id/status', (req, res, next) => controller.alternarStatus(req, r
 router.delete('/:id', (req, res, next) => controller.alternarStatus(req, res, next)); // suporte a delete como desativação
 
 export default router;
+

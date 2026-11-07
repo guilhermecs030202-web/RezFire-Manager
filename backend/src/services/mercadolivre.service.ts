@@ -138,6 +138,24 @@ export class MercadoLivreService {
   }
 
   /**
+   * Desconecta a conta do Mercado Livre e limpa os tokens da sessão
+   */
+  async desconectar(id_usuario: number) {
+    const conexao = await this.obterConexao(id_usuario);
+    conexao.status = 'Desconectado';
+    conexao.access_token = null as any;
+    conexao.refresh_token = null as any;
+    conexao.expires_at = null as any;
+    conexao.ml_user_id = null as any;
+    await this.conexaoRepo.save(conexao);
+
+    return {
+      sucesso: true,
+      mensagem: 'Conta do Mercado Livre desconectada com sucesso.',
+    };
+  }
+
+  /**
    * Garante que o access_token esteja válido antes de chamar as APIs
    */
   async garantirTokenValido(id_usuario: number) {

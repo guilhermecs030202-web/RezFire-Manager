@@ -117,10 +117,12 @@ Todas as 10 User Stories (45 Story Points) da Sprint 1 foram implementadas, inte
     para vídeos do YouTube/Vimeo e suporte a arquivos MP4 nativos. Cadastro e remoção de mídias com
     auditoria no histórico, persistência via TypeORM (MidiaAnuncio) e sincronização com mock local.
 
-[ ] Interface do OAuth2 (#26):
-    Adicionar um botão de atalho claro na interface do gestor (ex.: em Configurações
-    ou Anúncios) para iniciar o fluxo de autorização com a conta do Mercado Livre.
-    Complexidade: Baixa.
+[X] Interface do OAuth2 (#26) [CONCLUÍDO]:
+    Interface completa de gerenciamento da conexão OAuth 2.0 com o Mercado Livre em anuncios.html.
+    Modal #modal-oauth-ml para conectar, desconectar, testar e renovar tokens. Indicador dinâmico
+    de status (Conectado / Desconectado) e banners de feedback para retornos bem-sucedidos ou erros
+    de autorização (access_denied, expiração de código). Backend com renovação automática por
+    refresh_token (garantirTokenValido) e endpoint POST /api/ml/desconectar.
 
 [X] SCRUM-5 (#20) - Usuários e permissões (RBAC) [CONCLUÍDO]:
     Implementada tela de gerenciamento de usuários (usuarios.html) e controle de papéis (RBAC)

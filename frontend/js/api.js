@@ -247,6 +247,12 @@ window.RezFireAPI = {
     async sincronizar() {
       return window.RezFireAPI.request('/ml/sincronizar', { method: 'POST' });
     },
+    async desconectar() {
+      return window.RezFireAPI.request('/ml/desconectar', { method: 'POST' });
+    },
+    async processarCallback(code) {
+      return window.RezFireAPI.request(`/ml/callback?code=${encodeURIComponent(code)}`);
+    },
   },
 
   // Módulo de Inspeção de Qualidade (SCRUM-11 / #6)

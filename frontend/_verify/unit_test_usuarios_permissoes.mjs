@@ -183,3 +183,4 @@ describe('SCRUM-5 (#20) - Usuários e Permissões (RBAC)', () => {
     assert.equal(usuarioPublico.perfil, 'GESTOR');
   });
 });
+

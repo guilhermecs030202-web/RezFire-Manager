@@ -22,13 +22,45 @@ export class MercadoLivreController {
    */
   async callback(req: Request, res: Response) {
     try {
+      if (req.query.error) {
+        const erroDesc = req.query.error_description || req.query.error;
+        if (req.headers.accept?.includes('text/html')) {
+          return res.redirect(`/anuncios.html?oauth_error=${encodeURIComponent(String(erroDesc))}`);
+        }
+        return res.status(400).json({
+          sucesso: false,
+          mensagem: `Autorização cancelada ou negada no Mercado Livre: ${erroDesc}`,
+        });
+      }
+
       const code = req.query.code ? String(req.query.code) : '';
       const id_usuario = req.usuario?.id_usuario || 1;
 
       const resultado = await mlService.processarCallback(code, id_usuario);
+
+      if (req.headers.accept?.includes('text/html')) {
+        return res.redirect('/anuncios.html?oauth=success');
+      }
+
       return res.json(resultado);
     } catch (error: any) {
+      if (req.headers.accept?.includes('text/html')) {
+        return res.redirect(`/anuncios.html?oauth_error=${encodeURIComponent(error.message)}`);
+      }
       return res.status(400).json({ sucesso: false, mensagem: error.message });
+    }
+  }
+
+  /**
+   * Desconecta a conta do Mercado Livre
+   */
+  async desconectar(req: Request, res: Response) {
+    try {
+      const id_usuario = req.usuario?.id_usuario || 1;
+      const resultado = await mlService.desconectar(id_usuario);
+      return res.json(resultado);
+    } catch (error: any) {
+      return res.status(500).json({ sucesso: false, mensagem: error.message });
     }
   }
 

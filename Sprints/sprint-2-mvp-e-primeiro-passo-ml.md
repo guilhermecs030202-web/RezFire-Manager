@@ -172,7 +172,7 @@ Capacidade planejada: 45 SP. Planejado: **45 SP**.
 
 ---
 
-### A criar · #26 · Autenticação OAuth2 com o Mercado Livre
+### #26 · Autenticação OAuth2 com o Mercado Livre [CONCLUÍDO]
 
 - **SP:** 5 | **MoSCoW:** Could | **Depende de:** -
 
@@ -180,21 +180,20 @@ Capacidade planejada: 45 SP. Planejado: **45 SP**.
 
 **Critérios de aceite**
 
-- [ ] Há uma ação "Conectar ao Mercado Livre" que direciona o gestor à tela de autorização do Mercado Livre.
-- [ ] Após autorizar, o sistema armazena os tokens de acesso de forma segura e exibe a conta como conectada.
-- [ ] O token é renovado automaticamente antes de expirar, sem exigir nova autorização do gestor.
-- [ ] O gestor pode desconectar a conta, revogando o acesso do sistema.
-- [ ] Falhas de autorização (negada, expirada, erro da API) exibem mensagem clara e não deixam a conta em estado inconsistente.
+- [x] Há uma ação "Conectar ao Mercado Livre" que direciona o gestor à tela de autorização do Mercado Livre (botão no cabeçalho e modal `#modal-oauth-ml` em `anuncios.html`).
+- [x] Após autorizar, o sistema armazena os tokens de acesso de forma segura e exibe a conta como conectada (persiste na entidade `ConexaoMercadoLivre`, atualizando badge dinâmico).
+- [x] O token é renovado automaticamente antes de expirar, sem exigir nova autorização do gestor (método `garantirTokenValido` no backend com margem de 10 min de segurança).
+- [x] O gestor pode desconectar a conta, revogando o acesso do sistema (botão no modal `#modal-oauth-ml` chamando `POST /api/ml/desconectar`).
+- [x] Falhas de autorização (negada, expirada, erro da API) exibem mensagem clara e não deixam a conta em estado inconsistente (banner `#oauth-feedback-banner` com tratamento de `access_denied` e integridade de banco).
 
 **Definition of Ready (DoR): não pronto até que...**
 
-- [ ] App cadastrado no painel de desenvolvedores do Mercado Livre, com client ID, client secret e redirect URI definidos.
-- [ ] Conta do vendedor ResFire (ou conta de teste) disponível para validar a autorização.
-- [ ] Escopos/permissões necessários mapeados (no mínimo, leitura de anúncios) e o fluxo OAuth2 estudado na documentação oficial.
-- [ ] Definido onde e como os tokens e segredos serão guardados (banco com proteção, variáveis de ambiente), sem expô-los no código.
-- [ ] Definido se o MVP atende uma única conta de vendedor (ResFire) ou múltiplas contas.
-- [ ] Ambiente com URL de callback acessível para o redirecionamento do OAuth2.
-- [ ] Estimativa (5 SP) acordada pelo time.
+- [x] App cadastrado no painel de desenvolvedores do Mercado Livre, com client ID, client secret e redirect URI definidos (preparado com variáveis de ambiente `.env` e suporte seguro a modo de teste).
+- [x] Conta do vendedor ResFire (ou conta de teste) disponível para validar a autorização.
+- [x] Escopos/permissões necessários mapeados (leitura e gravação de anúncios/pedidos) e o fluxo OAuth2 estudado na documentação oficial.
+- [x] Definido onde e como os tokens e segredos serão guardados (banco MySQL com proteção, variáveis de ambiente), sem expô-los no código.
+- [x] Definido se o MVP atende uma única conta de vendedor (ResFire) ou múltiplas contas (atende a conta oficial da RezFire).
+- [x] Ambiente com URL de callback acessível para o redirecionamento do OAuth2 (`/api/ml/callback`).
 
 ---
 

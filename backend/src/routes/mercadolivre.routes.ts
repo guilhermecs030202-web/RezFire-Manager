@@ -14,6 +14,7 @@ router.get('/callback', controller.callback);
 // 3. Rotas operacionais e administrativas (Protegidas por autenticação do gestor)
 router.get('/auth', authMiddleware, controller.getAuthUrl);
 router.get('/status', authMiddleware, controller.obterStatusConexao);
+router.post('/desconectar', authMiddleware, controller.desconectar);
 router.get('/anuncios', authMiddleware, controller.listarAnuncios);
 router.post('/anuncios/vincular', authMiddleware, controller.vincularProduto);
 router.post('/sincronizar', authMiddleware, controller.sincronizar);

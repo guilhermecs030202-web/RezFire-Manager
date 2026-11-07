@@ -254,6 +254,15 @@ window.RezFireAPI = {
         method: 'POST',
       });
     },
+    async sincronizarStatus(dados = {}) {
+      return window.RezFireAPI.request('/ml/anuncios/sincronizar-status', {
+        method: 'POST',
+        body: JSON.stringify(dados),
+      });
+    },
+    async getStatusSincronizacao() {
+      return window.RezFireAPI.request('/ml/anuncios/sincronizar-status');
+    },
     async desconectar() {
       return window.RezFireAPI.request('/ml/desconectar', { method: 'POST' });
     },

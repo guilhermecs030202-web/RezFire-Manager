@@ -22,6 +22,14 @@ export class MLReconciliationCron {
       console.log('🔄 [Cron Reconciliação ML] Iniciando reconciliação preventiva de anúncios e pedidos...');
       const resultado = await mlService.reconciliar(gestor.id_usuario);
       console.log(`✓ [Cron Reconciliação ML] ${resultado.mensagem}`);
+
+      // Executa sincronização periódica de status dos anúncios (#29)
+      try {
+        const resStatus = await mlService.sincronizarStatusAnuncios(gestor.id_usuario);
+        console.log(`✓ [Cron Sincronização Status ML] ${resStatus.mensagem}`);
+      } catch (syncErr: any) {
+        console.warn(`⚠️ [Cron Sincronização Status ML] Aviso na sincronização periódica: ${syncErr.message}`);
+      }
     } catch (err) {
       console.error('❌ [Cron Reconciliação ML] Falha na reconciliação periódica:', err);
     }

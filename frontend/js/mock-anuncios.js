@@ -1166,6 +1166,118 @@
     return { sucesso: true };
   }
 
+  /**
+   * Sincronização periódica ou sob demanda do status dos anúncios (US #29)
+   * Detecta alteração de status, grava ocorrência com data/hora em historico (#14),
+   * suporta novos anúncios sem duplicar (idempotência) e armazena data de última sincronização / falhas.
+   */
+  function sincronizarStatusAnuncios(opcoes = {}) {
+    return new Promise((resolve, reject) => {
+      setTimeout(() => {
+        try {
+          if (opcoes.forcarErro) {
+            const meta = loadSyncMeta();
+            meta.ultima_falha = {
+              data: new Date().toISOString(),
+              mensagem: opcoes.forcarErro,
+            };
+            saveSyncMeta(meta);
+            return reject(new Error(opcoes.forcarErro));
+          }
+
+          const anuncios = loadAnuncios();
+          const agora = new Date().toISOString();
+          let mudancasStatus = 0;
+          let novosAnuncios = 0;
+
+          // Processa novos anúncios simulados sem duplicação
+          if (Array.isArray(opcoes.novosAnunciosSimulados)) {
+            opcoes.novosAnunciosSimulados.forEach((novo) => {
+              const existe = anuncios.find((a) => a.ml_item_id === novo.ml_item_id);
+              if (!existe) {
+                novosAnuncios++;
+                const novoItem = {
+                  id_anuncio: Date.now() + Math.floor(Math.random() * 1000),
+                  ml_item_id: novo.ml_item_id,
+                  titulo: novo.titulo || "Novo Anúncio ML",
+                  preco: Number(novo.preco || 0),
+                  status: novo.status || "Ativo",
+                  quantidade_disponivel: Number(novo.quantidade_disponivel || 0),
+                  quantidade_vendida: Number(novo.quantidade_vendida || 0),
+                  visualizacoes: 0,
+                  tipo_composicao: "unitario",
+                  itens_anuncio: [],
+                  url: novo.url || `https://produto.mercadolivre.com.br/${novo.ml_item_id}`,
+                  data_criacao: agora,
+                  ultima_sincronizacao: agora,
+                  historico: [
+                    {
+                      id_ocorrencia: Date.now(),
+                      data: agora,
+                      evento: "Criação do Anúncio",
+                      titulo: "Anúncio importado via API ML",
+                      detalhe: `Novo anúncio [${novo.ml_item_id}] importado do Mercado Livre com status "${novo.status || 'Ativo'}".`,
+                      autor: "Sincronizador ML (Automático)",
+                    },
+                  ],
+                };
+                anuncios.push(novoItem);
+              }
+            });
+          }
+
+          // Atualiza status e detecta mudanças
+          anuncios.forEach((a) => {
+            a.ultima_sincronizacao = agora;
+            let statusDestino = a.status;
+
+            if (opcoes.simularStatusRemotos && opcoes.simularStatusRemotos[a.ml_item_id]) {
+              statusDestino = opcoes.simularStatusRemotos[a.ml_item_id];
+            }
+
+            if (statusDestino !== a.status) {
+              mudancasStatus++;
+              const statusAnterior = a.status;
+              a.status = statusDestino;
+              a.historico = a.historico || [];
+              a.historico.unshift({
+                id_ocorrencia: Date.now() + Math.floor(Math.random() * 1000),
+                data: agora,
+                evento: "Mudança de Status",
+                titulo: `Status alterado via API ML para ${statusDestino}`,
+                detalhe: `Status do anúncio [${a.ml_item_id}] alterado de "${statusAnterior}" para "${statusDestino}" pelo Mercado Livre.`,
+                autor: "Sincronizador ML (Automático)",
+                dados_anteriores: {
+                  status_anterior: statusAnterior,
+                  status_novo: statusDestino,
+                },
+              });
+            }
+          });
+
+          const meta = loadSyncMeta();
+          meta.ultima_sincronizacao = agora;
+          meta.ultima_sincronizacao_sucesso = agora;
+          meta.ultima_falha = null;
+          saveSyncMeta(meta);
+          saveAnuncios(anuncios);
+
+          resolve({
+            sucesso: true,
+            mensagem: `Sincronização de status concluída com sucesso. ${mudancasStatus} mudança(s) e ${novosAnuncios} novo(s) anúncio(s).`,
+            total_processados: anuncios.length,
+            mudancas_status: mudancasStatus,
+            novos_anuncios: novosAnuncios,
+            ultima_sincronizacao: agora,
+            ultima_falha: null,
+          });
+        } catch (err) {
+          reject(err);
+        }
+      }, 500);
+    });
+  }
+
   // Exportação Global
   window.RezFireAnuncios = {
     loadAnuncios,
@@ -1178,6 +1290,7 @@
     computeAnunciosKPIs,
     atualizarComposicaoAnuncio,
     syncAnuncios,
+    sincronizarStatusAnuncios,
     adicionarOcorrencia,
     marcarRecriado,
     listarRecriados,

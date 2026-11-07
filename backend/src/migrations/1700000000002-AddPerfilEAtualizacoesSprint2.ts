@@ -94,3 +94,4 @@ export class AddPerfilEAtualizacoesSprint2170000000002 implements MigrationInter
     }
   }
 }
+

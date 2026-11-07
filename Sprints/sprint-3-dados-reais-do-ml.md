@@ -33,7 +33,7 @@ Capacidade planejada: 45 SP. Planejado: **45 SP**.
 
 ## Histórias
 
-### A criar · #29 · Sincronizar status de anúncios via API
+### Concluída · #29 · Sincronizar status de anúncios via API
 
 - **SP:** 5 | **MoSCoW:** Could | **Depende de:** #26, #27
 
@@ -41,20 +41,20 @@ Capacidade planejada: 45 SP. Planejado: **45 SP**.
 
 **Critérios de aceite**
 
-- [ ] O sistema atualiza o status dos anúncios periodicamente, na frequência definida.
-- [ ] Cada mudança de status é registrada com data e hora, alimentando o histórico do #14.
-- [ ] A tela única do #12 passa a refletir o status sincronizado.
-- [ ] Falhas de sincronização ficam visíveis ao gestor, com a data da última sincronização bem-sucedida.
-- [ ] Anúncios novos ou removidos no Mercado Livre são tratados sem duplicar registros.
+- [x] O sistema atualiza o status dos anúncios periodicamente, na frequência definida.
+- [x] Cada mudança de status é registrada com data e hora, alimentando o histórico do #14.
+- [x] A tela única do #12 passa a refletir o status sincronizado.
+- [x] Falhas de sincronização ficam visíveis ao gestor, com a data da última sincronização bem-sucedida.
+- [x] Anúncios novos ou removidos no Mercado Livre são tratados sem duplicar registros.
 
 **Definition of Ready (DoR): não pronto até que...**
 
-- [ ] Stories #26 e #27 concluídas.
-- [ ] Frequência de sincronização definida e compatível com os limites de requisição da API.
-- [ ] Mapeamento entre os status do Mercado Livre e os status do sistema (ativo, pausado, rebaixado etc.) definido.
-- [ ] Definido como o anúncio do sistema se liga ao anúncio do Mercado Livre (identificador).
-- [ ] Decidido o destino dos status já informados manualmente (migrar, sobrescrever ou manter como fallback).
-- [ ] Estimativa (5 SP) revisada após a conclusão da Sprint 2.
+- [x] Stories #26 e #27 concluídas.
+- [x] Frequência de sincronização definida e compatível com os limites de requisição da API.
+- [x] Mapeamento entre os status do Mercado Livre e os status do sistema (ativo, pausado, rebaixado etc.) definido.
+- [x] Definido como o anúncio do sistema se liga ao anúncio do Mercado Livre (identificador).
+- [x] Decidido o destino dos status já informados manualmente (migrar, sobrescrever ou manter como fallback).
+- [x] Estimativa (5 SP) revisada após a conclusão da Sprint 2.
 
 ---
 

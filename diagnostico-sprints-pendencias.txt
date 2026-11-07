@@ -145,8 +145,18 @@ Todas as 10 User Stories (45 Story Points) da Sprint 1 foram implementadas, inte
     Servidor ativo e acessível em http://localhost:3001.
 
 
-4. O QUE FALTA NAS SPRINTS 3 E 4 (AUTOMAÇÃO ML E ANÁLISES FINANCEIRAS)
+4. STATUS DAS SPRINTS 3 E 4 (AUTOMAÇÃO ML E ANÁLISES FINANCEIRAS)
 --------------------------------------------------------------------------------
+[X] Sincronizar status de anúncios via API (#29) [CONCLUÍDO em 07/11/2026]:
+    Implementada rotina de sincronização periódica (agendada via MLReconciliationCron a cada 30 min)
+    e sob demanda (POST /api/ml/anuncios/sincronizar-status e botão na tela de Anúncios).
+    Cada mudança de status do Mercado Livre (Ativo, Pausado, Excluído) é detectada e registrada
+    cronologicamente na tabela ocorrencias_anuncio (#14) com autor 'Sincronizador ML (Automático)',
+    data/hora e dados_anteriores. A tela única de anúncios reflete imediatamente os novos status nos KPIs,
+    tabela e Drawer. Falhas de sincronização são exibidas com clareza ao gestor no cabeçalho mantendo a data
+    da última sincronização com sucesso intacta, e anúncios novos/removidos são tratados com idempotência
+    estrita por ml_item_id sem duplicação de registros.
+
 [ ] Sincronização em tempo real de Pedidos ML (#30) na interface:
     O backend já possui a estrutura da fila de webhook, mas depende de credenciais reais
     de produção/teste do Mercado Livre (APP_ID e SECRET_KEY) para homologar a captura.

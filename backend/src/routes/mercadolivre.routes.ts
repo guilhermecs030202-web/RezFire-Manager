@@ -18,6 +18,8 @@ router.post('/desconectar', authMiddleware, controller.desconectar);
 router.get('/anuncios', authMiddleware, controller.listarAnuncios);
 router.get('/anuncios/consultar', authMiddleware, controller.consultarAnunciosSobDemanda);
 router.post('/anuncios/consultar', authMiddleware, controller.consultarAnunciosSobDemanda);
+router.get('/anuncios/sincronizar-status', authMiddleware, controller.obterStatusSincronizacao);
+router.post('/anuncios/sincronizar-status', authMiddleware, controller.sincronizarStatusAnuncios);
 router.post('/anuncios/vincular', authMiddleware, controller.vincularProduto);
 router.post('/sincronizar', authMiddleware, controller.sincronizar);
 

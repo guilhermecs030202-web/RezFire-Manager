@@ -4,10 +4,14 @@ import { AnuncioML } from '../entities/AnuncioML';
 import { ProdutoAnuncio } from '../entities/ProdutoAnuncio';
 import { Produto } from '../entities/Produto';
 import { EventoMercadoLivre } from '../entities/EventoMercadoLivre';
+import { OcorrenciaAnuncio } from '../entities/OcorrenciaAnuncio';
 import { PedidoService } from './pedido.service';
 import { env } from '../config/env';
 
 export class MercadoLivreService {
+  private static ultimaSincronizacaoSucesso: Date | null = null;
+  private static ultimaFalhaSincronizacao: { data: Date; mensagem: string } | null = null;
+
   private get conexaoRepo() {
     return AppDataSource.getRepository(ConexaoMercadoLivre);
   }
@@ -26,6 +30,10 @@ export class MercadoLivreService {
 
   private get eventoRepo() {
     return AppDataSource.getRepository(EventoMercadoLivre);
+  }
+
+  private get ocorrenciaRepo() {
+    return AppDataSource.getRepository(OcorrenciaAnuncio);
   }
 
   private pedidoService = new PedidoService();
@@ -358,16 +366,36 @@ export class MercadoLivreService {
       const res = await fetch(`https://api.mercadolibre.com${resource}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
-      if (res.ok) {
-        const item = (await res.json()) as any;
-        anuncio.titulo = item.title || anuncio.titulo;
-        anuncio.preco = Number(item.price) || anuncio.preco;
-        anuncio.status = item.status === 'active' ? 'Ativo' : 'Pausado';
-        anuncio.quantidade_disponivel = Number(item.available_quantity) || anuncio.quantidade_disponivel;
-        anuncio.quantidade_vendida = Number(item.sold_quantity) || anuncio.quantidade_vendida;
-        anuncio.ultima_sincronizacao = new Date();
-        await this.anuncioRepo.save(anuncio);
-      }
+        if (res.ok) {
+          const item = (await res.json()) as any;
+          const statusAnterior = anuncio.status;
+          const novoStatus = item.status === 'active' ? 'Ativo' : (item.status === 'closed' ? 'Excluído' : 'Pausado');
+          const statusMudou = statusAnterior !== novoStatus;
+
+          anuncio.titulo = item.title || anuncio.titulo;
+          anuncio.preco = Number(item.price) || anuncio.preco;
+          anuncio.status = novoStatus;
+          anuncio.quantidade_disponivel = Number(item.available_quantity) || anuncio.quantidade_disponivel;
+          anuncio.quantidade_vendida = Number(item.sold_quantity) || anuncio.quantidade_vendida;
+          anuncio.ultima_sincronizacao = new Date();
+          await this.anuncioRepo.save(anuncio);
+
+          if (statusMudou) {
+            const ocorrencia = this.ocorrenciaRepo.create({
+              id_anuncio: anuncio.id_anuncio,
+              tipo_evento: 'Mudança de Status',
+              titulo: `Status alterado via API ML para ${novoStatus}`,
+              detalhe: `Status do anúncio [${anuncio.ml_item_id}] atualizado de "${statusAnterior}" para "${novoStatus}" pelo Mercado Livre via webhook.`,
+              autor: 'Sincronizador ML (Automático)',
+              dados_anteriores: {
+                status_anterior: statusAnterior,
+                status_novo: novoStatus,
+              },
+              data_ocorrencia: new Date(),
+            });
+            await this.ocorrenciaRepo.save(ocorrencia);
+          }
+        }
     }
   }
 
@@ -553,6 +581,258 @@ export class MercadoLivreService {
       total: lista.length,
       ultima_consulta: agora,
       anuncios: lista,
+    };
+  }
+
+  /**
+   * Sincroniza status dos anúncios via API do Mercado Livre (#29)
+   * - Atualiza periodicamente o status (Ativo, Pausado, Excluído)
+   * - Alimenta o histórico do #14 com tipo_evento: 'Mudança de Status'
+   * - Trata anúncios novos ou removidos sem duplicação de registros (idempotência por ml_item_id)
+   * - Registra falhas e mantém timestamp da última sincronização bem-sucedida
+   */
+  async sincronizarStatusAnuncios(
+    id_usuario: number,
+    opcoes: {
+      simularStatusRemotos?: Record<string, string>;
+      novosAnunciosSimulados?: Array<{
+        ml_item_id: string;
+        titulo: string;
+        preco: number;
+        status: string;
+        quantidade_disponivel?: number;
+        quantidade_vendida?: number;
+        url?: string;
+      }>;
+      forcarErro?: string;
+    } = {}
+  ) {
+    const conexao = await this.obterConexao(id_usuario);
+    if (conexao.status !== 'Conectado' && !opcoes.simularStatusRemotos && !opcoes.novosAnunciosSimulados) {
+      const err = new Error('Nenhuma conta do Mercado Livre conectada. Conecte sua conta via OAuth 2.0 primeiro.');
+      MercadoLivreService.ultimaFalhaSincronizacao = {
+        data: new Date(),
+        mensagem: err.message,
+      };
+      throw err;
+    }
+
+    if (opcoes.forcarErro) {
+      const err = new Error(opcoes.forcarErro);
+      MercadoLivreService.ultimaFalhaSincronizacao = {
+        data: new Date(),
+        mensagem: err.message,
+      };
+      throw err;
+    }
+
+    const agora = new Date();
+    let mudancasStatus = 0;
+    let novosAnuncios = 0;
+    let totalProcessados = 0;
+
+    try {
+      // 1. Coleta itens remotos da API do ML ou dados de homologação
+      let itensRemotos: Array<{
+        id: string;
+        title: string;
+        price: number;
+        status: string;
+        available_quantity: number;
+        sold_quantity: number;
+        permalink?: string;
+      }> = [];
+
+      if (env.ML_CLIENT_ID && env.ML_CLIENT_SECRET && conexao.access_token) {
+        const token = await this.garantirTokenValido(id_usuario);
+        const sellerId = conexao.ml_user_id || 'me';
+
+        // Busca itens do vendedor (ativos, pausados e fechados/excluídos)
+        const searchUrl = `https://api.mercadolibre.com/users/${sellerId}/items/search?status=active,paused,closed&limit=50`;
+        const searchRes = await fetch(searchUrl, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+
+        if (searchRes.status === 429) {
+          throw new Error('Limite de requisições da API do Mercado Livre atingido (Rate Limit 429). Tente novamente em instantes.');
+        }
+
+        if (!searchRes.ok) {
+          const erroTexto = await searchRes.text();
+          throw new Error(`Falha na API do Mercado Livre (${searchRes.status}): ${erroTexto}`);
+        }
+
+        const searchData = (await searchRes.json()) as any;
+        const itemIds: string[] = searchData.results || [];
+
+        if (itemIds.length > 0) {
+          const multigetUrl = `https://api.mercadolibre.com/items?ids=${itemIds.join(',')}`;
+          const itemsRes = await fetch(multigetUrl, {
+            headers: { Authorization: `Bearer ${token}` },
+          });
+
+          if (itemsRes.ok) {
+            const itemsData = (await itemsRes.json()) as any[];
+            for (const itemEntry of itemsData) {
+              if (itemEntry.code === 200 && itemEntry.body) {
+                const b = itemEntry.body;
+                itensRemotos.push({
+                  id: b.id,
+                  title: b.title,
+                  price: Number(b.price) || 0,
+                  status: b.status,
+                  available_quantity: Number(b.available_quantity) || 0,
+                  sold_quantity: Number(b.sold_quantity) || 0,
+                  permalink: b.permalink,
+                });
+              }
+            }
+          }
+        }
+      } else {
+        // Modo local seguro / simulação controlada
+        const locais = await this.anuncioRepo.find();
+        itensRemotos = locais.map((loc) => {
+          let statusRemoto = loc.status;
+          if (opcoes.simularStatusRemotos && opcoes.simularStatusRemotos[loc.ml_item_id]) {
+            statusRemoto = opcoes.simularStatusRemotos[loc.ml_item_id];
+          }
+          return {
+            id: loc.ml_item_id,
+            title: loc.titulo,
+            price: Number(loc.preco),
+            status: statusRemoto === 'Ativo' ? 'active' : (statusRemoto === 'Excluído' ? 'closed' : 'paused'),
+            available_quantity: loc.quantidade_disponivel,
+            sold_quantity: loc.quantidade_vendida,
+            permalink: loc.url,
+          };
+        });
+
+        // Adiciona novos anúncios simulados se informados (para teste de DoR/Critério 5)
+        if (Array.isArray(opcoes.novosAnunciosSimulados)) {
+          for (const novo of opcoes.novosAnunciosSimulados) {
+            itensRemotos.push({
+              id: novo.ml_item_id,
+              title: novo.titulo,
+              price: novo.preco,
+              status: novo.status === 'Ativo' ? 'active' : (novo.status === 'Excluído' ? 'closed' : 'paused'),
+              available_quantity: novo.quantidade_disponivel || 0,
+              sold_quantity: novo.quantidade_vendida || 0,
+              permalink: novo.url,
+            });
+          }
+        }
+      }
+
+      // 2. Mapeamento e Atualização com Detecção de Mudança de Status
+      for (const itemRemoto of itensRemotos) {
+        totalProcessados++;
+        const mlItemId = itemRemoto.id;
+        let novoStatus = 'Ativo';
+        if (itemRemoto.status === 'paused' || itemRemoto.status === 'under_review') {
+          novoStatus = 'Pausado';
+        } else if (itemRemoto.status === 'closed' || itemRemoto.status === 'inactive') {
+          novoStatus = 'Excluído';
+        }
+
+        // Busca anúncio existente no banco para garantir IDEMPOTÊNCIA (Critério 5)
+        let anuncio = await this.anuncioRepo.findOne({ where: { ml_item_id: mlItemId } });
+
+        if (anuncio) {
+          const statusAnterior = anuncio.status;
+          const statusMudou = statusAnterior !== novoStatus;
+
+          anuncio.titulo = itemRemoto.title || anuncio.titulo;
+          anuncio.preco = itemRemoto.price || anuncio.preco;
+          anuncio.quantidade_disponivel = itemRemoto.available_quantity;
+          anuncio.quantidade_vendida = itemRemoto.sold_quantity;
+          anuncio.url = itemRemoto.permalink || anuncio.url;
+          anuncio.status = novoStatus;
+          anuncio.ultima_sincronizacao = agora;
+
+          await this.anuncioRepo.save(anuncio);
+
+          // Critério 2: Cada mudança de status é registrada com data e hora alimentando o histórico do #14
+          if (statusMudou) {
+            mudancasStatus++;
+            const ocorrencia = this.ocorrenciaRepo.create({
+              id_anuncio: anuncio.id_anuncio,
+              tipo_evento: 'Mudança de Status',
+              titulo: `Status alterado via API ML para ${novoStatus}`,
+              detalhe: `Status do anúncio [${anuncio.ml_item_id}] atualizado de "${statusAnterior}" para "${novoStatus}" pelo Mercado Livre.`,
+              autor: 'Sincronizador ML (Automático)',
+              dados_anteriores: {
+                status_anterior: statusAnterior,
+                status_novo: novoStatus,
+                sincronizado_em: agora.toISOString(),
+              },
+              data_ocorrencia: agora,
+            });
+            await this.ocorrenciaRepo.save(ocorrencia);
+          }
+        } else {
+          // Anúncio novo vindo do ML: cria sem duplicar registros
+          novosAnuncios++;
+          anuncio = this.anuncioRepo.create({
+            id_conexao: conexao.id_conexao,
+            ml_item_id: mlItemId,
+            titulo: itemRemoto.title,
+            preco: itemRemoto.price,
+            status: novoStatus,
+            quantidade_disponivel: itemRemoto.available_quantity,
+            quantidade_vendida: itemRemoto.sold_quantity,
+            url: itemRemoto.permalink || `https://produto.mercadolivre.com.br/${mlItemId}`,
+            ultima_sincronizacao: agora,
+          });
+
+          await this.anuncioRepo.save(anuncio);
+
+          // Ocorrência de criação do anúncio
+          const ocorrencia = this.ocorrenciaRepo.create({
+            id_anuncio: anuncio.id_anuncio,
+            tipo_evento: 'Criação do Anúncio',
+            titulo: 'Anúncio importado via API ML',
+            detalhe: `Novo anúncio [${mlItemId}] importado automaticamente do Mercado Livre com status "${novoStatus}".`,
+            autor: 'Sincronizador ML (Automático)',
+            dados_anteriores: {
+              status_inicial: novoStatus,
+            },
+            data_ocorrencia: agora,
+          });
+          await this.ocorrenciaRepo.save(ocorrencia);
+        }
+      }
+
+      // Sucesso na sincronização
+      MercadoLivreService.ultimaSincronizacaoSucesso = agora;
+      MercadoLivreService.ultimaFalhaSincronizacao = null;
+
+      return {
+        sucesso: true,
+        mensagem: `Sincronização de status concluída com sucesso. ${mudancasStatus} mudança(s) de status e ${novosAnuncios} novo(s) anúncio(s) processados.`,
+        total_processados: totalProcessados,
+        mudancas_status: mudancasStatus,
+        novos_anuncios: novosAnuncios,
+        ultima_sincronizacao: MercadoLivreService.ultimaSincronizacaoSucesso,
+        ultima_falha: null,
+      };
+    } catch (err: any) {
+      // Registra a falha mantendo a última sincronização bem-sucedida intacta (Critério 4)
+      MercadoLivreService.ultimaFalhaSincronizacao = {
+        data: new Date(),
+        mensagem: err.message || 'Erro desconhecido ao sincronizar status com Mercado Livre.',
+      };
+      throw err;
+    }
+  }
+
+  /**
+   * Retorna os metadados de sincronização (última sincronização com sucesso e última falha)
+   */
+  obterStatusSincronizacao() {
+    return {
+      ultima_sincronizacao_sucesso: MercadoLivreService.ultimaSincronizacaoSucesso,
+      ultima_falha: MercadoLivreService.ultimaFalhaSincronizacao,
     };
   }
 }

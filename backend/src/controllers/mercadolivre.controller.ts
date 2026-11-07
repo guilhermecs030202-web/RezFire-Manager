@@ -94,6 +94,7 @@ export class MercadoLivreController {
         ml_user_id: conexao.ml_user_id || null,
         expires_at: conexao.expires_at || null,
         ultima_atualizacao: conexao.updated_at,
+        ...mlService.obterStatusSincronizacao(),
       });
     } catch (error: any) {
       return res.status(500).json({ sucesso: false, mensagem: error.message });
@@ -168,6 +169,36 @@ export class MercadoLivreController {
         sucesso: false,
         mensagem: error.message || 'Falha ao consultar anúncios na API do Mercado Livre.',
       });
+    }
+  }
+
+  /**
+   * Sincroniza status dos anúncios via API do Mercado Livre (#29)
+   */
+  async sincronizarStatusAnuncios(req: Request, res: Response) {
+    try {
+      const id_usuario = req.usuario?.id_usuario || 1;
+      const resultado = await mlService.sincronizarStatusAnuncios(id_usuario, req.body || {});
+      return res.json(resultado);
+    } catch (error: any) {
+      const status = error.message?.includes('Rate Limit') ? 429 : 400;
+      return res.status(status).json({
+        sucesso: false,
+        mensagem: error.message,
+        ...mlService.obterStatusSincronizacao(),
+      });
+    }
+  }
+
+  /**
+   * Obtém metadados de sincronização (última sincronização com sucesso e última falha)
+   */
+  async obterStatusSincronizacao(_req: Request, res: Response) {
+    try {
+      const status = mlService.obterStatusSincronizacao();
+      return res.json({ sucesso: true, ...status });
+    } catch (error: any) {
+      return res.status(500).json({ sucesso: false, mensagem: error.message });
     }
   }
 }

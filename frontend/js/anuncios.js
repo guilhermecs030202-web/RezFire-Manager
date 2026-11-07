@@ -128,7 +128,9 @@
         state.syncMeta = {
           status_conexao: statusConexaoCarregado.status || "Conectado",
           ml_user_id: statusConexaoCarregado.ml_user_id || "789102450",
-          ultima_sincronizacao: statusConexaoCarregado.ultima_atualizacao || new Date().toISOString(),
+          ultima_sincronizacao: statusConexaoCarregado.ultima_sincronizacao_sucesso || statusConexaoCarregado.ultima_atualizacao || new Date().toISOString(),
+          ultima_sincronizacao_sucesso: statusConexaoCarregado.ultima_sincronizacao_sucesso || statusConexaoCarregado.ultima_atualizacao || new Date().toISOString(),
+          ultima_falha: statusConexaoCarregado.ultima_falha || null,
           seller_nickname: "REZFIRE_EXTINTORES",
         };
       } else {
@@ -149,10 +151,30 @@
   }
 
   function renderSyncHeader() {
-    const meta = state.syncMeta;
+    const meta = state.syncMeta || {};
     const syncTimeEl = document.getElementById("sync-last-time");
     if (syncTimeEl) {
-      syncTimeEl.textContent = `Última sincronização: ${formatData(meta.ultima_sincronizacao || new Date().toISOString())}`;
+      const dataSucesso = meta.ultima_sincronizacao_sucesso || meta.ultima_sincronizacao;
+      syncTimeEl.textContent = `Última sincronização com sucesso: ${formatData(dataSucesso || new Date().toISOString())}`;
+    }
+
+    // Exibe aviso visível de falha na sincronização (Critério 4 da US #29)
+    let failureAlertEl = document.getElementById("sync-failure-alert");
+    if (meta.ultima_falha && meta.ultima_falha.mensagem) {
+      if (!failureAlertEl) {
+        failureAlertEl = document.createElement("div");
+        failureAlertEl.id = "sync-failure-alert";
+        failureAlertEl.className = "inline-flex items-center gap-1.5 px-2.5 py-1 rounded text-xs font-semibold bg-red-100 text-red-800 border border-red-300";
+        const container = document.getElementById("sync-last-time")?.parentElement;
+        if (container) container.appendChild(failureAlertEl);
+      }
+      failureAlertEl.innerHTML = `
+        <span class="inline-block w-2 h-2 rounded-full bg-red-600 animate-pulse"></span>
+        <span title="${meta.ultima_falha.mensagem}">Falha na sincronização: ${meta.ultima_falha.mensagem} (Último sucesso: ${formatData(meta.ultima_sincronizacao_sucesso || meta.ultima_sincronizacao)})</span>
+      `;
+      failureAlertEl.style.display = "inline-flex";
+    } else if (failureAlertEl) {
+      failureAlertEl.style.display = "none";
     }
 
     const ind = document.getElementById("sync-status-indicator");
@@ -1939,18 +1961,24 @@
 
     try {
       let dadosConsulta = null;
+      let dadosSyncStatus = null;
 
-      // 1. Aciona a consulta sob demanda diretamente na API do Mercado Livre (#27)
+      // 1. Aciona a sincronização de status na API do Mercado Livre (#29)
       if (window.RezFireAPI && window.RezFireAPI.mercadolivre) {
         try {
+          dadosSyncStatus = await window.RezFireAPI.mercadolivre.sincronizarStatus();
           dadosConsulta = await window.RezFireAPI.mercadolivre.consultarAnuncios();
         } catch (apiErr) {
-          console.warn("[Consulta ML] Erro ou limite na API remota:", apiErr.message);
-          // Se for rate limit ou falha externa da API, avisa o gestor com mensagem clara
+          console.warn("[Sincronização Status ML] Falha ou limite na API:", apiErr.message);
+          state.syncMeta = state.syncMeta || {};
+          state.syncMeta.ultima_falha = {
+            data: new Date().toISOString(),
+            mensagem: apiErr.message || "Erro na comunicação com a API do Mercado Livre",
+          };
           if (apiErr.message?.includes("429") || apiErr.message?.includes("Rate Limit")) {
-            showFeedbackBanner("error", "Limite de requisições da API do Mercado Livre atingido (Rate Limit 429). Exibindo dados locais com segurança.");
+            showFeedbackBanner("error", `Limite de requisições da API atingido (Rate Limit 429). Última sincronização bem-sucedida: ${formatData(state.syncMeta.ultima_sincronizacao_sucesso || state.syncMeta.ultima_sincronizacao)}`);
           } else {
-            showFeedbackBanner("error", `Aviso da API: ${apiErr.message}. Utilizando dados locais em segurança.`);
+            showFeedbackBanner("error", `Falha na sincronização: ${apiErr.message}. Última sincronização bem-sucedida: ${formatData(state.syncMeta.ultima_sincronizacao_sucesso || state.syncMeta.ultima_sincronizacao)}`);
           }
         }
       }
@@ -1958,21 +1986,31 @@
       // 2. Aciona sincronização e conciliação local / mock
       let resLocal = null;
       if (window.RezFireAnuncios) {
-        resLocal = await window.RezFireAnuncios.syncAnuncios();
+        resLocal = await window.RezFireAnuncios.sincronizarStatusAnuncios();
       }
 
       // 3. Recarrega dados completos
       await carregarDados();
 
-      const totalConsultados = dadosConsulta?.total || state.anuncios.length;
-      const timestamp = dadosConsulta?.ultima_consulta || resLocal?.timestamp || new Date().toISOString();
-      showFeedbackBanner(
-        "success",
-        `Consulta sob demanda concluída com sucesso às ${formatData(timestamp)}! ${totalConsultados} anúncios consultados e alinhados.`
-      );
+      if (dadosSyncStatus && dadosSyncStatus.sucesso) {
+        state.syncMeta = state.syncMeta || {};
+        state.syncMeta.ultima_falha = null;
+        state.syncMeta.ultima_sincronizacao_sucesso = dadosSyncStatus.ultima_sincronizacao || new Date().toISOString();
+        showFeedbackBanner(
+          "success",
+          `Sincronização de status concluída com sucesso às ${formatData(state.syncMeta.ultima_sincronizacao_sucesso)}! ${dadosSyncStatus.mudancas_status || 0} mudança(s) de status registradas.`
+        );
+      } else if (!state.syncMeta?.ultima_falha) {
+        const totalConsultados = dadosConsulta?.total || state.anuncios.length;
+        const timestamp = dadosConsulta?.ultima_consulta || resLocal?.timestamp || new Date().toISOString();
+        showFeedbackBanner(
+          "success",
+          `Status de anúncios sincronizados às ${formatData(timestamp)}! ${totalConsultados} anúncios alinhados.`
+        );
+      }
     } catch (err) {
-      console.error("[Consulta ML] Falha geral:", err);
-      showFeedbackBanner("error", "Erro ao processar consulta de anúncios. Os dados locais foram preservados.");
+      console.error("[Consulta/Sincronização ML] Falha geral:", err);
+      showFeedbackBanner("error", `Erro ao sincronizar anúncios: ${err.message}. Dados locais mantidos em segurança.`);
     } finally {
       state.sincronizando = false;
       if (btn) btn.disabled = false;

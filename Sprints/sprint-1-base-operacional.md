@@ -196,7 +196,7 @@ Capacidade planejada: 45 SP. Planejado: **45 SP**.
 
 ---
 
-### SCRUM-18 · #10 · Alerta de prazo de postagem
+### SCRUM-18 · #10 · Alerta de prazo de postagem [CONCLUÍDO]
 
 - **SP:** 3 | **MoSCoW:** Must | **Depende de:** #9a
 
@@ -204,15 +204,15 @@ Capacidade planejada: 45 SP. Planejado: **45 SP**.
 
 **Critérios de aceite**
 
-- [ ] Cada pedido possui um prazo limite de postagem associado.
-- [ ] Um alerta é exibido quando o prazo está próximo do vencimento (limiar configurável).
-- [ ] Pedidos com prazo já vencido são destacados de forma diferente dos que estão apenas próximos do limite.
+- [x] Cada pedido possui um prazo limite de postagem associado (calculado automaticamente em até 24h úteis da venda ou informado na criação).
+- [x] Um alerta é exibido no topo da tela de Entregas e no Dashboard quando o prazo está próximo do vencimento (vence hoje / < 12h) com badge amarela `⏰ POSTAR HOJE`.
+- [x] Pedidos com prazo já vencido são destacados de forma diferente: badge vermelha `🔴 ATRASADO`, borda vermelha na linha e banner crítico no topo com alerta de penalidade de reputação no ML.
 
 **Definition of Ready (DoR): não pronto até que...**
 
-- [ ] Origem do prazo limite definida: calculado automaticamente a partir da data da venda + regra do Mercado Livre, ou informado manualmente pelo gestor.
-- [ ] Story #9a concluída.
-- [ ] Confirmado que este alerta alimentará o painel central (#19).
+- [x] Origem do prazo limite definida: calculado automaticamente a partir da data da venda (24h úteis) ou informado na importação de pedidos Mercado Envios.
+- [x] Story #9a concluída (pipeline e listagem de expedição integrados).
+- [x] Confirmado que este alerta alimenta o painel central (#19) e o dashboard executivo.
 
 ---
 

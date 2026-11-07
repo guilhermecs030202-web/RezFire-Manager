@@ -155,6 +155,9 @@ window.RezFireAPI = {
       const query = new URLSearchParams(params).toString();
       return window.RezFireAPI.request(`/pedidos${query ? '?' + query : ''}`);
     },
+    async alertasPostagem() {
+      return window.RezFireAPI.request('/pedidos/alertas-postagem');
+    },
     async buscarPorId(id) {
       return window.RezFireAPI.request(`/pedidos/${id}`);
     },

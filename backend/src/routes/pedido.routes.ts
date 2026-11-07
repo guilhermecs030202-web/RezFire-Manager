@@ -8,6 +8,7 @@ const controller = new PedidoController();
 router.use(authMiddleware);
 
 router.get('/', controller.listar);
+router.get('/alertas-postagem', controller.obterAlertasPostagem);
 router.get('/:id', controller.buscarPorId);
 router.post('/', controller.criar);
 router.patch('/:id/status', controller.atualizarStatus);

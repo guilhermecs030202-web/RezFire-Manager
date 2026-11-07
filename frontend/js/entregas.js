@@ -17,6 +17,7 @@ let state = {
   filtroCanal: "todos",
   filtroPeriodo: "todos",    // "7" | "30" | "90" | "todos"
   filtroApenasAtrasados: false,
+  filtroAlertasPostagem: false, // SCRUM-18: Mostra apenas pedidos em alerta (atrasados e hoje)
   filtroDespacho: "todos",   // "hoje" | "amanha" | "atrasado" | "todos"
   busca: "",
   pagina: 1,
@@ -105,6 +106,62 @@ function canalBadge(canal) {
   return `<span class="badge-channel direto">Direto</span>`;
 }
 
+// ─── Helpers de Prazo de Despacho e Alertas (SCRUM-18 / #10) ──────────────────
+function getDespachoStatus(entrega) {
+  const { isAtrasadoDespacho } = window.RezFireEntregas;
+  if (!entrega.prazo_despacho || entrega.data_despacho) {
+    return { status: "despachado", label: "Despachado", diffHoras: null, diffDias: null };
+  }
+
+  const refDate = new Date(REF());
+  const prazo = new Date(entrega.prazo_despacho);
+  const diffMs = prazo.getTime() - refDate.getTime();
+  const diffHoras = Math.round(diffMs / 3600000);
+  const diffDias = Math.round(diffMs / 86400000);
+
+  if (isAtrasadoDespacho(entrega) || diffMs < 0) {
+    const horasAtraso = Math.abs(diffHoras);
+    const label = horasAtraso >= 24 ? `Atrasado há ${Math.floor(horasAtraso / 24)}d` : `Atrasado há ${horasAtraso}h`;
+    return { status: "atrasado", label, diffHoras, diffDias };
+  }
+
+  // Verifica se vence hoje (mesmo dia do calendário ou nas próximas 12 horas)
+  const refStart = new Date(refDate); refStart.setHours(0, 0, 0, 0);
+  const refEnd = new Date(refDate); refEnd.setHours(23, 59, 59, 999);
+
+  if (prazo >= refStart && prazo <= refEnd) {
+    const label = diffHoras <= 0 ? "Vence agora (Hoje)" : `Vence em ${diffHoras}h (Hoje)`;
+    return { status: "hoje", label, diffHoras, diffDias: 0 };
+  }
+
+  if (diffDias === 1 || (diffHoras > 0 && diffHoras <= 48)) {
+    return { status: "amanha", label: "Vence amanhã", diffHoras, diffDias: 1 };
+  }
+
+  return { status: "ok", label: "No prazo", diffHoras, diffDias };
+}
+
+function badgePrazoDespacho(entrega) {
+  if (entrega.data_despacho) {
+    return `<span class="badge-prazo badge-prazo-ok" title="Despachado em ${formatDate(entrega.data_despacho)}">✓ Despachado</span>`;
+  }
+  if (!entrega.prazo_despacho) return `<span style="color:var(--muted)">—</span>`;
+
+  const info = getDespachoStatus(entrega);
+  const dataFormatada = formatDateOnly(entrega.prazo_despacho);
+
+  if (info.status === "atrasado") {
+    return `<span class="badge-prazo badge-prazo-atrasado" title="${info.label} (Prazo: ${dataFormatada})">🔴 ${info.label}</span>`;
+  }
+  if (info.status === "hoje") {
+    return `<span class="badge-prazo badge-prazo-hoje" title="${info.label} (Prazo: ${dataFormatada})">⏰ ${info.label}</span>`;
+  }
+  if (info.status === "amanha") {
+    return `<span class="badge-prazo badge-prazo-amanha" title="${info.label} (Prazo: ${dataFormatada})">🔵 ${dataFormatada}</span>`;
+  }
+  return `<span class="badge-prazo badge-prazo-ok" title="No prazo até ${dataFormatada}">${dataFormatada}</span>`;
+}
+
 // ─── Filtragem e pesquisa ─────────────────────────────────────────────────────
 function filteredEntregas() {
   const {
@@ -168,6 +225,12 @@ function filteredEntregas() {
     // Filtro "apenas atrasados"
     if (state.filtroApenasAtrasados) {
       if (!isAtrasadoDespacho(e) && !isAtrasadoEntrega(e)) return false;
+    }
+
+    // Filtro de Alertas de Despacho (SCRUM-18)
+    if (state.filtroAlertasPostagem) {
+      const st = getDespachoStatus(e);
+      if (st.status !== "atrasado" && st.status !== "hoje") return false;
     }
 
     return true;
@@ -278,12 +341,22 @@ function renderTable() {
   }
 
   renderPagination(totalPaginas, lista.length);
+  renderAlertaPostagemBanner();
 }
 
 function rowHTML(e) {
   const { temProblema } = window.RezFireEntregas;
   const problemaClass = temProblema(e) ? " row-problema" : "";
   const canceladoClass = e.status_interno === SI().CANCELADO ? " row-cancelado" : "";
+
+  // Destaque de linha para alertas de prazo de postagem (SCRUM-18)
+  const statusPrazo = getDespachoStatus(e);
+  let prazoRowClass = "";
+  if (statusPrazo.status === "atrasado") {
+    prazoRowClass = " row-despacho-atrasado";
+  } else if (statusPrazo.status === "hoje") {
+    prazoRowClass = " row-despacho-hoje";
+  }
 
   // Produto principal + resumo
   const itens = e.itens || [];
@@ -297,17 +370,13 @@ function rowHTML(e) {
   // Código do pedido
   const codigo = e.codigo_pedido_ml || e.codigo_pedido_direto || e.id_entrega;
 
-  // Prazo de despacho
-  const prazo = e.prazo_despacho ? formatDateOnly(e.prazo_despacho) : "—";
-  const prazoClass = window.RezFireEntregas.isAtrasadoDespacho(e) ? `style="color:var(--down);font-weight:700"` : "";
-
   // Rastreio
   const rastreio = e.codigo_rastreio
     ? `<span style="font-family:monospace;font-size:0.78rem">${e.codigo_rastreio}</span>`
     : `<span style="color:var(--muted);font-size:0.78rem">—</span>`;
 
   return `
-    <tr data-id="${e.id_entrega}" class="entregas-row${problemaClass}${canceladoClass}" style="cursor:pointer" tabindex="0" aria-label="Ver detalhes do pedido ${codigo}">
+    <tr data-id="${e.id_entrega}" class="entregas-row${problemaClass}${canceladoClass}${prazoRowClass}" style="cursor:pointer" tabindex="0" aria-label="Ver detalhes do pedido ${codigo}">
       <td>
         ${canalBadge(e.canal)}
         <span class="sku-main" style="display:block;margin-top:3px">${codigo}</span>
@@ -315,7 +384,7 @@ function rowHTML(e) {
       </td>
       <td style="white-space:nowrap;font-size:0.84rem">${formatDateOnly(e.data_venda)}</td>
       <td>${prodCell}</td>
-      <td><span ${prazoClass}>${prazo}</span></td>
+      <td>${badgePrazoDespacho(e)}</td>
       <td>${badgeLogistico(e)}</td>
       <td>${badgeInterno(e)}</td>
       <td>${rastreio}</td>
@@ -369,6 +438,20 @@ function syncFilterUI() {
   if (atrasadoChk) atrasadoChk.checked = state.filtroApenasAtrasados;
   const buscaEl = document.getElementById("busca-entregas");
   if (buscaEl && state.busca === "") buscaEl.value = "";
+
+  const btnAlertas = document.getElementById("btn-filtro-alertas-despacho");
+  if (btnAlertas) {
+    if (state.filtroAlertasPostagem) {
+      btnAlertas.style.background = "#fee2e2";
+      btnAlertas.style.borderColor = "#b91c1c";
+      btnAlertas.style.fontWeight = "800";
+    } else {
+      btnAlertas.style.background = "#fff5f5";
+      btnAlertas.style.borderColor = "#fca5a5";
+      btnAlertas.style.fontWeight = "700";
+    }
+  }
+
   renderKPIHighlight();
 }
 
@@ -378,11 +461,65 @@ function limparFiltros() {
   state.filtroPeriodo = "todos";
   state.filtroDespacho = "todos";
   state.filtroApenasAtrasados = false;
+  state.filtroAlertasPostagem = false;
   state.busca = "";
   state.pagina = 1;
   syncFilterUI();
   renderTable();
   renderKPIHighlight();
+}
+
+// ─── Banner e Controle de Alertas de Postagem (SCRUM-18 / #10) ────────────────
+function renderAlertaPostagemBanner() {
+  const banner = document.getElementById("banner-alerta-postagem");
+  const countBadge = document.getElementById("badge-contador-alertas");
+  if (!banner) return;
+
+  const abertos = state.entregas.filter((e) => !e.data_despacho && e.status_interno !== SI().CANCELADO);
+  let atrasados = 0;
+  let vencemHoje = 0;
+
+  abertos.forEach((e) => {
+    const st = getDespachoStatus(e);
+    if (st.status === "atrasado") atrasados++;
+    else if (st.status === "hoje") vencemHoje++;
+  });
+
+  const totalRisco = atrasados + vencemHoje;
+  if (countBadge) countBadge.textContent = totalRisco;
+
+  if (totalRisco === 0) {
+    banner.style.display = "none";
+    return;
+  }
+
+  banner.style.display = "flex";
+  const iconEl = document.getElementById("banner-alerta-icon");
+  const tituloEl = document.getElementById("banner-alerta-titulo");
+  const descEl = document.getElementById("banner-alerta-desc");
+
+  if (atrasados > 0) {
+    banner.style.background = "#fee2e2";
+    banner.style.border = "1.5px solid #ef4444";
+    banner.style.color = "#7f1d1d";
+    if (iconEl) iconEl.textContent = "🚨";
+    if (tituloEl) tituloEl.textContent = `ATENÇÃO: ${atrasados} ${atrasados === 1 ? "pedido com DESPACHO ATRASADO" : "pedidos com DESPACHO ATRASADO"}!`;
+    if (descEl) descEl.textContent = `Risco iminente de penalidade na reputação do Mercado Livre. ${vencemHoje > 0 ? `Além disso, ${vencemHoje} pedido(s) vencem a postagem ainda hoje.` : "Priorize a expedição imediata."}`;
+  } else {
+    banner.style.background = "#fef3c7";
+    banner.style.border = "1.5px solid #f59e0b";
+    banner.style.color = "#78350f";
+    if (iconEl) iconEl.textContent = "⏰";
+    if (tituloEl) tituloEl.textContent = `URGÊNCIA: ${vencemHoje} ${vencemHoje === 1 ? "pedido deve ser postado HOJE" : "pedidos devem ser postados HOJE"}!`;
+    if (descEl) descEl.textContent = "Garanta a separação e embalagem com etiquetas para postagem no mesmo dia útil.";
+  }
+}
+
+function alternarFiltroAlertasPostagem() {
+  state.filtroAlertasPostagem = !state.filtroAlertasPostagem;
+  state.pagina = 1;
+  syncFilterUI();
+  renderTable();
 }
 
 // ─── Painel de detalhes ───────────────────────────────────────────────────────
@@ -463,6 +600,30 @@ function renderDetalheTab(entrega, tab) {
       ? window.RezFireData.loadProducts()
       : [];
 
+    const statusPrazo = getDespachoStatus(entrega);
+    let cardPrazoHTML = "";
+    if (statusPrazo.status === "atrasado") {
+      cardPrazoHTML = `
+        <div class="detalhe-alerta alerta-erro" style="display:flex;align-items:center;gap:10px;margin-bottom:16px">
+          <span style="font-size:1.3rem">🚨</span>
+          <div>
+            <strong>DESPACHO ATRASADO:</strong> Prazo expirou em ${formatDateOnly(entrega.prazo_despacho)}.
+            <div style="font-size:0.78rem;margin-top:2px;opacity:0.9">Poste imediatamente para evitar penalidade na reputação do vendedor no Mercado Livre.</div>
+          </div>
+        </div>
+      `;
+    } else if (statusPrazo.status === "hoje") {
+      cardPrazoHTML = `
+        <div class="detalhe-alerta alerta-aviso" style="display:flex;align-items:center;gap:10px;margin-bottom:16px">
+          <span style="font-size:1.3rem">⏰</span>
+          <div>
+            <strong>POSTAR HOJE:</strong> ${statusPrazo.label} (Limite: ${formatDateOnly(entrega.prazo_despacho)}).
+            <div style="font-size:0.78rem;margin-top:2px;opacity:0.9">Pedido com envio programado para o mesmo dia útil via Mercado Envios / Transportadora.</div>
+          </div>
+        </div>
+      `;
+    }
+
     const itensHTML = (entrega.itens || []).map((i) => {
       const prodCadastrado = todosProdutos.find((p) => p.id_produto === i.id_produto || p.sku === i.sku);
       const qtdAtual = prodCadastrado ? prodCadastrado.quantidade_atual : null;
@@ -495,6 +656,7 @@ function renderDetalheTab(entrega, tab) {
     }).join("");
 
     el.innerHTML = `
+      ${cardPrazoHTML}
       <section class="detalhe-section">
         <h3 class="detalhe-section-title">Dados do pedido</h3>
         <div class="detalhe-grid">
@@ -1384,6 +1546,23 @@ function init() {
     state.filtroApenasAtrasados = e.target.checked;
     state.pagina = 1;
     renderTable();
+  });
+
+  // Eventos de Alertas de Prazo de Despacho (SCRUM-18)
+  document.getElementById("btn-filtro-alertas-despacho")?.addEventListener("click", () => {
+    alternarFiltroAlertasPostagem();
+  });
+
+  document.getElementById("btn-ver-alertas-postagem")?.addEventListener("click", () => {
+    state.filtroAlertasPostagem = true;
+    state.pagina = 1;
+    syncFilterUI();
+    renderTable();
+  });
+
+  document.getElementById("btn-fechar-alerta-postagem")?.addEventListener("click", () => {
+    const banner = document.getElementById("banner-alerta-postagem");
+    if (banner) banner.style.display = "none";
   });
 
   document.getElementById("btn-limpar")?.addEventListener("click", limparFiltros);

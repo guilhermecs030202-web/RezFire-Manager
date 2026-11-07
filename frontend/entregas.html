@@ -90,6 +90,49 @@
       opacity: 0.55;
     }
 
+    /* ── Badges e alertas de Prazo de Despacho (SCRUM-18) ───── */
+    .badge-prazo {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      font-size: 0.73rem;
+      font-weight: 700;
+      padding: 3px 8px;
+      border-radius: 6px;
+      white-space: nowrap;
+    }
+    .badge-prazo-atrasado {
+      background: #fee2e2;
+      color: #b91c1c;
+      border: 1px solid #f87171;
+    }
+    .badge-prazo-hoje {
+      background: #fef3c7;
+      color: #b45309;
+      border: 1px solid #f59e0b;
+      animation: pulse-border 2s infinite;
+    }
+    .badge-prazo-amanha {
+      background: #e0f2fe;
+      color: #0369a1;
+      border: 1px solid #7dd3fc;
+    }
+    .badge-prazo-ok {
+      background: #f8fafc;
+      color: #475569;
+      border: 1px solid #e2e8f0;
+    }
+    .row-despacho-atrasado td:first-child {
+      border-left: 4px solid #ef4444 !important;
+    }
+    .row-despacho-hoje td:first-child {
+      border-left: 4px solid #f59e0b !important;
+    }
+    @keyframes pulse-border {
+      0%, 100% { box-shadow: 0 0 0 0 rgba(245, 158, 11, 0.4); }
+      50% { box-shadow: 0 0 0 4px rgba(245, 158, 11, 0); }
+    }
+
     /* ── Paginação ──────────────────────────────────────────── */
     .pagination-bar {
       display: flex;
@@ -357,6 +400,25 @@
         </div>
       </div>
 
+      <!-- Banner de Alertas de Prazo de Postagem (SCRUM-18 / #10) -->
+      <div id="banner-alerta-postagem" style="display:none;margin-bottom:18px;border-radius:10px;padding:14px 18px;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap">
+        <div style="display:flex;align-items:center;gap:12px">
+          <span id="banner-alerta-icon" style="font-size:1.6rem">🚨</span>
+          <div>
+            <div id="banner-alerta-titulo" style="font-size:0.95rem;font-weight:800;letter-spacing:-0.01em"></div>
+            <div id="banner-alerta-desc" style="font-size:0.82rem;margin-top:2px;opacity:0.9"></div>
+          </div>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px">
+          <button class="btn-primary" id="btn-ver-alertas-postagem" style="font-size:0.82rem;padding:6px 14px;background:#b91c1c;border-color:#991b1b">
+            Ver Pedidos em Risco
+          </button>
+          <button class="btn-ghost" id="btn-fechar-alerta-postagem" style="font-size:0.82rem;padding:6px 10px;background:rgba(255,255,255,0.7)">
+            ✕
+          </button>
+        </div>
+      </div>
+
       <!-- Indicadores operacionais ──────────────────────────── -->
       <section class="kpi-grid" id="entregas-kpis"
         style="margin-bottom:22px;grid-template-columns:repeat(auto-fit,minmax(170px,1fr))">
@@ -424,6 +486,12 @@
               <input type="checkbox" id="filtro-atrasados" style="accent-color:var(--accent)" />
               Só atrasados
             </label>
+
+            <!-- Atalho de Alertas de Despacho (SCRUM-18) -->
+            <button type="button" class="btn-ghost" id="btn-filtro-alertas-despacho" style="font-size:0.78rem;font-weight:700;padding:6px 12px;display:inline-flex;align-items:center;gap:6px;border-color:#fca5a5;color:#b91c1c;background:#fff5f5;border-radius:8px">
+              <span>⏰ Alertas de Despacho</span>
+              <span id="badge-contador-alertas" style="background:#ef4444;color:#fff;border-radius:999px;padding:1px 6px;font-size:0.7rem;font-weight:800">0</span>
+            </button>
           </div>
 
           <button class="btn-ghost" id="btn-limpar" style="font-size:0.82rem;padding:8px 12px;white-space:nowrap">

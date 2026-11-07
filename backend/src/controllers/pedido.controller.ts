@@ -93,5 +93,14 @@ export class PedidoController {
       return res.status(400).json({ sucesso: false, mensagem: error.message });
     }
   }
+
+  async obterAlertasPostagem(_req: Request, res: Response) {
+    try {
+      const alertas = await pedidoService.obterAlertasPostagem();
+      return res.json({ sucesso: true, ...alertas });
+    } catch (error: any) {
+      return res.status(500).json({ sucesso: false, mensagem: error.message });
+    }
+  }
 }
 

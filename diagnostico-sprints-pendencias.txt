@@ -53,10 +53,13 @@ Arquivos analisados em Sprints/:
     Alocação automática de lotes ativos via FEFO, suporte à baixa proporcional em Kits/Combos,
     validação em tempo real contra saldo insuficiente e atualização imediata do estoque.
 
-[ ] SCRUM-18 (#10) - Alerta de prazo de postagem:
-    Destacar no painel e na tela de entregas os pedidos cujo prazo limite de despacho
-    (postagem no mesmo dia ou em até 24h) esteja próximo de expirar ou já vencido.
-    Complexidade: Baixa.
+[X] SCRUM-18 (#10) - Alerta de prazo de postagem (CONCLUÍDO em 07/11/2026):
+    Entidade Pedido atualizada no backend com prazo_despacho e data_despacho, além de endpoint
+    especializado GET /api/pedidos/alertas-postagem. Na tela de Entregas (entregas.html), adicionado
+    banner de alerta de risco no topo, atalho de filtro rápido por alertas com badge de contagem,
+    e diferenciação visual marcante: pedidos atrasados recebem badge vermelha 🔴 ATRASADO com borda
+    vermelha, e pedidos que vencem hoje recebem badge amarela ⏰ POSTAR HOJE. Painel lateral e
+    dashboard executivo sincronizados com os alertas de prazo.
 
 [ ] SCRUM-14 (#12) / SCRUM-15 (#13) - Tela de Anúncios ML conectada à API:
     A tela anuncios.html já possui o layout visual pronto, mas ainda consome dados

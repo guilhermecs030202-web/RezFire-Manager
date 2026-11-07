@@ -18,6 +18,7 @@ export interface CriarPedidoDTO {
   origem?: string;
   itens: CriarItemPedidoDTO[];
   exibir_na_entrega?: boolean;
+  prazo_despacho?: Date | string;
 }
 
 export class PedidoService {
@@ -225,6 +226,10 @@ export class PedidoService {
       }
 
       // 3. Salva o Pedido
+      const prazoDespachoCalculado = dados.prazo_despacho
+        ? new Date(dados.prazo_despacho)
+        : new Date(agora.getTime() + 24 * 60 * 60 * 1000);
+
       const pedido = pedRepoTx.create({
         codigo_pedido: codigoPedido,
         cliente_nome: dados.cliente_nome.trim(),
@@ -232,6 +237,8 @@ export class PedidoService {
         status: 'Confirmado',
         valor_total: valorTotal,
         data_pedido: agora,
+        prazo_despacho: prazoDespachoCalculado,
+        data_despacho: null,
         exibir_na_entrega: dados.exibir_na_entrega ?? true,
         status_entrega: 'A separar',
       });
@@ -334,6 +341,9 @@ export class PedidoService {
       pedido.status = novoStatus;
       if (novoStatusEntrega) {
         pedido.status_entrega = novoStatusEntrega;
+        if ((novoStatusEntrega === 'Despachado' || novoStatusEntrega === 'Entregue') && !pedido.data_despacho) {
+          pedido.data_despacho = new Date();
+        }
         if (novoStatusEntrega === 'Entregue' && pedido.status === 'Confirmado') {
           pedido.status = 'Concluido';
         }
@@ -349,6 +359,94 @@ export class PedidoService {
     } finally {
       await queryRunner.release();
     }
+  }
+
+  /**
+   * Consulta alertas de prazo de postagem/despacho (SCRUM-18 / #10)
+   */
+  async obterAlertasPostagem() {
+    const agora = new Date();
+    const pedidosPendentes = await this.pedidoRepo
+      .createQueryBuilder('p')
+      .leftJoinAndSelect('p.itens', 'i')
+      .leftJoinAndSelect('i.produto', 'prod')
+      .where('p.status != :cancelado', { cancelado: 'Cancelado' })
+      .andWhere('p.status_entrega NOT IN (:...concluidos)', {
+        concluidos: ['Despachado', 'Entregue'],
+      })
+      .orderBy('p.prazo_despacho', 'ASC')
+      .getMany();
+
+    const hojeFim = new Date(agora);
+    hojeFim.setHours(23, 59, 59, 999);
+
+    let atrasadosCount = 0;
+    let hojeCount = 0;
+    let amanhaCount = 0;
+    let noPrazoCount = 0;
+
+    const listaFormatada = pedidosPendentes.map((ped) => {
+      const prazo = ped.prazo_despacho
+        ? new Date(ped.prazo_despacho)
+        : new Date(new Date(ped.data_pedido).getTime() + 24 * 3600 * 1000);
+
+      const diffMs = prazo.getTime() - agora.getTime();
+      const diffHoras = Math.round(diffMs / (1000 * 60 * 60));
+      const isAtrasado = diffMs < 0;
+      const isHoje = !isAtrasado && prazo <= hojeFim;
+      const isAmanha = !isAtrasado && !isHoje && diffHoras <= 48;
+
+      let criticidade: 'atrasado' | 'hoje' | 'amanha' | 'no_prazo';
+      let labelAlerta: string;
+
+      if (isAtrasado) {
+        atrasadosCount++;
+        criticidade = 'atrasado';
+        const horasAtraso = Math.abs(diffHoras);
+        labelAlerta = horasAtraso >= 24
+          ? `Atrasado há ${Math.floor(horasAtraso / 24)}d`
+          : `Atrasado há ${horasAtraso}h`;
+      } else if (isHoje) {
+        hojeCount++;
+        criticidade = 'hoje';
+        labelAlerta = diffHoras <= 0 ? 'Vence agora' : `Vence em ${diffHoras}h`;
+      } else if (isAmanha) {
+        amanhaCount++;
+        criticidade = 'amanha';
+        labelAlerta = 'Vence amanhã';
+      } else {
+        noPrazoCount++;
+        criticidade = 'no_prazo';
+        labelAlerta = 'No prazo';
+      }
+
+      return {
+        id_pedido: ped.id_pedido,
+        codigo_pedido: ped.codigo_pedido,
+        cliente_nome: ped.cliente_nome,
+        origem: ped.origem,
+        data_pedido: ped.data_pedido,
+        prazo_despacho: prazo,
+        status_entrega: ped.status_entrega,
+        valor_total: ped.valor_total,
+        itens_resumo: ped.itens?.map((i) => `${i.quantidade}x ${i.produto?.nome || 'Item'}`).join(', '),
+        horas_restantes: diffHoras,
+        criticidade,
+        label_alerta: labelAlerta,
+      };
+    });
+
+    return {
+      resumo: {
+        total_pendentes: pedidosPendentes.length,
+        atrasados: atrasadosCount,
+        vencem_hoje: hojeCount,
+        vencem_amanha: amanhaCount,
+        no_prazo: noPrazoCount,
+        necessita_atencao: atrasadosCount + hojeCount,
+      },
+      pedidos: listaFormatada,
+    };
   }
 }
 

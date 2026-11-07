@@ -47,6 +47,12 @@ export class Pedido {
   })
   status_entrega: 'A separar' | 'Pronto p/ despacho' | 'Despachado' | 'Entregue';
 
+  @Column({ type: 'timestamp', nullable: true })
+  prazo_despacho: Date | null;
+
+  @Column({ type: 'timestamp', nullable: true })
+  data_despacho: Date | null;
+
   @CreateDateColumn({ type: 'timestamp' })
   created_at: Date;
 

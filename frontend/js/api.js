@@ -224,6 +224,54 @@ window.RezFireAPI = {
     },
   },
 
+  // Módulo de Finanças & Segregação Patrimonial (SCRUM-29 · #25)
+  financeiro: {
+    async listar(filtros = {}) {
+      const params = new URLSearchParams();
+      if (filtros.classificacao) params.append('classificacao', filtros.classificacao);
+      if (filtros.tipo) params.append('tipo', filtros.tipo);
+      if (filtros.categoria) params.append('categoria', filtros.categoria);
+      if (filtros.dias) params.append('dias', String(filtros.dias));
+      if (filtros.data_inicio) params.append('data_inicio', filtros.data_inicio);
+      if (filtros.data_fim) params.append('data_fim', filtros.data_fim);
+      const qs = params.toString() ? `?${params.toString()}` : '';
+      const res = await window.RezFireAPI.request(`/financeiro/lancamentos${qs}`);
+      return (res && res.lancamentos) ? res.lancamentos : res;
+    },
+    async criar(dados) {
+      const res = await window.RezFireAPI.request('/financeiro/lancamentos', {
+        method: 'POST',
+        body: JSON.stringify(dados),
+      });
+      return (res && res.lancamento) ? res.lancamento : res;
+    },
+    async atualizar(id, dados) {
+      const res = await window.RezFireAPI.request(`/financeiro/lancamentos/${id}`, {
+        method: 'PUT',
+        body: JSON.stringify(dados),
+      });
+      return (res && res.lancamento) ? res.lancamento : res;
+    },
+    async excluir(id) {
+      return window.RezFireAPI.request(`/financeiro/lancamentos/${id}`, {
+        method: 'DELETE',
+      });
+    },
+    async obterRelatorioSegregacao(diasOuFiltros = 30) {
+      const params = new URLSearchParams();
+      if (typeof diasOuFiltros === 'number') {
+        params.append('dias', String(diasOuFiltros));
+      } else if (typeof diasOuFiltros === 'object') {
+        if (diasOuFiltros.dias) params.append('dias', String(diasOuFiltros.dias));
+        if (diasOuFiltros.data_inicio) params.append('data_inicio', diasOuFiltros.data_inicio);
+        if (diasOuFiltros.data_fim) params.append('data_fim', diasOuFiltros.data_fim);
+      }
+      const qs = params.toString() ? `?${params.toString()}` : '';
+      const res = await window.RezFireAPI.request(`/financeiro/relatorio-segregacao${qs}`);
+      return (res && res.relatorio) ? res.relatorio : res;
+    },
+  },
+
   // Módulo de Certificados Inmetro
   certificados: {
     async listar(tipo_entidade, entidade_id) {

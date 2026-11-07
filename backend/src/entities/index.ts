@@ -15,4 +15,5 @@ export { OcorrenciaAnuncio } from './OcorrenciaAnuncio';
 export { MidiaAnuncio } from './MidiaAnuncio';
 export { Notificacao } from './Notificacao';
 export { RespostaPadrao } from './RespostaPadrao';
+export { LancamentoFinanceiro } from './LancamentoFinanceiro';
 

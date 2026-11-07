@@ -201,8 +201,15 @@ Todas as 10 User Stories (45 Story Points) da Sprint 1 foram implementadas, inte
     (linha de faturamento real vs potencial e barras de anúncios caídos), apuração de receita cessante por run-rate diário,
     ranking de anúncios mais prejudicados com ações recomendadas e gráfico de causas raiz (Falta de Estoque FEFO vs Moderação ML).
 
-[ ] Classificação Financeira PJ x PF (#25):
-    Tag nos relatórios para segregar despesas corporativas de retiradas pessoais do gestor.
+[X] Classificação Financeira PJ x PF (#25) (SCRUM-29 - CONCLUÍDO em 07/11/2026):
+    Segregação patrimonial explícita entre despesas/receitas corporativas da Empresa (PJ - Simples Nacional)
+    e retiradas/gastos pessoais do gestor (PF). Entidade LancamentoFinanceiro e migration 1700000000009 com
+    tabela lancamentos_financeiros. CRUD completo protegido por RBAC (perfil GESTOR), endpoint consolidado
+    GET /api/financeiro/relatorio-segregacao com apuração de saldos líquidos segregados, despesas por categoria
+    e índice de segregação fiscal. No frontend (dashboard.html / dashboard.js), adicionado Quadro de Segregação
+    Patrimonial na aba Financeiro com 3 KPIs com bordas temáticas, 2 gráficos ApexCharts (comparativo de barras
+    agrupadas PJ x PF e donut de despesas), tabela auditável com ações e modal de cadastro de lançamentos.
+    Teste automatizado de aceite unit_test_financeiro_empresa_pessoal.mjs 100% aprovado.
 
 
 5. RESUMO E PRÓXIMA PRIORIDADE SUGERIDA

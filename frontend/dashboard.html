@@ -661,10 +661,24 @@
                   <option value="low">🔴 Margem em Risco (&lt; 40%)</option>
                 </select>
               </div>
+
+              <!-- Filtro de Segregação Patrimonial (#25 / SCRUM-29) -->
+              <div class="flex items-center gap-2">
+                <label for="filtro-financeiro-classificacao" class="text-xs font-bold text-stone-500 uppercase" style="color:#6366f1">Esfera (#25):</label>
+                <select id="filtro-financeiro-classificacao" class="search-input" style="width: 200px; border-color:#c7d2fe; font-weight:600">
+                  <option value="todos" selected>🏢 + 👤 Consolidado</option>
+                  <option value="Empresa">🏢 Empresa (PJ Operacional)</option>
+                  <option value="Pessoal">👤 Pessoal (PF Gestor)</option>
+                </select>
+              </div>
             </div>
 
             <div class="flex items-center gap-3 flex-wrap">
-              <button id="btn-abrir-config-taxas" class="btn-primary" type="button" style="padding: 8px 14px; font-size: 0.82rem; display: inline-flex; align-items: center; gap: 6px;">
+              <button id="btn-novo-lancamento-financeiro" class="btn-primary" type="button" style="padding: 8px 14px; font-size: 0.82rem; display: inline-flex; align-items: center; gap: 6px; background:#4f46e5; border-color:#4338ca;">
+                <span>💰</span>
+                <span>+ Lançamento Financeiro (#25)</span>
+              </button>
+              <button id="btn-abrir-config-taxas" class="btn-ghost" type="button" style="padding: 8px 14px; font-size: 0.82rem; display: inline-flex; align-items: center; gap: 6px;">
                 <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg>
                 Configurar Alíquotas & Taxas
               </button>
@@ -771,6 +785,77 @@
               </table>
             </div>
           </div>
+
+          <!-- SEÇÃO: SEGREGAÇÃO PATRIMONIAL EMPRESA (PJ) × PESSOAL (PF) (#25 / SCRUM-29) -->
+          <div class="card" style="margin-top: 24px; padding: 20px; border-top: 4px solid #4f46e5;">
+            <div class="flex items-center justify-between mb-3 flex-wrap gap-3">
+              <div>
+                <h2 class="chart-title" style="margin: 0; color: #312e81; display: flex; align-items: center; gap: 8px;">
+                  <span>⚖️</span> Quadro de Segregação Patrimonial: Empresa (PJ) × Pessoal (PF) (#25)
+                </h2>
+                <p class="text-xs text-stone-500 mt-1">
+                  Separação estrita entre despesas corporativas da RezFire e finanças pessoais do gestor para conformidade fiscal, planejamento tributário e controle de retiradas pró-labore.
+                </p>
+              </div>
+              <div class="flex items-center gap-2">
+                <span class="text-xs font-bold px-3 py-1 rounded-full bg-indigo-50 text-indigo-700 border border-indigo-200">
+                  Índice de Separação: 100%
+                </span>
+              </div>
+            </div>
+
+            <!-- Grade de KPIs de Segregação Patrimonial -->
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; margin-bottom: 20px;" id="kpis-segregacao-financeira">
+              <!-- Renderizado via JS -->
+            </div>
+
+            <!-- Linha com Gráfico Comparativo e Distribuição -->
+            <div class="charts-row-equal" style="margin-bottom: 20px;">
+              <div class="chart-card card" style="padding: 16px;">
+                <div class="flex items-center justify-between mb-2">
+                  <h3 class="chart-title" style="font-size: 0.92rem; margin: 0;">Receitas × Despesas: Empresa vs Pessoal</h3>
+                  <span class="text-xs text-stone-400">Total R$ por Esfera</span>
+                </div>
+                <div id="chart-segregacao-barras"></div>
+              </div>
+
+              <div class="chart-card card" style="padding: 16px;">
+                <div class="flex items-center justify-between mb-2">
+                  <h3 class="chart-title" style="font-size: 0.92rem; margin: 0;">Composição das Despesas por Esfera</h3>
+                  <span class="text-xs text-stone-400">Categorias de Custo</span>
+                </div>
+                <div id="chart-segregacao-pizza"></div>
+              </div>
+            </div>
+
+            <!-- Tabela Filtrável de Lançamentos Financeiros Classificados -->
+            <div>
+              <div class="flex items-center justify-between mb-2 flex-wrap gap-2">
+                <h3 class="chart-title" style="font-size: 0.92rem; margin: 0;">
+                  Histórico de Lançamentos Classificados
+                </h3>
+                <span id="contador-lancamentos-financeiros" class="text-xs text-stone-500 font-medium"></span>
+              </div>
+              <div class="table-wrap">
+                <table class="products-table" style="margin: 0; font-size: 0.82rem;">
+                  <thead>
+                    <tr style="border-bottom: 2px solid var(--line); text-align: left;">
+                      <th style="padding: 8px 6px;">Descrição</th>
+                      <th style="padding: 8px 6px; text-align: center;">Esfera (#25)</th>
+                      <th style="padding: 8px 6px; text-align: center;">Tipo</th>
+                      <th style="padding: 8px 6px;">Categoria</th>
+                      <th style="padding: 8px 6px; text-align: center;">Competência</th>
+                      <th style="padding: 8px 6px; text-align: right;">Valor (R$)</th>
+                      <th style="padding: 8px 6px; text-align: right;">Ações</th>
+                    </tr>
+                  </thead>
+                  <tbody id="tbody-lancamentos-financeiros">
+                    <!-- Renderizado dinamicamente via JS -->
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
         </div>
       </main>
     </div>
@@ -846,6 +931,82 @@
         <div class="modal-actions">
           <button class="btn-ghost" type="button" id="btn-cancelar-taxas">Cancelar</button>
           <button class="btn-primary" type="submit">Salvar Alíquotas</button>
+        </div>
+      </form>
+    </div>
+
+    <!-- Modal de Cadastro / Edição de Lançamento Financeiro (#25 / SCRUM-29) -->
+    <div class="modal-backdrop" id="modal-lancamento-financeiro" role="dialog" aria-modal="true" aria-labelledby="modal-lancamento-titulo">
+      <form class="modal" id="form-lancamento-financeiro" style="width: min(580px, 100%);">
+        <div class="modal-header">
+          <h2 id="modal-lancamento-titulo" style="display:flex;align-items:center;gap:8px">
+            <span>💰</span>
+            <span>Novo Lançamento Financeiro</span>
+          </h2>
+          <button class="icon-btn" id="btn-fechar-modal-lancamento" type="button" aria-label="Fechar">✕</button>
+        </div>
+        <p class="text-xs text-stone-500 mb-4">
+          Registre movimentações com classificação mandatória entre <strong>Empresa (PJ)</strong> e <strong>Pessoal (PF)</strong> para evitar confusão patrimonial e facilitar a contabilidade.
+        </p>
+        <input type="hidden" id="lancamento_id" />
+
+        <div class="form-grid">
+          <div class="form-field span-2">
+            <label for="lancamento_descricao">Descrição do Lançamento *</label>
+            <input id="lancamento_descricao" placeholder="Ex: Compra de Caixas Reforçadas ou Pró-labore" required maxlength="255" />
+          </div>
+
+          <div class="form-field">
+            <label for="lancamento_classificacao">Esfera / Classificação * (#25)</label>
+            <select id="lancamento_classificacao" required style="font-weight:700">
+              <option value="Empresa" selected>🏢 Empresa (PJ Operacional)</option>
+              <option value="Pessoal">👤 Pessoal (PF Gestor)</option>
+            </select>
+          </div>
+
+          <div class="form-field">
+            <label for="lancamento_tipo">Tipo de Operação *</label>
+            <select id="lancamento_tipo" required style="font-weight:700">
+              <option value="Despesa" selected>🔴 Despesa / Saída</option>
+              <option value="Receita">🟢 Receita / Entrada</option>
+            </select>
+          </div>
+
+          <div class="form-field">
+            <label for="lancamento_valor">Valor (R$) *</label>
+            <input id="lancamento_valor" type="number" min="0.01" step="0.01" placeholder="0,00" required />
+          </div>
+
+          <div class="form-field">
+            <label for="lancamento_competencia">Data de Competência *</label>
+            <input id="lancamento_competencia" type="date" required />
+          </div>
+
+          <div class="form-field span-2">
+            <label for="lancamento_categoria">Categoria Contábil</label>
+            <select id="lancamento_categoria">
+              <option value="Insumos / Embalagem">Insumos / Embalagem</option>
+              <option value="Certificação / Inmetro">Certificação / Lacre INMETRO</option>
+              <option value="Logística / Fretes">Logística / Fretes</option>
+              <option value="Impostos / Tributos">Impostos / Simples Nacional</option>
+              <option value="Pró-labore / Retiradas">Pró-labore / Retiradas do Gestor</option>
+              <option value="Despesa Pessoal">Despesa Pessoal (Moradia, Alimentação)</option>
+              <option value="Saúde Pessoal">Saúde Pessoal / Familiar</option>
+              <option value="Operacional">Operacional Geral</option>
+              <option value="Outros">Outros</option>
+            </select>
+          </div>
+
+          <div class="form-field span-2">
+            <label for="lancamento_observacoes">Observações Fiscais / Justificativa</label>
+            <textarea id="lancamento_observacoes" rows="2" placeholder="Informações adicionais para auditoria ou comprovante bancário..."></textarea>
+          </div>
+        </div>
+
+        <p class="form-error" id="lancamento-form-error" style="color:var(--down);font-weight:600;margin:10px 0 0"></p>
+        <div class="modal-actions" style="margin-top:16px">
+          <button class="btn-ghost" type="button" id="btn-cancelar-lancamento">Cancelar</button>
+          <button class="btn-primary" type="submit" id="btn-salvar-lancamento">Salvar Lançamento</button>
         </div>
       </form>
     </div>

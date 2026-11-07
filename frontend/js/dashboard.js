@@ -123,6 +123,7 @@ async function renderDashboard() {
   bindOrderModalEvents();
   bindStockModalEvents();
   bindFinancialRatesModalEvents();
+  bindLancamentosFinanceirosModalEvents();
 }
 
 // Armazenamento de instâncias dos gráficos da aba Vendas para destruição limpa ao trocar filtros
@@ -1985,12 +1986,16 @@ function renderTabFinanceiro(products) {
       })
       .join("");
   }
+
+  // 5. Renderiza Segregação Patrimonial (SCRUM-29 · #25)
+  renderSegregacaoPatrimonial();
 }
 
 function setupFinancialFilters(products) {
   const selectPeriodo = document.getElementById("filtro-financeiro-periodo");
   const selectCanal = document.getElementById("filtro-financeiro-canal");
   const selectMargem = document.getElementById("filtro-financeiro-margem");
+  const selectClassificacao = document.getElementById("filtro-financeiro-classificacao");
   const inputBusca = document.getElementById("busca-financeiro-tabela");
 
   if (selectPeriodo && !selectPeriodo.dataset.bound) {
@@ -2014,6 +2019,13 @@ function setupFinancialFilters(products) {
     selectMargem.addEventListener("change", () => {
       const currentProducts = RezFireData.loadProducts();
       renderTabFinanceiro(currentProducts);
+    });
+  }
+
+  if (selectClassificacao && !selectClassificacao.dataset.bound) {
+    selectClassificacao.dataset.bound = "true";
+    selectClassificacao.addEventListener("change", () => {
+      renderSegregacaoPatrimonial();
     });
   }
 
@@ -2085,6 +2097,353 @@ function bindFinancialRatesModalEvents() {
     });
   }
 }
+
+// ============================================================================
+// SEGREGAÇÃO PATRIMONIAL & FINANÇAS EMPRESA X PESSOAL (SCRUM-29 · #25)
+// ============================================================================
+
+let segregacaoCharts = {};
+
+async function renderSegregacaoPatrimonial() {
+  const money = RezFireData.formatMoney;
+  const selectPeriodo = document.getElementById("filtro-financeiro-periodo");
+  const selectClassificacao = document.getElementById("filtro-financeiro-classificacao");
+
+  const dias = selectPeriodo ? Number(selectPeriodo.value) : 30;
+  const filtroClassificacao = selectClassificacao ? selectClassificacao.value : "todos";
+
+  try {
+    // 1. Busca relatório consolidado e lançamentos filtrados
+    const [relatorio, lancamentos] = await Promise.all([
+      window.RezFireAPI && window.RezFireAPI.financeiro
+        ? window.RezFireAPI.financeiro.obterRelatorioSegregacao(dias)
+        : Promise.resolve(null),
+      window.RezFireAPI && window.RezFireAPI.financeiro
+        ? window.RezFireAPI.financeiro.listar({
+            classificacao: filtroClassificacao === "todos" ? undefined : filtroClassificacao,
+            dias: dias,
+          })
+        : Promise.resolve([]),
+    ]);
+
+    if (!relatorio) {
+      console.warn("Módulo RezFireAPI.financeiro indisponível ou em modo offline.");
+      return;
+    }
+
+    // 2. Renderiza Grade de KPIs de Segregação Patrimonial
+    const kpiEl = document.getElementById("kpis-segregacao-patrimonial");
+    if (kpiEl) {
+      const saldoEmpresa = relatorio.empresa.saldo;
+      const saldoPessoal = relatorio.pessoal.saldo;
+      const empresaColorClass = saldoEmpresa >= 0 ? "kpi-delta up" : "kpi-delta down";
+      const pessoalColorClass = saldoPessoal >= 0 ? "kpi-delta up" : "kpi-delta down";
+
+      kpiEl.innerHTML = `
+        <div class="kpi-card" style="border-left: 4px solid #1e40af;">
+          <div class="flex items-center justify-between">
+            <span class="kpi-label" style="color: #1e40af; font-weight: 700;">🏢 EMPRESA (PESSOA JURÍDICA)</span>
+            <span class="badge-tag" style="background: #dbeafe; color: #1e40af;">Simples Nacional</span>
+          </div>
+          <div class="kpi-value" style="color: #1e3a8a; margin-top: 6px;">
+            ${money(saldoEmpresa)}
+          </div>
+          <div class="kpi-subtext" style="margin-top: 4px;">
+            Receitas: <strong style="color: #15803d;">${money(relatorio.empresa.receitas)}</strong> | 
+            Despesas: <strong style="color: #b91c1c;">${money(relatorio.empresa.despesas)}</strong>
+          </div>
+          <div class="${empresaColorClass}" style="margin-top: 6px; font-size: 0.75rem;">
+            ${relatorio.empresa.total_lancamentos} lançamentos PJ registrados no período
+          </div>
+        </div>
+
+        <div class="kpi-card" style="border-left: 4px solid #7c3aed;">
+          <div class="flex items-center justify-between">
+            <span class="kpi-label" style="color: #7c3aed; font-weight: 700;">👤 PESSOAL (PESSOA FÍSICA)</span>
+            <span class="badge-tag" style="background: #ede9fe; color: #7c3aed;">Patrimônio Particular</span>
+          </div>
+          <div class="kpi-value" style="color: #5b21b6; margin-top: 6px;">
+            ${money(saldoPessoal)}
+          </div>
+          <div class="kpi-subtext" style="margin-top: 4px;">
+            Entradas/Pró-labore: <strong style="color: #15803d;">${money(relatorio.pessoal.receitas)}</strong> | 
+            Gastos: <strong style="color: #b91c1c;">${money(relatorio.pessoal.despesas)}</strong>
+          </div>
+          <div class="${pessoalColorClass}" style="margin-top: 6px; font-size: 0.75rem;">
+            ${relatorio.pessoal.total_lancamentos} lançamentos PF segregados da empresa
+          </div>
+        </div>
+
+        <div class="kpi-card" style="border-left: 4px solid ${relatorio.indicador_segregacao.risco_confusao ? "#dc2626" : "#16a34a"};">
+          <div class="flex items-center justify-between">
+            <span class="kpi-label" style="color: #374151; font-weight: 700;">⚖️ ÍNDICE DE SEGREGAÇÃO FISCAL</span>
+            <span class="badge-tag" style="background: ${relatorio.indicador_segregacao.risco_confusao ? "#fee2e2" : "#dcfce7"}; color: ${relatorio.indicador_segregacao.risco_confusao ? "#991b1b" : "#166534"}; font-weight: 700;">
+              ${relatorio.indicador_segregacao.status}
+            </span>
+          </div>
+          <div class="kpi-value" style="font-size: 1.15rem; color: #1f2937; margin-top: 8px;">
+            ${relatorio.indicador_segregacao.taxa_segregacao_pct}% Lançamentos Classificados
+          </div>
+          <p style="margin: 4px 0 0; font-size: 0.78rem; color: #4b5563; line-height: 1.35;">
+            ${relatorio.indicador_segregacao.mensagem}
+          </p>
+        </div>
+      `;
+    }
+
+    // 3. Renderiza Gráficos ApexCharts de Segregação
+    // Gráfico A: Comparativo de Receitas, Despesas e Saldo Líquido (Empresa vs Pessoal)
+    const elComp = document.querySelector("#chart-segregacao-comparativo");
+    if (elComp) {
+      if (segregacaoCharts.comparativo) {
+        segregacaoCharts.comparativo.destroy();
+      }
+      segregacaoCharts.comparativo = new ApexCharts(elComp, {
+        chart: {
+          type: "bar",
+          height: 270,
+          toolbar: { show: false },
+          fontFamily: "Inter, sans-serif",
+        },
+        plotOptions: {
+          bar: {
+            horizontal: false,
+            columnWidth: "46%",
+            borderRadius: 3,
+          },
+        },
+        series: [
+          {
+            name: "Receitas",
+            data: [relatorio.empresa.receitas, relatorio.pessoal.receitas],
+          },
+          {
+            name: "Despesas / Gastos",
+            data: [relatorio.empresa.despesas, relatorio.pessoal.despesas],
+          },
+          {
+            name: "Resultado / Saldo",
+            data: [relatorio.empresa.saldo, relatorio.pessoal.saldo],
+          },
+        ],
+        colors: ["#16a34a", "#dc2626", "#2563eb"],
+        dataLabels: { enabled: false },
+        stroke: { show: true, width: 2, colors: ["transparent"] },
+        xaxis: {
+          categories: ["Empresa (PJ)", "Pessoal (PF)"],
+        },
+        yaxis: {
+          labels: { formatter: (val) => money(val) },
+        },
+        tooltip: {
+          y: { formatter: (val) => money(val) },
+        },
+        legend: { position: "bottom" },
+      });
+      segregacaoCharts.comparativo.render();
+    }
+
+    // Gráfico B: Distribuição de Despesas (Empresa vs Pessoal)
+    const elDist = document.querySelector("#chart-segregacao-distribuicao");
+    if (elDist) {
+      if (segregacaoCharts.distribuicao) {
+        segregacaoCharts.distribuicao.destroy();
+      }
+      const despPJ = relatorio.empresa.despesas;
+      const despPF = relatorio.pessoal.despesas;
+      const totalDesp = despPJ + despPF;
+
+      const seriesDesp = totalDesp > 0 ? [despPJ, despPF] : [1, 1];
+      segregacaoCharts.distribuicao = new ApexCharts(elDist, {
+        chart: {
+          type: "donut",
+          height: 270,
+          fontFamily: "Inter, sans-serif",
+        },
+        series: seriesDesp,
+        labels: [
+          `Despesas da Empresa (${money(despPJ)})`,
+          `Gastos Pessoais (${money(despPF)})`,
+        ],
+        colors: ["#1e40af", "#7c3aed"],
+        dataLabels: {
+          enabled: true,
+          formatter: (val) => `${Math.round(val)}%`,
+        },
+        legend: { position: "bottom" },
+        stroke: { show: false },
+        tooltip: {
+          y: { formatter: (val) => money(val) },
+        },
+      });
+      segregacaoCharts.distribuicao.render();
+    }
+
+    // 4. Renderiza Tabela de Lançamentos Financeiros
+    const labelCount = document.getElementById("label-total-lancamentos-financeiros");
+    if (labelCount) {
+      labelCount.textContent = `${lancamentos.length} lançamentos (${filtroClassificacao === "todos" ? "PJ e PF" : filtroClassificacao})`;
+    }
+
+    const tbody = document.getElementById("lista-lancamentos-financeiros");
+    if (tbody) {
+      if (lancamentos.length === 0) {
+        tbody.innerHTML = `<tr class="empty-row"><td colspan="7">Nenhum lançamento financeiro encontrado com o filtro [${filtroClassificacao}].</td></tr>`;
+        return;
+      }
+
+      tbody.innerHTML = lancamentos
+        .map((l) => {
+          const isEmpresa = l.classificacao === "Empresa";
+          const isReceita = l.tipo === "Receita";
+          const badgeEsfera = isEmpresa
+            ? `<span class="badge-tag" style="background:#dbeafe; color:#1e40af; font-weight:700;">🏢 Empresa (PJ)</span>`
+            : `<span class="badge-tag" style="background:#ede9fe; color:#6d28d9; font-weight:700;">👤 Pessoal (PF)</span>`;
+          const badgeTipo = isReceita
+            ? `<span class="badge-tag" style="background:#dcfce7; color:#166534; font-weight:700;">+ Receita</span>`
+            : `<span class="badge-tag" style="background:#fee2e2; color:#991b1b; font-weight:700;">- Despesa</span>`;
+          const valorFormatado = `${isReceita ? "+" : "-"}${money(l.valor)}`;
+          const valorStyle = isReceita ? "color:#16a34a; font-weight:700;" : "color:#dc2626; font-weight:700;";
+          const dataFmt = l.data_competencia ? l.data_competencia.split("T")[0] : "-";
+
+          return `
+            <tr>
+              <td style="font-size:0.82rem; color:#4b5563;">${dataFmt}</td>
+              <td>
+                <div style="font-weight:600; color:#111827;">${escapeHtml(l.descricao)}</div>
+                <div style="font-size:0.75rem; color:#6b7280;">${escapeHtml(l.observacoes || "")}</div>
+              </td>
+              <td>${badgeEsfera}</td>
+              <td>${badgeTipo}</td>
+              <td>
+                <span class="badge-tag" style="background:#f3f4f6; color:#374151; font-size:0.75rem;">
+                  ${escapeHtml(l.categoria || "Geral")}
+                </span>
+              </td>
+              <td style="text-align: right; ${valorStyle}">
+                ${valorFormatado}
+              </td>
+              <td style="text-align: right;">
+                <button
+                  type="button"
+                  class="btn-ghost"
+                  style="padding: 3px 8px; font-size: 0.72rem; color: #dc2626;"
+                  onclick="excluirLancamentoFinanceiro(${l.id_lancamento})"
+                  title="Excluir Lançamento"
+                >
+                  🗑️ Excluir
+                </button>
+              </td>
+            </tr>
+          `;
+        })
+        .join("");
+    }
+  } catch (err) {
+    console.error("Erro ao carregar relatório de segregação patrimonial:", err);
+  }
+}
+
+function bindLancamentosFinanceirosModalEvents() {
+  const modal = document.getElementById("modal-lancamento-financeiro");
+  const btnAbrir = document.getElementById("btn-abrir-lancamento-financeiro");
+  const btnFechar = document.getElementById("btn-fechar-modal-lancamento");
+  const btnCancelar = document.getElementById("btn-cancelar-lancamento");
+  const form = document.getElementById("form-lancamento-financeiro");
+
+  function fechar() {
+    if (modal) modal.classList.remove("is-open");
+  }
+
+  function abrir() {
+    if (!modal) return;
+    const inputData = document.getElementById("lancamento_data");
+    if (inputData && !inputData.value) {
+      inputData.value = new Date().toISOString().split("T")[0];
+    }
+    const errEl = document.getElementById("lancamento-form-error");
+    if (errEl) errEl.textContent = "";
+    modal.classList.add("is-open");
+    const desc = document.getElementById("lancamento_descricao");
+    if (desc) desc.focus();
+  }
+
+  if (btnAbrir) btnAbrir.addEventListener("click", abrir);
+  if (btnFechar) btnFechar.addEventListener("click", fechar);
+  if (btnCancelar) btnCancelar.addEventListener("click", fechar);
+  if (modal) {
+    modal.addEventListener("click", (e) => {
+      if (e.target.id === "modal-lancamento-financeiro") fechar();
+    });
+  }
+
+  if (form && !form.dataset.bound) {
+    form.dataset.bound = "true";
+    form.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const errEl = document.getElementById("lancamento-form-error");
+      if (errEl) errEl.textContent = "";
+
+      const tipo = document.getElementById("lancamento_tipo").value;
+      const classificacao = document.getElementById("lancamento_classificacao").value;
+      const descricao = document.getElementById("lancamento_descricao").value.trim();
+      const valor = parseFloat(document.getElementById("lancamento_valor").value);
+      const categoria = document.getElementById("lancamento_categoria").value.trim();
+      const data_competencia = document.getElementById("lancamento_data").value;
+      const observacoes = document.getElementById("lancamento_observacoes").value.trim();
+
+      if (!descricao) {
+        if (errEl) errEl.textContent = "A descrição do lançamento é obrigatória.";
+        return;
+      }
+      if (isNaN(valor) || valor <= 0) {
+        if (errEl) errEl.textContent = "O valor deve ser um número positivo maior que zero.";
+        return;
+      }
+      if (!data_competencia) {
+        if (errEl) errEl.textContent = "A data de competência é obrigatória.";
+        return;
+      }
+
+      try {
+        await window.RezFireAPI.financeiro.criar({
+          tipo,
+          classificacao,
+          descricao,
+          valor,
+          categoria,
+          data_competencia,
+          observacoes,
+        });
+
+        // Limpa formulário e fecha
+        form.reset();
+        fechar();
+
+        // Recarrega relatório de segregação
+        renderSegregacaoPatrimonial();
+      } catch (err) {
+        console.error("Erro ao salvar lançamento financeiro:", err);
+        if (errEl) {
+          errEl.textContent = err.message || "Erro ao registrar lançamento financeiro.";
+        }
+      }
+    });
+  }
+}
+
+async function excluirLancamentoFinanceiro(id) {
+  if (!confirm("Tem certeza que deseja excluir este lançamento financeiro?")) {
+    return;
+  }
+  try {
+    await window.RezFireAPI.financeiro.excluir(id);
+    renderSegregacaoPatrimonial();
+  } catch (err) {
+    alert("Erro ao excluir lançamento: " + (err.message || err));
+  }
+}
+window.excluirLancamentoFinanceiro = excluirLancamentoFinanceiro;
 
 function renderTabProdutos(products) {
   const money = RezFireData.formatMoney;

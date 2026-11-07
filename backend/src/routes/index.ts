@@ -13,6 +13,7 @@ import anuncioRoutes from './anuncio.routes';
 import usuarioRoutes from './usuario.routes';
 import notificacaoRoutes from './notificacao.routes';
 import respostaPadraoRoutes from './respostaPadrao.routes';
+import financeiroRoutes from './lancamentoFinanceiro.routes';
 
 const router = Router();
 
@@ -30,5 +31,6 @@ router.use('/alertas', alertaRoutes);
 router.use('/anuncios', anuncioRoutes);
 router.use('/notificacoes', notificacaoRoutes);
 router.use('/respostas-padrao', respostaPadraoRoutes);
+router.use('/financeiro', financeiroRoutes);
 
 export default router;

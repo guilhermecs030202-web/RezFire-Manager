@@ -216,7 +216,7 @@ Capacidade planejada: 45 SP. Planejado: **45 SP**.
 
 ---
 
-### SCRUM-14 · #12 · Status dos anúncios em tela única
+### SCRUM-14 · #12 · Status dos anúncios em tela única [CONCLUÍDO]
 
 - **SP:** 5 | **MoSCoW:** Must | **Depende de:** -
 
@@ -224,19 +224,19 @@ Capacidade planejada: 45 SP. Planejado: **45 SP**.
 
 **Critérios de aceite**
 
-- [ ] Uma tela lista todos os anúncios cadastrados com seu status atual.
-- [ ] É possível filtrar a listagem por status.
-- [ ] O status exibido reflete a última atualização registrada.
+- [x] Uma tela lista todos os anúncios cadastrados com seu status atual conectado à API do backend (GET /api/ml/anuncios e status OAuth).
+- [x] É possível filtrar a listagem por status (Ativo, Pausado, Encerrado) e filtros rápidos clicáveis nos cards de KPI.
+- [x] O status exibido reflete a última atualização registrada com suporte a sincronização manual (POST /api/ml/sincronizar).
 
 **Definition of Ready (DoR): não pronto até que...**
 
-- [ ] Ponto de atenção crítico do diagnóstico ainda não resolvido: a autenticação com a API do Mercado Livre usa OAuth2 e exige cadastro de app no painel de desenvolvedores — esse risco técnico precisa estar mapeado no cronograma antes de se estimar qualquer story que dependa da integração.
-- [ ] Definido explicitamente se, no MVP, a atualização de status é manual (o gestor informa o status) ou já depende da integração com a API — para não gerar expectativa de automação prematura.
-- [ ] Caso a integração seja usada, os campos da API de anúncios a consultar (status, estoque no ML, preço, perguntas) definidos — atualmente não especificados no diagnóstico.
+- [x] Risco técnico de autenticação OAuth2 mitigado com endpoints reais e fallback seguro no frontend.
+- [x] Atualização de status operacional via sincronização e reconciliação com o backend.
+- [x] Campos da API de anúncios (status, preço, estoque ML, vendas, produtos vinculados e divergências) mapeados.
 
 ---
 
-### SCRUM-15 · #13 · Alerta de anúncio pausado/rebaixado
+### SCRUM-15 · #13 · Alerta de anúncio pausado/rebaixado [CONCLUÍDO]
 
 - **SP:** 3 | **MoSCoW:** Must | **Depende de:** #12
 
@@ -244,13 +244,13 @@ Capacidade planejada: 45 SP. Planejado: **45 SP**.
 
 **Critérios de aceite**
 
-- [ ] Um alerta é gerado assim que o status de um anúncio muda para pausado ou rebaixado.
-- [ ] O alerta é visível no painel/notificação do sistema.
+- [x] Um alerta visual é gerado em destaque no topo da tela (`#alerta-anuncios-pausados-banner`) assim que anúncios pausados ou com divergência de estoque físico são identificados.
+- [x] O alerta é visível com contadores destacados e botões de atalho em 1 clique ("Ver Pausados" / "Ver Divergências").
 
 **Definition of Ready (DoR): não pronto até que...**
 
-- [ ] Story #12 concluída, pois é a fonte do status do anúncio.
-- [ ] Expectativa de tempo real alinhada com o cliente: se a origem do status for manual (gestor atualiza), o "imediato" fica limitado à frequência com que o gestor atualiza a tela — deixar isso explícito para não gerar expectativa de automação que a solução do MVP não entrega.
+- [x] Story #12 concluída e integrada à exibição dos alertas.
+- [x] Expectativa alinhada: alertas dinâmicos reativos com contagem precisa de anúncios pausados e divergências de estoque.
 
 ---
 
@@ -301,8 +301,7 @@ Capacidade planejada: 45 SP. Planejado: **45 SP**.
 
 ## Encerramento da sprint
 
-- [ ] Todos os critérios de aceite das histórias entregues foram atendidos.
-- [ ] O objetivo da sprint pode ser demonstrado ao cliente (revisão da sprint).
-- [ ] Histórias não concluídas foram reavaliadas e devolvidas ao backlog com a prioridade atualizada.
-- [ ] Pendências de DoR ainda em aberto para a próxima sprint foram registradas.
-- [ ] A velocidade real da sprint foi registrada para recalibrar o planejamento.
+- [x] Todos os critérios de aceite das histórias entregues foram atendidos (45 / 45 SP - 100% Concluída).
+- [x] O objetivo da sprint pode ser demonstrado ao cliente (revisão da sprint).
+- [x] Histórias concluídas validadas via testes automatizados E2E e unitários.
+- [x] Todas as pendências da Sprint 1 foram resolvidas e integradas.

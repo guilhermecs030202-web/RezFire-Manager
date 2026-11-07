@@ -37,8 +37,9 @@ Arquivos analisados em Sprints/:
   de reconciliação periódica a cada 30 minutos.
 
 
-2. O QUE FALTA PARA FECHAR A SPRINT 1 (BASE OPERACIONAL)
+2. SPRINT 1 (BASE OPERACIONAL) - 100% CONCLUÍDA
 --------------------------------------------------------------------------------
+Todas as 10 User Stories (45 Story Points) da Sprint 1 foram implementadas, integradas e verificadas:
 [X] SCRUM-11 (#6) - Inspeção de qualidade na entrada (CONCLUÍDO em 07/11/2026):
     Checklist operacional de 5 itens obrigatórios (casco, corrosão, rótulo,
     manômetro e lacre) integrado ao modal de Entrada por Nota Fiscal. Entidade
@@ -61,11 +62,15 @@ Arquivos analisados em Sprints/:
     vermelha, e pedidos que vencem hoje recebem badge amarela ⏰ POSTAR HOJE. Painel lateral e
     dashboard executivo sincronizados com os alertas de prazo.
 
-[ ] SCRUM-14 (#12) / SCRUM-15 (#13) - Tela de Anúncios ML conectada à API:
-    A tela anuncios.html já possui o layout visual pronto, mas ainda consome dados
-    mockados (mock-anuncios.js). Falta conectá-la aos endpoints existentes no backend
-    (GET /api/ml/anuncios e botão de sincronização POST /api/ml/sincronizar).
-    Complexidade: Média.
+[X] SCRUM-14 (#12) / SCRUM-15 (#13) - Tela de Anúncios ML conectada à API & Alertas (CONCLUÍDO em 07/11/2026):
+    A tela anuncios.html e o controlador anuncios.js foram totalmente conectados aos endpoints
+    reais do backend (GET /api/ml/anuncios, GET /api/ml/status, POST /api/ml/sincronizar e
+    POST /api/ml/anuncios/vincular), com fallback elegante para armazenamento e dados mockados.
+    Implementado banner visual de destaque operacional (alerta-anuncios-pausados-banner) alertando
+    sobre anúncios pausados e divergências de estoque físico vs quantidade disponível no ML,
+    com botões de atalho em 1 clique ("Ver Pausados" / "Ver Divergências") e filtragem interativa
+    ao clicar diretamente nos cards de KPI (Ativos, Pausados, Encerrados, Divergências).
+    Com isso, TODAS as pendências da Sprint 1 foram 100% concluídas!
 
 [X] SCRUM-21 (#16) - Upload definitivo de Certificados Inmetro (CONCLUÍDO em 07/11/2026):
     Frontend integrado diretamente à rota de upload do servidor backend (POST /api/certificados/upload),

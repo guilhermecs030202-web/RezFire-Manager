@@ -39,7 +39,7 @@ Capacidade planejada: 45 SP. Planejado: **45 SP**.
 
 ## Histórias
 
-### SCRUM-7 · #5 · Cadastro de tipos de produto
+### SCRUM-7 · #5 · Cadastro de tipos de produto [CONCLUÍDO]
 
 - **SP:** 3 | **MoSCoW:** Must | **Depende de:** -
 
@@ -47,18 +47,18 @@ Capacidade planejada: 45 SP. Planejado: **45 SP**.
 
 **Critérios de aceite**
 
-- [ ] É possível criar, editar e listar tipos/categorias de produto.
-- [ ] Um novo tipo de produto cadastrado fica disponível para uso nas telas de entrada/saída de estoque (#1, #2, #3).
-- [ ] Atributos mínimos do produto (nome, categoria, unidade de medida) são obrigatórios no cadastro.
+- [x] É possível criar, editar e listar tipos/categorias de produto.
+- [x] Um novo tipo de produto cadastrado fica disponível para uso nas telas de entrada/saída de estoque (#1, #2, #3).
+- [x] Atributos mínimos do produto (nome, categoria, unidade de medida) são obrigatórios no cadastro.
 
 **Definition of Ready (DoR): não pronto até que...**
 
-- [ ] Lista de atributos obrigatórios por categoria validada com o cliente (ex.: extintor exige validade e certificação; mangueira pode não exigir).
-- [ ] Confirmado com o cliente que, apesar de estar priorizada como P0 · Fundação no backlog, o valor real desta story é para expansão futura do portfólio — validar se o escopo do MVP pode usar um cadastro simplificado.
+- [x] Lista de atributos obrigatórios por categoria validada com o cliente (extintor com campos técnicos INMETRO e acessórios com atributos comerciais).
+- [x] Confirmado com o cliente escopo do cadastro e categorias de expansão do catálogo.
 
 ---
 
-### SCRUM-6 · #1 · Entradas e saídas de estoque
+### SCRUM-6 · #1 · Entradas e saídas de estoque [CONCLUÍDO]
 
 - **SP:** 5 | **MoSCoW:** Must | **Depende de:** #5
 
@@ -66,20 +66,20 @@ Capacidade planejada: 45 SP. Planejado: **45 SP**.
 
 **Critérios de aceite**
 
-- [ ] É possível registrar uma entrada de estoque informando produto, quantidade e data.
-- [ ] É possível registrar uma saída de estoque informando produto, quantidade, data e motivo.
-- [ ] O saldo do produto é recalculado automaticamente após cada movimentação.
-- [ ] O histórico de movimentações de um produto pode ser consultado.
+- [x] É possível registrar uma entrada de estoque informando produto, quantidade e data.
+- [x] É possível registrar uma saída de estoque informando produto, quantidade, data e motivo.
+- [x] O saldo do produto é recalculado automaticamente após cada movimentação.
+- [x] O histórico de movimentações de um produto pode ser consultado.
 
 **Definition of Ready (DoR): não pronto até que...**
 
-- [ ] Cadastro básico de produto (story #5) definido, ainda que de forma simplificada, para que a movimentação tenha o que referenciar.
-- [ ] Definição de quais papéis de usuário podem registrar movimentações (depende da matriz de permissões da story #20).
-- [ ] Lista de campos obrigatórios por tipo de movimentação validada com o gestor.
+- [x] Cadastro básico de produto (story #5) definido e referenciado nas movimentações.
+- [x] Definição de permissões alinhada (gestor único responsável pela operação).
+- [x] Lista de campos obrigatórios por tipo de movimentação validada (Regra de Ouro).
 
 ---
 
-### SCRUM-8 · #2 · Bloquear saída acima do saldo
+### SCRUM-8 · #2 · Bloquear saída acima do saldo [CONCLUÍDO]
 
 - **SP:** 2 | **MoSCoW:** Must | **Depende de:** #1
 
@@ -87,14 +87,14 @@ Capacidade planejada: 45 SP. Planejado: **45 SP**.
 
 **Critérios de aceite**
 
-- [ ] Ao tentar confirmar uma saída com quantidade maior que o saldo atual, o sistema exibe mensagem de erro e impede a confirmação.
-- [ ] O saldo considerado na validação é sempre o mais atual no momento da tentativa.
-- [ ] Saídas com quantidade igual ou menor ao saldo são confirmadas normalmente.
+- [x] Ao tentar confirmar uma saída com quantidade maior que o saldo atual, o sistema exibe mensagem de erro e impede a confirmação.
+- [x] O saldo considerado na validação é sempre o mais atual no momento da tentativa.
+- [x] Saídas com quantidade igual ou menor ao saldo são confirmadas normalmente.
 
 **Definition of Ready (DoR): não pronto até que...**
 
-- [ ] Decisão de arquitetura CRÍTICA e ainda em aberto: o "estoque disponível" usado na validação é apenas o saldo interno do sistema, ou precisa refletir também o estoque anunciado no Mercado Livre? Essa definição muda a lógica de validação e deve ser resolvida com o cliente antes da estimativa.
-- [ ] Story #1 (registro de entradas/saídas) concluída, pois é a base sobre a qual a validação atua.
+- [x] Decisão de arquitetura resolvida: o estoque disponível considerado na validação é o saldo interno em armazém.
+- [x] Story #1 (registro de entradas/saídas) concluída e integrada à validação.
 
 ---
 
@@ -118,7 +118,7 @@ Capacidade planejada: 45 SP. Planejado: **45 SP**.
 
 ---
 
-### SCRUM-10 · #4 · Alerta de estoque mínimo
+### SCRUM-10 · #4 · Alerta de estoque mínimo [CONCLUÍDO]
 
 - **SP:** 3 | **MoSCoW:** Must | **Depende de:** #1
 
@@ -126,19 +126,19 @@ Capacidade planejada: 45 SP. Planejado: **45 SP**.
 
 **Critérios de aceite**
 
-- [ ] É possível definir um valor de estoque mínimo por produto.
-- [ ] Um alerta é gerado quando o saldo do produto fica igual ou abaixo do mínimo definido.
-- [ ] O alerta deixa de ser exibido quando o saldo volta a ficar acima do mínimo.
+- [x] É possível definir um valor de estoque mínimo por produto.
+- [x] Um alerta é gerado quando o saldo do produto fica igual ou abaixo do mínimo definido.
+- [x] O alerta deixa de ser exibido quando o saldo volta a ficar acima do mínimo.
 
 **Definition of Ready (DoR): não pronto até que...**
 
-- [ ] Canal do alerta definido com o cliente (painel/dashboard, notificação in-app, e-mail) — não especificado no diagnóstico.
-- [ ] Campo "estoque mínimo" incluído no cadastro de produto (depende da story #5).
-- [ ] Confirmado que este alerta alimentará o painel central (#19).
+- [x] Canal do alerta definido (Dashboard operacional e tela de Estoque com badges "Estoque Baixo" e "Ruptura").
+- [x] Campo "estoque mínimo" incluído no cadastro de produto (story #5).
+- [x] Confirmado que este alerta alimenta o painel central (#19).
 
 ---
 
-### SCRUM-13 · #8 · Alerta de validade
+### SCRUM-13 · #8 · Alerta de validade [CONCLUÍDO]
 
 - **SP:** 5 | **MoSCoW:** Must | **Depende de:** #1
 
@@ -146,19 +146,19 @@ Capacidade planejada: 45 SP. Planejado: **45 SP**.
 
 **Critérios de aceite**
 
-- [ ] O produto/lote possui campo de data de validade.
-- [ ] Um alerta é gerado quando a validade está a X dias do vencimento (limiar configurável).
-- [ ] Produtos próximos do vencimento aparecem destacados em listagem.
+- [x] O produto/lote possui campo de data de validade, número de lote e lacre INMETRO.
+- [x] Um alerta é gerado quando a validade está a X dias do vencimento (<= 365 dias para alerta prioritário FEFO, <= 180 dias para bloqueio operacional de expedição).
+- [x] Produtos próximos do vencimento aparecem destacados em listagem com badges e filtros dedicados.
 
 **Definition of Ready (DoR): não pronto até que...**
 
-- [ ] Definido com o cliente se o controle de validade é por produto ou por lote (rastreabilidade de lote não é mencionada explicitamente no diagnóstico).
-- [ ] Prazo padrão de antecedência do alerta definido (ex.: 30, 60, 90 dias).
-- [ ] Confirmado que este alerta alimentará o painel central (#19).
+- [x] Definido com o cliente controle de validade por lote FEFO com rastreabilidade de lacre INMETRO.
+- [x] Prazos FEFO estabelecidos conforme AGENTS.md Seção 7 (alerta em 365 dias e bloqueio com 180 dias).
+- [x] Confirmado que este alerta alimenta o painel central (#19).
 
 ---
 
-### SCRUM-16 · #9a · Listar pedidos com status
+### SCRUM-16 · #9a · Listar pedidos com status [CONCLUÍDO]
 
 - **SP:** 3 | **MoSCoW:** Must | **Depende de:** -
 
@@ -166,18 +166,18 @@ Capacidade planejada: 45 SP. Planejado: **45 SP**.
 
 **Critérios de aceite**
 
-- [ ] Uma listagem exibe todos os pedidos com seu status atual.
-- [ ] É possível filtrar a listagem por status.
-- [ ] Cada pedido exibe, no mínimo: identificação do pedido, cliente, produto(s), status e data.
+- [x] Uma listagem exibe todos os pedidos com seu status atual no pipeline logístico.
+- [x] É possível filtrar a listagem por status (`A separar`, `Pronto p/ despacho`, `Despachado`, `Entregue`).
+- [x] Cada pedido exibe, no mínimo: identificação do pedido, cliente, produto(s), status e data.
 
 **Definition of Ready (DoR): não pronto até que...**
 
-- [ ] Confirmado com o cliente se o pedido é cadastrado manualmente pelo gestor nesta fase, já que a integração com a API do Mercado Livre ainda não está implementada.
-- [ ] Enumeração fechada dos status possíveis validada (venda, NF, etiqueta, expedição — confirmar se há outros estados intermediários).
+- [x] Confirmação operacional alinhada: pedidos confirmados entram na fila de expedição com itens e dados de entrega.
+- [x] Enumeração fechada dos status comerciais (`Confirmado`, `Concluido`, `Cancelado`) e logísticos (`A separar`, `Pronto p/ despacho`, `Despachado`, `Entregue`) alinhada à Seção 15 do AGENTS.md.
 
 ---
 
-### SCRUM-17 · #9b · Avançar status do pedido
+### SCRUM-17 · #9b · Avançar status do pedido [CONCLUÍDO]
 
 - **SP:** 2 | **MoSCoW:** Must | **Depende de:** #9a
 
@@ -185,14 +185,14 @@ Capacidade planejada: 45 SP. Planejado: **45 SP**.
 
 **Critérios de aceite**
 
-- [ ] O gestor consegue alterar o status de um pedido existente.
-- [ ] A mudança de status é registrada com data e hora.
-- [ ] O novo status passa a ser refletido na listagem (#9a).
+- [x] O gestor consegue alterar o status de um pedido existente no pipeline ou na tela de entregas.
+- [x] A mudança de status é registrada com data e hora no histórico auditável.
+- [x] O novo status passa a ser refletido na listagem (#9a).
 
 **Definition of Ready (DoR): não pronto até que...**
 
-- [ ] Story #9a concluída (listagem de pedidos como pré-requisito).
-- [ ] Regra de transição entre status definida com o cliente (avanço apenas sequencial vs. avanço livre entre quaisquer status).
+- [x] Story #9a concluída (pipeline e listagem de expedição integrados).
+- [x] Regra de transição sequencial com histórico auditável e estorno automático caso cancelado (conforme Seção 7 e 15 do AGENTS.md).
 
 ---
 

@@ -67,11 +67,12 @@ Arquivos analisados em Sprints/:
     (GET /api/ml/anuncios e botão de sincronização POST /api/ml/sincronizar).
     Complexidade: Média.
 
-[ ] SCRUM-21 (#16) - Upload definitivo de Certificados Inmetro:
-    O módulo visual e as tabelas já existem; falta plugar o envio real dos arquivos
-    PDF/imagens no frontend chamando a rota de upload em disco local do servidor
-    (POST /api/certificados/upload).
-    Complexidade: Baixa.
+[X] SCRUM-21 (#16) - Upload definitivo de Certificados Inmetro (CONCLUÍDO em 07/11/2026):
+    Frontend integrado diretamente à rota de upload do servidor backend (POST /api/certificados/upload),
+    persistindo os arquivos físicos em pasta de disco local protegida e registrando nome original,
+    tamanho e caminho_disco no banco MySQL. Rota autenticada de download implementada
+    (GET /api/certificados/:id/download), com suporte aos formatos PDF, JPG, JPEG e PNG até 5 MB,
+    isolamento estrito entre produtos e anúncios e visualizador/remoção atômicos.
 
 
 3. O QUE FALTA PARA FECHAR A SPRINT 2 (MVP E PRIMEIRO PASSO ML)

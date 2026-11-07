@@ -19,6 +19,17 @@ export class CertificadoService {
   }
 
   /**
+   * Busca um documento por ID
+   */
+  async buscarPorId(id_documento: number) {
+    const doc = await this.docRepo.findOne({ where: { id_documento } });
+    if (!doc) {
+      throw new Error(`Documento #${id_documento} não encontrado.`);
+    }
+    return doc;
+  }
+
+  /**
    * Registra um novo documento após upload bem-sucedido
    */
   async registrarDocumento(dados: {

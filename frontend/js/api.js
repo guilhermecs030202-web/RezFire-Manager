@@ -208,6 +208,10 @@ window.RezFireAPI = {
         method: 'DELETE',
       });
     },
+    urlDownload(id_documento) {
+      const baseUrl = (typeof API_BASE_URL !== 'undefined') ? API_BASE_URL : '/api';
+      return `${baseUrl}/certificados/${id_documento}/download`;
+    },
   },
 
   // Módulo de Integração com o Mercado Livre

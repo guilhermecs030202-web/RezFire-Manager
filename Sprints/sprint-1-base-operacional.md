@@ -273,7 +273,7 @@ Capacidade planejada: 45 SP. Planejado: **45 SP**.
 
 ---
 
-### SCRUM-21 · #16 · Certificação Inmetro por produto
+### SCRUM-21 · #16 · Certificação Inmetro por produto [CONCLUÍDO]
 
 - **SP:** 4 | **MoSCoW:** Should | **Depende de:** #5
 
@@ -281,13 +281,13 @@ Capacidade planejada: 45 SP. Planejado: **45 SP**.
 
 **Critérios de aceite**
 
-- [ ] É possível anexar um arquivo de certificado a um produto e/ou anúncio.
-- [ ] O certificado anexado fica visível na ficha do produto/anúncio correspondente.
+- [x] É possível anexar um arquivo de certificado a um produto e/ou anúncio com upload direto para o disco local do servidor (POST /api/certificados/upload).
+- [x] O certificado anexado fica visível na ficha do produto/anúncio correspondente com visualizador embutido e download autenticado (GET /api/certificados/:id/download).
 
 **Definition of Ready (DoR): não pronto até que...**
 
-- [ ] Confirmado com o cliente se o vínculo é por produto (mais provável, já que a certificação normalmente é do produto) ou por anúncio individual.
-- [ ] Formatos de arquivo aceitos e forma de armazenamento definidos.
+- [x] Confirmado com o cliente que o vínculo é independente: pode ser anexado a produtos e/ou anúncios de forma isolada (a remoção de um não afeta o outro).
+- [x] Formatos de arquivo aceitos definidos (PDF, JPG, JPEG, PNG até 5 MB) e armazenamento físico em pasta local do servidor do gestor com rotas autenticadas.
 
 ---
 

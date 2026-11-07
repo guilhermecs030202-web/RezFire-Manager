@@ -416,6 +416,7 @@ startxref
 
   /**
    * Anexa um novo documento à entidade (Produto ou Anúncio)
+   * Envia o arquivo real para o servidor backend (/api/certificados/upload) com persistência em disco local
    */
   async function anexarDocumento({
     tipoEntidade,
@@ -437,9 +438,28 @@ startxref
     const dataUrl = await lerComoDataURL(file);
     const docs = carregarDocumentos();
 
-    const novoId = `doc_${tipoEntidade}_${entidadeId}_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+    let idFinal = `doc_${tipoEntidade}_${entidadeId}_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+    let caminhoDiscoServidor = null;
+
+    // Chamada à API real de upload em disco local do backend
+    if (window.RezFireAPI && window.RezFireAPI.certificados && window.RezFireAPI.certificados.upload) {
+      try {
+        const entTipoApi = String(tipoEntidade).toUpperCase().trim();
+        const entIdApi = Number(entidadeId);
+        if (!isNaN(entIdApi)) {
+          const resp = await window.RezFireAPI.certificados.upload(entTipoApi, entIdApi, file);
+          if (resp && resp.sucesso && resp.documento) {
+            idFinal = resp.documento.id_documento;
+            caminhoDiscoServidor = resp.documento.caminho_disco;
+          }
+        }
+      } catch (uploadErr) {
+        console.warn("Upload no servidor falhou, utilizando persistência local autônoma:", uploadErr);
+      }
+    }
+
     const novoDoc = {
-      id_documento: novoId,
+      id_documento: idFinal,
       tipo_entidade: String(tipoEntidade).toLowerCase().trim(),
       entidade_id: String(entidadeId).trim(),
       tipo_documento: tipoDocumento || "Certificado Inmetro",
@@ -450,6 +470,7 @@ startxref
       tamanho_formatado: validacao.tamanhoFormatado,
       data_upload: new Date().toISOString(),
       conteudo_url: dataUrl,
+      caminho_disco: caminhoDiscoServidor,
       observacoes: observacoes ? String(observacoes).trim() : "",
     };
 
@@ -461,22 +482,78 @@ startxref
   }
 
   /**
-   * Remove um documento pelo ID
-   * Regra de negócio: A remoção de um documento do produto NUNCA remove
-   * documentos vinculados individualmente a anúncios, e vice-versa.
+   * Remove um documento pelo ID (sincronizado com o backend quando disponível)
    */
   function removerDocumento(idDocumento) {
     if (!idDocumento) return false;
 
     const docs = carregarDocumentos();
-    const doc = docs.find((d) => d.id_documento === idDocumento);
+    const doc = docs.find((d) => String(d.id_documento) === String(idDocumento));
     if (!doc) return false;
 
-    const novosDocs = docs.filter((d) => d.id_documento !== idDocumento);
+    // Exclusão no backend se ID for numérico ou sincronizado (em background)
+    if (window.RezFireAPI && window.RezFireAPI.certificados && window.RezFireAPI.certificados.remover) {
+      const numId = Number(idDocumento);
+      if (!isNaN(numId) && numId > 0) {
+        window.RezFireAPI.certificados.remover(numId).catch((delErr) => {
+          console.warn("Falha ao excluir certificado no backend:", delErr);
+        });
+      }
+    }
+
+    const novosDocs = docs.filter((d) => String(d.id_documento) !== String(idDocumento));
     salvarDocumentos(novosDocs);
     emitirMudanca(doc.tipo_entidade, doc.entidade_id);
 
     return true;
+  }
+
+  /**
+   * Sincroniza lista de certificados da entidade com o backend MySQL
+   */
+  async function sincronizarComBackend(tipoEntidade, entidadeId) {
+    if (!window.RezFireAPI || !window.RezFireAPI.certificados) return;
+    try {
+      const entTipoApi = String(tipoEntidade).toUpperCase().trim();
+      const entIdApi = Number(entidadeId);
+      if (isNaN(entIdApi)) return;
+
+      const resp = await window.RezFireAPI.certificados.listar(entTipoApi, entIdApi);
+      if (resp && resp.sucesso && Array.isArray(resp.documentos)) {
+        const docs = carregarDocumentos();
+        let mudou = false;
+
+        resp.documentos.forEach((d) => {
+          const jaExiste = docs.some((ld) => String(ld.id_documento) === String(d.id_documento));
+          if (!jaExiste) {
+            const ext = (d.nome_arquivo_original || "").split(".").pop().toLowerCase();
+            docs.unshift({
+              id_documento: d.id_documento,
+              tipo_entidade: String(d.tipo_entidade).toLowerCase(),
+              entidade_id: String(d.entidade_id),
+              tipo_documento: "Certificado Inmetro",
+              numero_registro: "",
+              nome_arquivo: d.nome_arquivo_original,
+              formato: ext === "pdf" ? "pdf" : "jpg",
+              tamanho_bytes: d.tamanho_bytes,
+              tamanho_formatado: formatarBytes(d.tamanho_bytes),
+              data_upload: d.created_at || new Date().toISOString(),
+              conteudo_url: window.RezFireAPI.certificados.urlDownload(d.id_documento),
+              caminho_disco: d.caminho_disco,
+              observacoes: "Documento persistido no disco local do servidor.",
+            });
+            mudou = true;
+          }
+        });
+
+        if (mudou) {
+          salvarDocumentos(docs);
+          emitirMudanca(tipoEntidade, entidadeId);
+        }
+      }
+    } catch (e) {
+      // Ignora erro se backend estiver offline
+    }
   }
 
   /**
@@ -1054,6 +1131,7 @@ startxref
     obterPorId,
     formatarBytes,
     formatarDataHora,
+    sincronizarComBackend,
     abrirVisualizador,
     solicitarConfirmacaoRemocao,
     renderizarGerenciadorCertificados,

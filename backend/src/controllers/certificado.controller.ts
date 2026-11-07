@@ -1,4 +1,5 @@
 import { Request, Response } from 'express';
+import fs from 'fs';
 import { CertificadoService } from '../services/certificado.service';
 
 const certificadoService = new CertificadoService();
@@ -68,6 +69,22 @@ export class CertificadoController {
       const id = Number(req.params.id);
       const resultado = await certificadoService.remover(id);
       return res.json(resultado);
+    } catch (error: any) {
+      return res.status(404).json({ sucesso: false, mensagem: error.message });
+    }
+  }
+
+  async download(req: Request, res: Response) {
+    try {
+      const id = Number(req.params.id);
+      const doc = await certificadoService.buscarPorId(id);
+      if (!fs.existsSync(doc.caminho_disco)) {
+        return res.status(404).json({
+          sucesso: false,
+          mensagem: 'Arquivo físico não encontrado no disco do servidor.',
+        });
+      }
+      return res.download(doc.caminho_disco, doc.nome_arquivo_original);
     } catch (error: any) {
       return res.status(404).json({ sucesso: false, mensagem: error.message });
     }

@@ -176,3 +176,4 @@ describe('#28 - Homologação do MVP (Roteiro Oficial de Aceite)', () => {
     assert.equal(anuncioConsultado.quantidade_disponivel, 10);
   });
 });
+

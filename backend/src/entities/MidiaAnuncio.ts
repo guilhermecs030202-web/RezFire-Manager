@@ -37,3 +37,4 @@ export class MidiaAnuncio {
   @CreateDateColumn({ type: 'timestamp' })
   created_at: Date;
 }
+

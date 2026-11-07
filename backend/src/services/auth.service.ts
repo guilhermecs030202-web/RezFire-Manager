@@ -31,6 +31,7 @@ export class AuthService {
       id_usuario: usuario.id_usuario,
       email: usuario.email,
       nome: usuario.nome,
+      perfil: usuario.perfil || 'GESTOR',
     };
 
     const token = jwt.sign(payload, env.JWT_SECRET, {
@@ -43,7 +44,7 @@ export class AuthService {
   async getProfile(id_usuario: number) {
     const usuario = await this.usuarioRepo.findOne({
       where: { id_usuario },
-      select: ['id_usuario', 'nome', 'email', 'ativo', 'created_at'],
+      select: ['id_usuario', 'nome', 'email', 'perfil', 'ativo', 'created_at'],
     });
 
     if (!usuario) {

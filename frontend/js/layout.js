@@ -17,6 +17,8 @@ function icon(name) {
       '<path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4Z"/><path d="M3 6h18"/><path d="M16 10a4 4 0 0 1-8 0"/>',
     anuncios:
       '<rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/><path d="M7 8h10"/><path d="M7 12h6"/>',
+    users:
+      '<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>',
   };
 
   return `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${paths[name]}</svg>`;
@@ -59,10 +61,13 @@ function renderSidebar(active) {
         ${icon("alert")} Central de Alertas
         <span class="nav-badge" id="sidebar-alertas-badge">0</span>
       </a>
+      <a class="nav-item ${active === "usuarios" ? "is-active" : ""}" href="usuarios.html" id="nav-item-usuarios">
+        ${icon("users")} Usuários & Acessos
+      </a>
     </nav>
     <div class="sidebar-footer">
       <div class="sidebar-user" id="sidebar-user-name">Gestor RezFire</div>
-      <div class="sidebar-role">GESTOR</div>
+      <div class="sidebar-role" id="sidebar-user-role">GESTOR</div>
       <button class="sidebar-logout" id="btn-sidebar-logout" type="button" title="Encerrar sessão com segurança">
         ${icon("logout")} Sair
       </button>
@@ -79,6 +84,15 @@ function renderSidebar(active) {
       if (u.nome) {
         const nameEl = document.getElementById("sidebar-user-name");
         if (nameEl) nameEl.textContent = u.nome;
+      }
+      if (u.perfil) {
+        const roleEl = document.getElementById("sidebar-user-role");
+        if (roleEl) roleEl.textContent = u.perfil.toUpperCase();
+      }
+      // Se for perfil OPERADOR, oculta o link de gerenciamento de usuários
+      if (u.perfil && u.perfil.toUpperCase() === 'OPERADOR') {
+        const navUsuarios = document.getElementById("nav-item-usuarios");
+        if (navUsuarios) navUsuarios.style.display = 'none';
       }
     }
   } catch (e) {}

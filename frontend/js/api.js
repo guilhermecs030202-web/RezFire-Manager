@@ -321,5 +321,31 @@ window.RezFireAPI = {
       });
     },
   },
+
+  usuarios: {
+    async listar() {
+      return window.RezFireAPI.request('/usuarios');
+    },
+    async obter(id) {
+      return window.RezFireAPI.request(`/usuarios/${id}`);
+    },
+    async criar(dados) {
+      return window.RezFireAPI.request('/usuarios', {
+        method: 'POST',
+        body: JSON.stringify(dados),
+      });
+    },
+    async atualizar(id, dados) {
+      return window.RezFireAPI.request(`/usuarios/${id}`, {
+        method: 'PUT',
+        body: JSON.stringify(dados),
+      });
+    },
+    async alternarStatus(id) {
+      return window.RezFireAPI.request(`/usuarios/${id}/status`, {
+        method: 'PATCH',
+      });
+    },
+  },
 };
 

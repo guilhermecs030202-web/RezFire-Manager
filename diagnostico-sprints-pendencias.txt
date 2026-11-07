@@ -122,13 +122,12 @@ Todas as 10 User Stories (45 Story Points) da Sprint 1 foram implementadas, inte
     ou Anúncios) para iniciar o fluxo de autorização com a conta do Mercado Livre.
     Complexidade: Baixa.
 
-* NOTA SOBRE O SCRUM-5 (#20 - USUÁRIOS E PERMISSÕES):
-  O documento da Sprint 2 previa cadastro de múltiplos usuários com papéis distintos.
-  Contudo, o documento mandatório AGENTS.md determina expressamente:
-  "O sistema será utilizado inicialmente por uma única pessoa: o gestor da RezFire.
-  Não implementar multiusuário no escopo atual. Não criar tela de gerenciamento de usuários."
-  Portanto, a autenticação por perfil único do gestor (gestor@rezfire.com.br) já atende
-  perfeitamente ao requisito da empresa.
+[X] SCRUM-5 (#20) - Usuários e permissões (RBAC) [CONCLUÍDO]:
+    Implementada tela de gerenciamento de usuários (usuarios.html) e controle de papéis (RBAC)
+    aprovada expressamente pelo gestor para permitir a operação do sistema por terceiros em sua ausência.
+    Matriz de permissões com perfis GESTOR (acesso total) e OPERADOR (acesso restrito ao armazém,
+    estoque e entregas; bloqueado do financeiro e gestão de usuários). Endpoints REST no backend
+    protegidos por authMiddleware e requerPerfil(['GESTOR']).
 
 
 4. O QUE FALTA NAS SPRINTS 3 E 4 (AUTOMAÇÃO ML E ANÁLISES FINANCEIRAS)

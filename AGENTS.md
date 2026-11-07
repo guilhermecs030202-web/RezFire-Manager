@@ -21,21 +21,20 @@ O sistema deve centralizar:
 O sistema **não deve prometer aumento direto de vendas**. Seu papel é
 organizar dados, operações, acompanhamento e apoio à tomada de decisão.
 
-## 2. Usuário
+## 2. Usuário e Perfis de Acesso (RBAC)
 
-O sistema será utilizado inicialmente por **uma única pessoa: o gestor
-da RezFire**.
+O sistema foi concebido centrado no **gestor da RezFire** e, para atender à contingência operacional em casos de ausência do gestor (SCRUM-5 / #20), suporta **perfis de acesso diferenciados**:
 
-Não implementar multiusuário no escopo atual.
+1. **Gestor (Administrador)**: Acesso irrestrito a todos os módulos, configurações, relatórios financeiros e gestão de usuários.
+2. **Operador (Armazém/Expedição)**: Acesso focado na operação diária (estoque, lotes FEFO, movimentações, conferência de pedidos e checklist de despacho de entregas). Acesso estritamente bloqueado a relatórios financeiros e gerenciamento de usuários.
 
-Como o sistema será web, é obrigatório impedir acesso de pessoas não
-autenticadas.
+Como o sistema é web, é obrigatório impedir acesso de pessoas não autenticadas.
 
 ### Autenticação
 
 -   Login com e-mail e senha.
--   Não existe cadastro público.
--   Não criar tela de gerenciamento de usuários.
+-   Não existe cadastro público (apenas o Gestor cadastra operadores).
+-   Gerenciamento de usuários restrito ao perfil `GESTOR`.
 -   Senhas nunca podem ser armazenadas em texto puro.
 -   Armazenar somente `senha_hash`.
 -   Rotas protegidas devem ser verificadas no backend.
@@ -44,8 +43,7 @@ autenticadas.
 -   Usar sessão/cookie seguro ou mecanismo equivalente.
 -   HTTPS deve ser utilizado em produção.
 
-Mesmo existindo somente um gestor, a tabela `usuarios` será mantida
-porque também permite registrar o responsável pelas movimentações.
+A tabela `usuarios` registra o responsável pelas movimentações de estoque, histórico de ocorrências e pedidos.
 
 ## 3. Stack
 
@@ -598,7 +596,7 @@ Decisões já tomadas:
 -   Movimentações: registradas
 -   Pedidos: possuem itens
 -   Mercado Livre: integração planejada como diferencial
--   Multiusuário: fora do escopo atual
+-   Controle de Usuários: suporta contingência com perfis `GESTOR` (acesso total) e `OPERADOR` (focado em armazém/expedição; bloqueado de financeiro e gestão de usuários)
 -   Autenticação: obrigatória
 -   Status comercial de pedidos: exclusivamente `Confirmado`, `Concluido` e `Cancelado` (vendas diretas nascem como `Confirmado`)
 -   Tela de entregas (expedição): pedidos confirmados entram como `A separar`, avançam para `Pronto p/ despacho`, `Despachado` e concluem como `Entregue`

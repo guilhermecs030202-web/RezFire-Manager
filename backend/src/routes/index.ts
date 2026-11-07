@@ -10,10 +10,12 @@ import mlRoutes from './mercadolivre.routes';
 import inspecaoRoutes from './inspecao.routes';
 import alertaRoutes from './alerta.routes';
 import anuncioRoutes from './anuncio.routes';
+import usuarioRoutes from './usuario.routes';
 
 const router = Router();
 
 router.use('/auth', authRoutes);
+router.use('/usuarios', usuarioRoutes);
 router.use('/produtos', produtoRoutes);
 router.use('/estoque', estoqueRoutes);
 router.use('/movimentacoes', movimentacaoRoutes);

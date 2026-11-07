@@ -6,6 +6,7 @@ export interface AuthenticatedUser {
   id_usuario: number;
   email: string;
   nome: string;
+  perfil?: string;
 }
 
 declare global {
@@ -41,6 +42,7 @@ export function authMiddleware(req: Request, res: Response, next: NextFunction) 
       id_usuario: payload.id_usuario,
       email: payload.email,
       nome: payload.nome,
+      perfil: payload.perfil || 'GESTOR',
     };
     return next();
   } catch (error) {
@@ -49,5 +51,30 @@ export function authMiddleware(req: Request, res: Response, next: NextFunction) 
       mensagem: 'Sessão inválida ou expirada. Faça login novamente.',
     });
   }
+}
+
+/**
+ * Middleware de autorização baseado em perfis (RBAC - Role-Based Access Control)
+ * Garante que apenas usuários com os perfis informados consigam acessar o endpoint.
+ */
+export function requerPerfil(perfisPermitidos: string[]) {
+  return (req: Request, res: Response, next: NextFunction) => {
+    if (!req.usuario) {
+      return res.status(401).json({
+        sucesso: false,
+        mensagem: 'Não autenticado.',
+      });
+    }
+
+    const perfilUsuario = req.usuario.perfil || 'GESTOR';
+    if (!perfisPermitidos.includes(perfilUsuario)) {
+      return res.status(403).json({
+        sucesso: false,
+        mensagem: `Acesso negado: o perfil '${perfilUsuario}' não tem permissão para acessar esta funcionalidade.`,
+      });
+    }
+
+    return next();
+  };
 }
 

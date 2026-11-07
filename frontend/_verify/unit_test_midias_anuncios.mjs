@@ -170,3 +170,4 @@ describe('SCRUM-26 (#23) - Fotos e Vídeos de Demonstração nos Anúncios ML', 
     assert.equal(typeof midiaExemplo.ordem, schemaMidia.ordem);
   });
 });
+

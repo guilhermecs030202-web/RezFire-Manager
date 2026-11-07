@@ -22,6 +22,9 @@ export class Usuario {
   @Column({ type: 'varchar', length: 255 })
   senha_hash: string;
 
+  @Column({ type: 'varchar', length: 50, default: 'GESTOR' })
+  perfil: string; // 'GESTOR' | 'OPERADOR'
+
   @Column({ type: 'boolean', default: true })
   ativo: boolean;
 

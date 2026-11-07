@@ -65,7 +65,7 @@ Capacidade planejada: 45 SP. Planejado: **45 SP**.
 
 ---
 
-### SCRUM-5 · #20 · Usuários e permissões
+### SCRUM-5 · #20 · Usuários e permissões [CONCLUÍDO]
 
 - **SP:** 5 | **MoSCoW:** Should | **Depende de:** -
 
@@ -73,13 +73,13 @@ Capacidade planejada: 45 SP. Planejado: **45 SP**.
 
 **Critérios de aceite**
 
-- [ ] É possível cadastrar, editar e desativar usuários.
-- [ ] Cada usuário possui um perfil/papel que determina o que ele pode acessar no sistema.
-- [ ] Um usuário sem permissão para uma funcionalidade não consegue acessá-la.
+- [x] É possível cadastrar, editar e desativar usuários (tela `usuarios.html`, modal `#modal-usuario` e endpoints backend `GET/POST/PUT/PATCH /api/usuarios`).
+- [x] Cada usuário possui um perfil/papel que determina o que ele pode acessar no sistema (`GESTOR` com acesso irrestrito total vs `OPERADOR` com acesso focado a Estoque, Entregas e Pedidos).
+- [x] Um usuário sem permissão para uma funcionalidade não consegue acessá-la (middleware backend `requerPerfil(['GESTOR'])` retornando HTTP 403 e menu dinâmico no frontend).
 
 **Definition of Ready (DoR): não pronto até que...**
 
-- [ ] Ponto de atenção crítico do diagnóstico ainda não resolvido: ausência de definição dos papéis de usuário (gestor único vs. operador/estoquista com permissões diferentes). Essa definição é pré-requisito bloqueante e precisa ser fechada com o cliente antes de iniciar o desenvolvimento, pois define a matriz de permissões usada por praticamente todas as demais stories.
+- [x] Ponto de atenção resolvido por decisão explícita do gestor (Opção B): implementada matriz RBAC com perfis `GESTOR` e `OPERADOR`, permitindo contingência operacional segura quando o gestor se ausentar.
 
 ---
 

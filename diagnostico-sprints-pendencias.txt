@@ -82,11 +82,15 @@ Todas as 10 User Stories (45 Story Points) da Sprint 1 foram implementadas, inte
 
 3. O QUE FALTA PARA FECHAR A SPRINT 2 (MVP E PRIMEIRO PASSO ML)
 --------------------------------------------------------------------------------
-[ ] SCRUM-24 (#19) - Central Unificada de Alertas:
-    Criar uma visão única (página ou painel dedicado) agregando todos os alertas
-    operacionais em um só lugar: estoque mínimo, validade de extintores, anúncios
-    pausados no ML e despachos em atraso.
-    Complexidade: Média.
+[X] SCRUM-24 (#19) - Central Unificada de Alertas (CONCLUÍDO em 07/11/2026):
+    Criada tela dedicada alertas.html e controlador alertas.js, integrados ao backend via rota
+    GET /api/alertas/central e AlertaService. Consolida de forma priorizada as 4 fontes de alertas:
+    - Prazos de Postagem (#10): atrasados (crítico) e postar hoje (atenção).
+    - Estoque & Ruptura (#4): ruptura total saldo zero (crítico) e saldo <= mínimo (atenção).
+    - Validade FEFO (#8): lotes vencidos e bloqueados < 6 meses (crítico) e prioridade FEFO <= 1 ano (atenção).
+    - Anúncios ML (#13): anúncios pausados (crítico) e divergência física vs anunciada (atenção).
+    Conta com 6 KPIs interativos de topo, filtros de busca/categoria/criticidade, atalhos direcionados
+    de resolução em 1 clique e badge de contagem reativo no menu lateral (sidebar-alertas-badge).
 
 [ ] SCRUM-12 (#7) - Segunda inspeção na separação:
     Na tela de Entregas/Expedição (entregas.html), incluir um checklist de checagem

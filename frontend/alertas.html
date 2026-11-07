@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Central de Alertas · RezFire Manager</title>
+  <meta name="description" content="Central unificada de alertas operacionais: estoque, validade FEFO, postagem e anúncios — RezFire Manager." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            cream: "#f4efe8",
+            sidebar: "#1a1412",
+            accent: "#e85c2a",
+          },
+          fontFamily: { sans: ["Inter", "ui-sans-serif", "system-ui"] },
+        },
+      },
+    };
+  </script>
+  <link rel="stylesheet" href="css/app.css" />
+  <style>
+    /* Estilos dos Cards de KPI de Alertas */
+    .alerta-kpi-card {
+      background: #ffffff;
+      border: 1px solid #e7e5e4;
+      border-radius: 12px;
+      padding: 14px 16px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      transition: all 0.2s ease;
+      position: relative;
+      cursor: pointer;
+    }
+    .alerta-kpi-card:hover {
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+      border-color: #d6d3d1;
+      transform: translateY(-1px);
+    }
+    .alerta-kpi-card.is-active {
+      border-color: #e85c2a;
+      box-shadow: 0 0 0 2px rgba(232, 92, 42, 0.15);
+    }
+    .kpi-badge-icon {
+      width: 28px;
+      height: 28px;
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 14px;
+    }
+
+    /* Cards de Lista de Alertas */
+    .alerta-row-card {
+      background: #ffffff;
+      border: 1px solid #e7e5e4;
+      border-radius: 10px;
+      padding: 16px;
+      transition: all 0.2s ease;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+    .alerta-row-card:hover {
+      box-shadow: 0 3px 10px rgba(0, 0, 0, 0.04);
+      border-color: #cbd5e1;
+    }
+    .alerta-row-card.critico {
+      border-left: 5px solid #dc2626;
+      background: linear-gradient(to right, #fffbfb 0%, #ffffff 40%);
+    }
+    .alerta-row-card.atencao {
+      border-left: 5px solid #f59e0b;
+      background: linear-gradient(to right, #fffdfa 0%, #ffffff 40%);
+    }
+
+    /* Badges */
+    .badge-criticidade-critico {
+      background: #fee2e2;
+      color: #991b1b;
+      border: 1px solid #fca5a5;
+      font-size: 0.72rem;
+      font-weight: 800;
+      padding: 2px 8px;
+      border-radius: 6px;
+      letter-spacing: 0.02em;
+    }
+    .badge-criticidade-atencao {
+      background: #fef3c7;
+      color: #92400e;
+      border: 1px solid #fcd34d;
+      font-size: 0.72rem;
+      font-weight: 800;
+      padding: 2px 8px;
+      border-radius: 6px;
+      letter-spacing: 0.02em;
+    }
+    .badge-categoria-tag {
+      font-size: 0.7rem;
+      font-weight: 700;
+      padding: 2px 8px;
+      border-radius: 999px;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+    }
+    .cat-postagem { background: #eff6ff; color: #1e40af; border: 1px solid #bfdbfe; }
+    .cat-estoque  { background: #fdf2f8; color: #9d174d; border: 1px solid #fbcfe8; }
+    .cat-validade { background: #faf5ff; color: #6b21a8; border: 1px solid #e9d5ff; }
+    .cat-anuncio  { background: #fefce8; color: #854d0e; border: 1px solid #fef08a; }
+  </style>
+</head>
+<body class="bg-cream text-stone-900 font-sans antialiased min-h-screen">
+  <div class="app-layout" id="app-root">
+    <main class="main-content p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto w-full">
+      
+      <!-- Topbar Header -->
+      <header class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+        <div>
+          <div class="flex items-center gap-2 mb-1">
+            <span class="inline-flex items-center justify-center p-1.5 rounded-lg bg-red-100 text-red-700">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
+                <line x1="12" y1="9" x2="12" y2="13"/>
+                <line x1="12" y1="17" x2="12.01" y2="17"/>
+              </svg>
+            </span>
+            <h1 class="text-2xl font-black text-stone-900 tracking-tight">Central de Alertas Operacionais</h1>
+            <span id="badge-total-topo" class="px-2.5 py-0.5 text-xs font-bold rounded-full bg-red-100 text-red-800">0 alertas</span>
+          </div>
+          <p class="text-xs sm:text-sm text-stone-500">
+            Painel unificado consolidando situações que exigem atenção: prazos de postagem (#10), estoque e ruptura (#4), validade FEFO (#8) e anúncios do Mercado Livre (#13).
+          </p>
+        </div>
+
+        <div class="flex items-center gap-2 self-start sm:self-center">
+          <button type="button" id="btn-atualizar-alertas" class="px-3.5 py-2 bg-white hover:bg-stone-50 text-stone-700 border border-stone-300 rounded-lg text-xs font-semibold shadow-sm transition flex items-center gap-2">
+            <svg id="icon-sync" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M21 2v6h-6"/>
+              <path d="M3 12a9 9 0 0 1 15-6.7L21 8"/>
+              <path d="M3 22v-6h6"/>
+              <path d="M21 12a9 9 0 0 1-15 6.7L3 16"/>
+            </svg>
+            <span>Atualizar</span>
+          </button>
+        </div>
+      </header>
+
+      <!-- Banner Informativo Geral -->
+      <div id="alerta-status-banner" style="display: none;" class="mb-5 p-3.5 rounded-lg text-xs font-medium border flex items-center justify-between"></div>
+
+      <!-- Seção de KPIs (6 cards) -->
+      <section class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 mb-6" id="kpis-alertas-container">
+        <!-- Preenchido via alertas.js -->
+        <div class="h-24 bg-white border border-stone-200 rounded-xl animate-pulse"></div>
+        <div class="h-24 bg-white border border-stone-200 rounded-xl animate-pulse"></div>
+        <div class="h-24 bg-white border border-stone-200 rounded-xl animate-pulse"></div>
+        <div class="h-24 bg-white border border-stone-200 rounded-xl animate-pulse"></div>
+        <div class="h-24 bg-white border border-stone-200 rounded-xl animate-pulse"></div>
+        <div class="h-24 bg-white border border-stone-200 rounded-xl animate-pulse"></div>
+      </section>
+
+      <!-- Barra de Filtros e Busca -->
+      <section class="bg-white border border-stone-200 rounded-xl p-4 mb-6 shadow-sm">
+        <div class="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3">
+          
+          <!-- Busca Textual -->
+          <div class="relative flex-1">
+            <span class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-stone-400">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="11" cy="11" r="8"/>
+                <line x1="21" y1="21" x2="16.65" y2="16.65"/>
+              </svg>
+            </span>
+            <input
+              type="text"
+              id="filtro-busca-alertas"
+              placeholder="Buscar por SKU, produto, pedido ou MLB..."
+              class="w-full pl-9 pr-3 py-2 bg-stone-50 border border-stone-300 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-amber-500 focus:bg-white"
+            />
+          </div>
+
+          <!-- Filtro de Criticidade -->
+          <div class="flex items-center gap-1.5 overflow-x-auto pb-1 md:pb-0">
+            <span class="text-xs font-semibold text-stone-500 mr-1 hidden sm:inline">Severidade:</span>
+            <button type="button" class="btn-filtro-criticidade px-2.5 py-1.5 rounded-lg text-xs font-bold border transition bg-stone-900 text-white border-stone-900" data-crit="todos">
+              Todos
+            </button>
+            <button type="button" class="btn-filtro-criticidade px-2.5 py-1.5 rounded-lg text-xs font-semibold border transition bg-white text-stone-700 border-stone-300 hover:bg-stone-50" data-crit="critico">
+              🔴 Críticos
+            </button>
+            <button type="button" class="btn-filtro-criticidade px-2.5 py-1.5 rounded-lg text-xs font-semibold border transition bg-white text-stone-700 border-stone-300 hover:bg-stone-50" data-crit="atencao">
+              ⚠️ Atenção
+            </button>
+          </div>
+
+          <!-- Filtro de Categoria -->
+          <div>
+            <select id="filtro-categoria-alertas" class="w-full md:w-auto px-3 py-2 bg-white border border-stone-300 rounded-lg text-xs font-medium focus:outline-none focus:ring-2 focus:ring-amber-500">
+              <option value="todos">Todas as Categorias</option>
+              <option value="postagem">⏱️ Prazos de Postagem (#10)</option>
+              <option value="estoque">📦 Estoque & Ruptura (#4)</option>
+              <option value="validade">🛡️ Validade FEFO (#8)</option>
+              <option value="anuncio">📢 Mercado Livre (#13)</option>
+            </select>
+          </div>
+
+          <!-- Limpar Filtros -->
+          <div>
+            <button type="button" id="btn-limpar-filtros-alertas" class="px-3 py-2 text-stone-500 hover:text-stone-800 text-xs font-semibold hover:underline">
+              Limpar
+            </button>
+          </div>
+        </div>
+      </section>
+
+      <!-- Lista de Alertas -->
+      <section>
+        <div class="flex items-center justify-between mb-3">
+          <h2 class="text-sm font-bold text-stone-700 uppercase tracking-wider flex items-center gap-2">
+            <span>Fila de Ações Prioritárias</span>
+            <span id="label-total-filtrado" class="text-xs font-normal text-stone-500">Carregando...</span>
+          </h2>
+        </div>
+
+        <div id="lista-alertas-container" class="space-y-3">
+          <!-- Renderizado via alertas.js -->
+        </div>
+      </section>
+
+    </main>
+  </div>
+
+  <!-- Scripts -->
+  <script src="js/mock-data.js"></script>
+  <script src="js/mock-entregas.js"></script>
+  <script src="js/mock-anuncios.js"></script>
+  <script src="js/api.js"></script>
+  <script src="js/layout.js"></script>
+  <script src="js/alertas.js"></script>
+</body>
+</html>
+

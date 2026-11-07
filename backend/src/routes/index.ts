@@ -8,6 +8,7 @@ import dashboardRoutes from './dashboard.routes';
 import certificadoRoutes from './certificado.routes';
 import mlRoutes from './mercadolivre.routes';
 import inspecaoRoutes from './inspecao.routes';
+import alertaRoutes from './alerta.routes';
 
 const router = Router();
 
@@ -20,5 +21,6 @@ router.use('/dashboard', dashboardRoutes);
 router.use('/certificados', certificadoRoutes);
 router.use('/ml', mlRoutes);
 router.use('/inspecoes', inspecaoRoutes);
+router.use('/alertas', alertaRoutes);
 
 export default router;

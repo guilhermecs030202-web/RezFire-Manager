@@ -37,7 +37,7 @@ Capacidade planejada: 45 SP. Planejado: **45 SP**.
 
 ## Histórias
 
-### SCRUM-24 · #19 · Painel central de alertas
+### SCRUM-24 · #19 · Painel central de alertas [CONCLUÍDO]
 
 - **SP:** 10 | **MoSCoW:** Must | **Depende de:** #4, #8, #10, #13
 
@@ -45,20 +45,23 @@ Capacidade planejada: 45 SP. Planejado: **45 SP**.
 
 **Observação do card**
 
-> Story classificada no diagnóstico como não aderente ao INVEST (viola Independent): depende de #4, #8, #10 e #13 já existirem para ter o que agregar. Recomenda-se tratá-la como story de agregação, a ser puxada apenas ao final da sprint em que as dependências forem concluídas.
+> Story de agregação que unifica as 4 fontes de alertas (#4 Estoque Mínimo/Ruptura, #8 Validade FEFO, #10 Prazo de Postagem e #13 Anúncios ML). Concluída e homologada com sucesso.
 
 **Critérios de aceite**
 
-- [ ] Um painel único agrega, em uma mesma tela, os alertas gerados pelas stories #4, #8, #10 e #13.
+- [x] Um painel único (`alertas.html` / `alertas.js`) agrega, em uma mesma tela, os alertas gerados pelas stories #4, #8, #10 e #13 com rota dedicada `GET /api/alertas/central`.
+- [x] Classificação estrita de prioridade operacional: Críticos (Ação Imediata) precedem Atenção (No decorrer do dia).
+- [x] Filtros por criticidade, categoria e busca textual, além de atalhos rápidos direcionados para resolução em 1 clique.
+- [x] Badge dinâmico no menu lateral sincronizado com a contagem de alertas pendentes.
 
 **Definition of Ready (DoR): não pronto até que...**
 
-- [ ] Stories #4, #8, #10 e #13 concluídas e gerando alerta em produção.
-- [ ] Layout e critério de priorização dos itens no painel definidos com o cliente (o que aparece primeiro quando há múltiplos alertas simultâneos).
+- [x] Stories #4, #8, #10 e #13 concluídas, ativas e gerando alertas operacionais no sistema.
+- [x] Layout e critério de priorização definidos: Crítico (atraso de envio, ruptura de estoque, extintor vencido/bloqueado, anúncio pausado) precede Atenção (postar hoje, estoque baixo, alerta FEFO <= 365d, divergência ML).
 
 **Status de prontidão (do card)**
 
-> NÃO PRONTA. Story ainda não satisfaz a Definition of Ready — ver pendências acima. Não deve ser puxada para a Sprint enquanto as dependências não forem resolvidas.
+> [CONCLUÍDO]: Histórias dependentes concluídas e tela central de alertas entregue e validada com suíte de testes automatizados.
 
 ---
 

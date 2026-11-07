@@ -255,5 +255,12 @@ window.RezFireAPI = {
       });
     },
   },
+
+  // Central Unificada de Alertas (SCRUM-24 / #19)
+  alertas: {
+    async obterCentral() {
+      return window.RezFireAPI.request('/alertas/central');
+    },
+  },
 };
 

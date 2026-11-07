@@ -55,10 +55,10 @@ function renderSidebar(active) {
       <a class="nav-item ${active === "anuncios" ? "is-active" : ""}" href="anuncios.html">
         ${icon("anuncios")} Anúncios ML
       </a>
-      <span class="nav-item is-static">
-        ${icon("alert")} Alertas
-        <span class="nav-badge">3</span>
-      </span>
+      <a class="nav-item ${active === "alertas" ? "is-active" : ""}" href="alertas.html">
+        ${icon("alert")} Central de Alertas
+        <span class="nav-badge" id="sidebar-alertas-badge">0</span>
+      </a>
     </nav>
     <div class="sidebar-footer">
       <div class="sidebar-user" id="sidebar-user-name">Gestor RezFire</div>

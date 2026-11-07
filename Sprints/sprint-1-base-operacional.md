@@ -98,7 +98,7 @@ Capacidade planejada: 45 SP. Planejado: **45 SP**.
 
 ---
 
-### SCRUM-9 · #3 · Baixa rápida de estoque
+### SCRUM-9 · #3 · Baixa rápida de estoque [CONCLUÍDO]
 
 - **SP:** 2 | **MoSCoW:** Should | **Depende de:** #1
 
@@ -106,15 +106,15 @@ Capacidade planejada: 45 SP. Planejado: **45 SP**.
 
 **Critérios de aceite**
 
-- [ ] O gestor localiza o produto vendido em poucos passos (ex.: busca por nome/SKU).
-- [ ] A baixa é registrada com o mínimo de campos possível (produto, quantidade, e o motivo já pré-preenchido como "venda ML").
-- [ ] O saldo é atualizado imediatamente após a confirmação.
+- [x] O gestor localiza o produto vendido em poucos passos (ex.: busca por nome/SKU ou botão direto `⚡ Baixa ML` em cada linha da tabela de estoque).
+- [x] A baixa é registrada com o mínimo de campos possível (produto pré-selecionado ao clicar na linha, quantidade padrão 1, e o motivo já pré-preenchido como "Venda Mercado Livre (Baixa Rápida)"). Em apenas 2 cliques a saída é confirmada.
+- [x] O saldo é atualizado imediatamente após a confirmação no banco MySQL, atualizando lotes FEFO e kits dinâmicos.
 
 **Definition of Ready (DoR): não pronto até que...**
 
-- [ ] Fluxo de UX da "baixa rápida" desenhado e validado (quantidade mínima de cliques/campos), já que a proposta de valor da story é velocidade.
-- [ ] Confirmado com o cliente que esta é uma solução manual temporária, a ser revisitada quando a integração com a API do Mercado Livre existir — registrar esse ponto como débito técnico conhecido.
-- [ ] Depende da story #1 pronta.
+- [x] Fluxo de UX da "baixa rápida" desenhado e validado (2 cliques: `⚡ Baixa ML` na linha do produto -> Enter/Confirmar no modal com previsão de saldo em tempo real).
+- [x] Confirmado com o cliente que esta é uma solução manual de contingência e agilidade enquanto a sincronização por Webhook assíncrono do Mercado Livre é consolidada na Sprint 3.
+- [x] Depende da story #1 pronta. (Atendido: Movimentações e Regra de Ouro ativas).
 
 ---
 

@@ -116,6 +116,10 @@
           <p class="page-subtitle" id="estoque-count">Acompanhamento de saldos físicos e controle rigoroso de validades (FEFO).</p>
         </div>
         <div class="flex items-center gap-3 flex-wrap">
+          <button class="btn-primary" id="btn-abrir-baixa-rapida" type="button" style="font-size: 0.88rem; padding: 10px 16px; background: #e85c2a; border-color: #c2410c; display: inline-flex; align-items: center; gap: 6px;">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+            ⚡ Baixa Rápida (Venda ML)
+          </button>
           <a href="movimentacoes.html?action=entrada" class="btn-primary" style="text-decoration: none; font-size: 0.88rem; padding: 10px 16px; background:#1f9d5c; border-color:#166534; display: inline-flex; align-items: center; gap: 6px;">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
             + Entrada por Nota Fiscal
@@ -316,6 +320,83 @@
       <div class="modal-actions">
         <button class="btn-ghost" type="button" id="btn-cancelar-lote">Cancelar</button>
         <button class="btn-primary" type="submit">Salvar Lote</button>
+      </div>
+    </form>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════════ -->
+  <!-- MODAL 3: BAIXA RÁPIDA DE ESTOQUE (VENDA ML - SCRUM-9 / #3) -->
+  <!-- ═══════════════════════════════════════════════════════════ -->
+  <div class="modal-backdrop" id="modal-baixa-rapida" role="dialog" aria-modal="true" aria-labelledby="modal-baixa-title">
+    <form class="modal" id="form-baixa-rapida" style="width: min(540px, 94vw);">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px">
+        <h2 id="modal-baixa-title" style="display:flex;align-items:center;gap:8px;color:#c2410c">
+          <span>⚡ Baixa Rápida · Venda Mercado Livre</span>
+        </h2>
+        <button class="icon-btn" id="btn-fechar-baixa-rapida" type="button" aria-label="Fechar">✕</button>
+      </div>
+      <p style="font-size:0.82rem;color:var(--muted);margin-bottom:14px">
+        Dê baixa imediata com apenas 2 cliques assim que uma venda cair no Mercado Livre, mantendo o saldo do sistema rigorosamente sincronizado.
+      </p>
+
+      <!-- Card do Produto Selecionado -->
+      <div id="baixa-prod-card" style="background:#fff7ed;border:1px solid #fed7aa;border-radius:8px;padding:12px;margin-bottom:14px;display:none">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start">
+          <div>
+            <span class="sku-main" id="baixa-prod-sku">SKU</span>
+            <div style="font-size:0.88rem;font-weight:700;color:#9a3412" id="baixa-prod-nome">Nome do Produto</div>
+            <span id="baixa-prod-tipo" style="font-size:0.72rem;color:#c2410c;font-weight:600">Simples</span>
+          </div>
+          <div style="text-align:right">
+            <span style="font-size:0.72rem;font-weight:700;color:#9a3412;text-transform:uppercase">Saldo Atual</span>
+            <div style="font-size:1.3rem;font-weight:800;color:#c2410c" id="baixa-prod-saldo">0 un.</div>
+          </div>
+        </div>
+      </div>
+
+      <input type="hidden" id="baixa-prod-id" />
+
+      <div class="form-grid">
+        <!-- Seleção do Produto (se aberto via toolbar) -->
+        <div class="form-field span-2" id="wrap-baixa-select-prod">
+          <label for="baixa-select-produto">Produto / Extintor Vendido *</label>
+          <select id="baixa-select-produto" class="search-input" style="width:100%" required>
+            <!-- Preenchido via JS -->
+          </select>
+        </div>
+
+        <!-- Quantidade -->
+        <div class="form-field">
+          <label for="baixa-qtd">Quantidade Vendida *</label>
+          <input id="baixa-qtd" type="number" min="1" step="1" value="1" class="search-input" required />
+        </div>
+
+        <!-- Motivo Pré-fixado -->
+        <div class="form-field">
+          <label for="baixa-motivo">Motivo da Saída *</label>
+          <input id="baixa-motivo" class="search-input" value="Venda Mercado Livre (Baixa Rápida)" readonly style="background:#f8fafc;color:#475569;cursor:not-allowed" />
+        </div>
+
+        <!-- Código do Pedido / ML Opcional -->
+        <div class="form-field span-2">
+          <label for="baixa-cod-ml">Código do Pedido no Mercado Livre (Opcional)</label>
+          <input id="baixa-cod-ml" placeholder="Ex: #20000084920 ou MLB-849210" class="search-input" maxlength="40" />
+        </div>
+      </div>
+
+      <!-- Previsão do Novo Saldo -->
+      <div id="baixa-previsao-wrap" style="margin-top:12px;padding:10px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:6px;font-size:0.82rem;display:flex;justify-content:space-between;align-items:center">
+        <span style="color:#64748b">Previsão do Saldo após a baixa:</span>
+        <strong id="baixa-novo-saldo-previsto" style="color:#0f172a">—</strong>
+      </div>
+
+      <p class="form-error" id="form-baixa-error" style="margin-top:10px"></p>
+
+      <div class="modal-actions" style="margin-top:16px">
+        <button class="btn-ghost" type="button" id="btn-cancelar-baixa">Cancelar</button>
+        <button class="btn-primary" type="submit" id="btn-confirmar-baixa-submit" style="background:#e85c2a;border-color:#c2410c">
+          ⚡ Confirmar Baixa Imediata
+        </button>
       </div>
     </form>
   </div>

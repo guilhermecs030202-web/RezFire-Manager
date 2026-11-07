@@ -73,5 +73,30 @@ export class MovimentacaoController {
       return res.status(400).json({ sucesso: false, mensagem: error.message });
     }
   }
+
+  async baixaRapida(req: Request, res: Response) {
+    try {
+      const { id_produto, quantidade, codigo_ml } = req.body;
+      const id_usuario = req.usuario?.id_usuario;
+
+      if (!id_produto || !quantidade) {
+        return res.status(400).json({
+          sucesso: false,
+          mensagem: 'id_produto e quantidade são obrigatórios para a baixa rápida.',
+        });
+      }
+
+      const resultado = await movService.baixaRapida({
+        id_produto: Number(id_produto),
+        quantidade: Number(quantidade),
+        codigo_ml: codigo_ml ? String(codigo_ml) : undefined,
+        id_usuario,
+      });
+
+      return res.status(200).json(resultado);
+    } catch (error: any) {
+      return res.status(400).json({ sucesso: false, mensagem: error.message });
+    }
+  }
 }
 

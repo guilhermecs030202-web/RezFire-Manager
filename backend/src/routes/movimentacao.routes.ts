@@ -10,6 +10,7 @@ router.use(authMiddleware);
 router.get('/', controller.listar);
 router.post('/', controller.registrar);
 router.post('/ajuste-inventario', controller.ajustarInventario);
+router.post('/baixa-rapida', controller.baixaRapida);
 
 export default router;
 

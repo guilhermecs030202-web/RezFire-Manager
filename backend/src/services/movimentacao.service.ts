@@ -131,7 +131,7 @@ export class MovimentacaoService {
         }
         estoque.quantidade_atual -= dados.quantidade;
 
-        // Se houver lote especificado, debita do lote
+        // Se houver lote especificado, debita do lote. Caso contrário, se o produto possuir lotes, aloca por FEFO
         if (dados.id_lote) {
           const lote = await loteRepoTx.findOne({ where: { id_lote: dados.id_lote } });
           if (!lote) {
@@ -147,6 +147,27 @@ export class MovimentacaoService {
             lote.status = 'Esgotado';
           }
           await loteRepoTx.save(lote);
+        } else {
+          // Alocação FEFO automática de lotes na saída (validade mais próxima e não bloqueada)
+          const lotesAtivos = await loteRepoTx
+            .createQueryBuilder('l')
+            .where('l.id_produto = :idProd', { idProd: dados.id_produto })
+            .andWhere('l.quantidade_disponivel > 0')
+            .andWhere('l.status = :status', { status: 'Ativo' })
+            .orderBy('l.data_validade', 'ASC')
+            .getMany();
+
+          let qtdRestante = dados.quantidade;
+          for (const lote of lotesAtivos) {
+            if (qtdRestante <= 0) break;
+            const baixar = Math.min(lote.quantidade_disponivel, qtdRestante);
+            lote.quantidade_disponivel -= baixar;
+            if (lote.quantidade_disponivel === 0) {
+              lote.status = 'Esgotado';
+            }
+            await loteRepoTx.save(lote);
+            qtdRestante -= baixar;
+          }
         }
       } else {
         // Entrada com suporte a Inspeção de Qualidade (SCRUM-11 / #6)
@@ -342,6 +363,178 @@ export class MovimentacaoService {
       quantidade,
       motivo: `Ajuste de Balanço / Inventário Físico (${tipo === 'Entrada' ? '+' : '-'}${quantidade} un.)`,
     });
+  }
+
+  /**
+   * Baixa Rápida de Estoque (SCRUM-9 / #3):
+   * Registra saída imediata para vendas do Mercado Livre em apenas 2 cliques,
+   * com FEFO automático e suporte a dedução de kits/combos
+   */
+  async baixaRapida(dados: {
+    id_produto: number;
+    quantidade: number;
+    codigo_ml?: string;
+    id_usuario?: number | null;
+  }) {
+    if (!dados.quantidade || dados.quantidade <= 0) {
+      throw new Error('A quantidade da baixa deve ser maior que zero.');
+    }
+
+    const queryRunner = AppDataSource.createQueryRunner();
+    await queryRunner.connect();
+    await queryRunner.startTransaction();
+
+    try {
+      const prodRepoTx = queryRunner.manager.getRepository(Produto);
+      const estRepoTx = queryRunner.manager.getRepository(Estoque);
+      const loteRepoTx = queryRunner.manager.getRepository(LoteEstoque);
+      const movRepoTx = queryRunner.manager.getRepository(MovimentacaoEstoque);
+
+      const produto = await prodRepoTx.findOne({ where: { id_produto: dados.id_produto } });
+      if (!produto) {
+        throw new Error(`Produto #${dados.id_produto} não encontrado.`);
+      }
+
+      const motivoBase = dados.codigo_ml
+        ? `Venda Mercado Livre (Baixa Rápida) - Pedido ${dados.codigo_ml}`
+        : 'Venda Mercado Livre (Baixa Rápida)';
+
+      const movimentacoesCriadas: MovimentacaoEstoque[] = [];
+      let novoSaldoProduto = 0;
+
+      if (produto.tipo === 'Combo') {
+        if (!produto.combo_items || produto.combo_items.length === 0) {
+          throw new Error(`O combo "${produto.nome}" não possui componentes cadastrados.`);
+        }
+
+        // 1. Validação prévia de saldo de todos os componentes
+        for (const ci of produto.combo_items) {
+          const comp = await prodRepoTx.findOne({ where: { id_produto: ci.id_produto } });
+          const estComp = await estRepoTx.findOne({ where: { id_produto: ci.id_produto } });
+          const saldoDisp = estComp?.quantidade_atual || 0;
+          const qtdNecessaria = dados.quantidade * ci.quantidade;
+
+          if (saldoDisp < qtdNecessaria) {
+            throw new Error(
+              `Saldo insuficiente do componente "${comp?.nome || ci.id_produto}" no galpão. Disponível: ${saldoDisp}, Necessário: ${qtdNecessaria}.`
+            );
+          }
+        }
+
+        // 2. Executa baixa proporcional de cada componente
+        for (const ci of produto.combo_items) {
+          const estComp = await estRepoTx.findOne({ where: { id_produto: ci.id_produto } });
+          if (!estComp) continue;
+
+          const qtdBaixar = dados.quantidade * ci.quantidade;
+          estComp.quantidade_atual -= qtdBaixar;
+          await estRepoTx.save(estComp);
+
+          // Aloca lotes do componente por FEFO se houver
+          const lotesAtivos = await loteRepoTx
+            .createQueryBuilder('l')
+            .where('l.id_produto = :idProd', { idProd: ci.id_produto })
+            .andWhere('l.quantidade_disponivel > 0')
+            .andWhere('l.status = :status', { status: 'Ativo' })
+            .orderBy('l.data_validade', 'ASC')
+            .getMany();
+
+          let qtdRestante = qtdBaixar;
+          for (const lote of lotesAtivos) {
+            if (qtdRestante <= 0) break;
+            const baixar = Math.min(lote.quantidade_disponivel, qtdRestante);
+            lote.quantidade_disponivel -= baixar;
+            if (lote.quantidade_disponivel === 0) {
+              lote.status = 'Esgotado';
+            }
+            await loteRepoTx.save(lote);
+            qtdRestante -= baixar;
+          }
+
+          const mov = movRepoTx.create({
+            id_produto: ci.id_produto,
+            id_usuario: dados.id_usuario || null,
+            tipo: 'Saída',
+            quantidade: qtdBaixar,
+            motivo: `${motivoBase} (Item do Kit ${produto.sku})`,
+            data_movimentacao: new Date(),
+          });
+          movimentacoesCriadas.push(await movRepoTx.save(mov));
+        }
+
+        // Recalcula disponibilidade dinâmica do combo
+        const disponibilidades = await Promise.all(
+          produto.combo_items.map(async (ci) => {
+            const e = await estRepoTx.findOne({ where: { id_produto: ci.id_produto } });
+            return Math.floor((e?.quantidade_atual || 0) / ci.quantidade);
+          })
+        );
+        novoSaldoProduto = Math.min(...disponibilidades);
+      } else {
+        // Produto Simples
+        let estoque = await estRepoTx.findOne({ where: { id_produto: dados.id_produto } });
+        if (!estoque) {
+          throw new Error(`Estoque do produto "${produto.nome}" não localizado.`);
+        }
+
+        if (estoque.quantidade_atual < dados.quantidade) {
+          throw new Error(
+            `Saldo insuficiente em estoque para "${produto.nome}". Disponível: ${estoque.quantidade_atual}, Solicitado: ${dados.quantidade}.`
+          );
+        }
+
+        estoque.quantidade_atual -= dados.quantidade;
+        await estRepoTx.save(estoque);
+        novoSaldoProduto = estoque.quantidade_atual;
+
+        // Alocação FEFO automática de lotes de extintores
+        const lotesAtivos = await loteRepoTx
+          .createQueryBuilder('l')
+          .where('l.id_produto = :idProd', { idProd: dados.id_produto })
+          .andWhere('l.quantidade_disponivel > 0')
+          .andWhere('l.status = :status', { status: 'Ativo' })
+          .orderBy('l.data_validade', 'ASC')
+          .getMany();
+
+        let qtdRestante = dados.quantidade;
+        for (const lote of lotesAtivos) {
+          if (qtdRestante <= 0) break;
+          const baixar = Math.min(lote.quantidade_disponivel, qtdRestante);
+          lote.quantidade_disponivel -= baixar;
+          if (lote.quantidade_disponivel === 0) {
+            lote.status = 'Esgotado';
+          }
+          await loteRepoTx.save(lote);
+          qtdRestante -= baixar;
+        }
+
+        const mov = movRepoTx.create({
+          id_produto: dados.id_produto,
+          id_usuario: dados.id_usuario || null,
+          tipo: 'Saída',
+          quantidade: dados.quantidade,
+          motivo: motivoBase,
+          data_movimentacao: new Date(),
+        });
+        movimentacoesCriadas.push(await movRepoTx.save(mov));
+      }
+
+      await queryRunner.commitTransaction();
+
+      return {
+        sucesso: true,
+        mensagem: `Baixa rápida de ${dados.quantidade} un. de "${produto.nome}" registrada com sucesso!`,
+        id_produto: dados.id_produto,
+        novo_saldo: novoSaldoProduto,
+        tipo_produto: produto.tipo,
+        movimentacoes: movimentacoesCriadas,
+      };
+    } catch (error) {
+      await queryRunner.rollbackTransaction();
+      throw error;
+    } finally {
+      await queryRunner.release();
+    }
   }
 }
 

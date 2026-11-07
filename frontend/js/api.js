@@ -141,6 +141,12 @@ window.RezFireAPI = {
         body: JSON.stringify({ id_produto, quantidade_contada }),
       });
     },
+    async baixaRapida(id_produto, quantidade, codigo_ml) {
+      return window.RezFireAPI.request('/movimentacoes/baixa-rapida', {
+        method: 'POST',
+        body: JSON.stringify({ id_produto, quantidade, codigo_ml }),
+      });
+    },
   },
 
   // Módulo de Pedidos

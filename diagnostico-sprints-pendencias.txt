@@ -46,11 +46,12 @@ Arquivos analisados em Sprints/:
     Regra de Ouro implementada: unidades reprovadas são bloqueadas e NÃO entram
     no estoque vendível. Modais de Laudo e Histórico de Inspeções disponíveis.
 
-[ ] SCRUM-9 (#3) - Baixa rápida de estoque:
-    Na tela de Estoque (estoque.html), conectar o modal de ajuste rápido diretamente
-    à API (POST /api/movimentacoes), permitindo registrar saídas imediatas com o motivo
-    já pré-fixado como "Venda ML Manual" em apenas 2 cliques.
-    Complexidade: Baixa.
+[X] SCRUM-9 (#3) - Baixa rápida de estoque (CONCLUÍDO em 07/11/2026):
+    Na tela de Estoque (estoque.html), implementado fluxo otimizado de baixa em 2 cliques
+    com o botão "⚡ Baixa ML" por linha e na toolbar. Integrado à API (POST /api/movimentacoes/baixa-rapida)
+    e fallback client-side, com motivo pré-fixado "Venda Mercado Livre (Baixa Rápida)".
+    Alocação automática de lotes ativos via FEFO, suporte à baixa proporcional em Kits/Combos,
+    validação em tempo real contra saldo insuficiente e atualização imediata do estoque.
 
 [ ] SCRUM-18 (#10) - Alerta de prazo de postagem:
     Destacar no painel e na tela de entregas os pedidos cujo prazo limite de despacho

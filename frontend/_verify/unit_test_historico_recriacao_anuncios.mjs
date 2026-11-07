@@ -134,3 +134,4 @@ describe('SCRUM-19 (#14) e SCRUM-20 (#15) - Histórico e Recriação de Anúncio
     assert.equal(mediaDias, 8.0, 'Média (6 + 14 + 4) / 3 = 8.0 dias');
   });
 });
+

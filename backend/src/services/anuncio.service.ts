@@ -1,5 +1,12 @@
 import { AppDataSource } from '../config/database';
-import { AnuncioML, OcorrenciaAnuncio } from '../entities';
+import { AnuncioML, OcorrenciaAnuncio, MidiaAnuncio } from '../entities';
+
+export interface CriarMidiaDTO {
+  tipo?: 'imagem' | 'video';
+  rotulo: string;
+  url: string;
+  ordem?: number;
+}
 
 export interface CriarOcorrenciaDTO {
   tipo_evento: string;
@@ -22,6 +29,7 @@ export interface MarcarRecriadoDTO {
 export class AnuncioService {
   private anuncioRepo = AppDataSource.getRepository(AnuncioML);
   private ocorrenciaRepo = AppDataSource.getRepository(OcorrenciaAnuncio);
+  private midiaRepo = AppDataSource.getRepository(MidiaAnuncio);
 
   /**
    * Lista anúncios com suporte a filtros e ordenação
@@ -57,10 +65,14 @@ export class AnuncioService {
   async buscarPorId(id_anuncio: number) {
     const anuncio = await this.anuncioRepo.findOne({
       where: { id_anuncio },
-      relations: ['ocorrencias', 'produto_anuncios', 'produto_anuncios.produto'],
+      relations: ['ocorrencias', 'midias', 'produto_anuncios', 'produto_anuncios.produto'],
       order: {
         ocorrencias: {
           data_ocorrencia: 'DESC',
+        },
+        midias: {
+          ordem: 'ASC',
+          created_at: 'ASC',
         },
       },
     });
@@ -267,4 +279,81 @@ export class AnuncioService {
       })),
     };
   }
+
+  /**
+   * Retorna todas as mídias (fotos e vídeos) de um anúncio (SCRUM-26 / #23)
+   */
+  async listarMidias(id_anuncio: number) {
+    const anuncio = await this.anuncioRepo.findOne({ where: { id_anuncio } });
+    if (!anuncio) {
+      throw new Error(`Anúncio #${id_anuncio} não encontrado.`);
+    }
+
+    return this.midiaRepo.find({
+      where: { id_anuncio },
+      order: { ordem: 'ASC', created_at: 'ASC' },
+    });
+  }
+
+  /**
+   * Anexa uma nova foto ou vídeo ao anúncio (SCRUM-26 / #23)
+   */
+  async adicionarMidia(id_anuncio: number, dados: CriarMidiaDTO) {
+    const anuncio = await this.anuncioRepo.findOne({ where: { id_anuncio } });
+    if (!anuncio) {
+      throw new Error(`Anúncio #${id_anuncio} não encontrado.`);
+    }
+
+    if (!dados.url?.trim()) {
+      throw new Error('A URL da mídia (imagem ou vídeo) é obrigatória.');
+    }
+    if (!dados.rotulo?.trim()) {
+      throw new Error('O rótulo/legenda da mídia é obrigatório.');
+    }
+
+    const tipo = dados.tipo || (dados.url.includes('youtube.com') || dados.url.includes('youtu.be') || dados.url.includes('vimeo.com') || dados.url.endsWith('.mp4') ? 'video' : 'imagem');
+
+    const midia = this.midiaRepo.create({
+      id_anuncio,
+      tipo,
+      rotulo: dados.rotulo.trim(),
+      url: dados.url.trim(),
+      ordem: Number(dados.ordem || 0),
+    });
+
+    const salva = await this.midiaRepo.save(midia);
+
+    // Registra ocorrência de atualização visual no histórico do anúncio (SCRUM-19)
+    await this.adicionarOcorrencia(id_anuncio, {
+      tipo_evento: 'Atualização Visual',
+      titulo: `${tipo === 'video' ? 'Vídeo Demonstrativo' : 'Foto'} Anexada`,
+      detalhe: `${tipo === 'video' ? 'Vídeo' : 'Imagem'} "${dados.rotulo}" adicionada ao catálogo de mídia do anúncio.`,
+      autor: 'Gestor RezFire',
+    });
+
+    return salva;
+  }
+
+  /**
+   * Remove uma foto ou vídeo anexado ao anúncio (SCRUM-26 / #23)
+   */
+  async removerMidia(id_anuncio: number, id_midia: number) {
+    const midia = await this.midiaRepo.findOne({ where: { id_midia, id_anuncio } });
+    if (!midia) {
+      throw new Error(`Mídia #${id_midia} não encontrada para o anúncio #${id_anuncio}.`);
+    }
+
+    await this.midiaRepo.remove(midia);
+
+    // Registra no histórico do anúncio
+    await this.adicionarOcorrencia(id_anuncio, {
+      tipo_evento: 'Atualização Visual',
+      titulo: 'Mídia Removida',
+      detalhe: `${midia.tipo === 'video' ? 'Vídeo' : 'Foto'} "${midia.rotulo}" removida do anúncio.`,
+      autor: 'Gestor RezFire',
+    });
+
+    return { sucesso: true, mensagem: 'Mídia removida com sucesso.' };
+  }
 }
+

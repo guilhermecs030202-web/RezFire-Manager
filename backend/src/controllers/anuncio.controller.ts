@@ -98,4 +98,48 @@ export class AnuncioController {
       return res.status(500).json({ sucesso: false, mensagem: err.message });
     }
   }
+
+  async listarMidias(req: Request, res: Response) {
+    try {
+      const id = Number(req.params.id);
+      const midias = await anuncioService.listarMidias(id);
+      return res.json({ sucesso: true, midias });
+    } catch (err: any) {
+      return res.status(404).json({ sucesso: false, mensagem: err.message });
+    }
+  }
+
+  async adicionarMidia(req: Request, res: Response) {
+    try {
+      const id = Number(req.params.id);
+      const { tipo, rotulo, url, ordem } = req.body;
+
+      const midia = await anuncioService.adicionarMidia(id, {
+        tipo,
+        rotulo,
+        url,
+        ordem: ordem ? Number(ordem) : 0,
+      });
+
+      return res.status(201).json({
+        sucesso: true,
+        mensagem: 'Mídia anexada ao anúncio com sucesso.',
+        midia,
+      });
+    } catch (err: any) {
+      return res.status(400).json({ sucesso: false, mensagem: err.message });
+    }
+  }
+
+  async removerMidia(req: Request, res: Response) {
+    try {
+      const id = Number(req.params.id);
+      const id_midia = Number(req.params.id_midia);
+
+      const resultado = await anuncioService.removerMidia(id, id_midia);
+      return res.json(resultado);
+    } catch (err: any) {
+      return res.status(400).json({ sucesso: false, mensagem: err.message });
+    }
+  }
 }

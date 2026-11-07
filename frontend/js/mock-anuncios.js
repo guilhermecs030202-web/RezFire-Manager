@@ -75,6 +75,29 @@
     "ultima_sincronizacao": subDays(0, 2),
     "ml_item_id_origem": "MLB-190412891",
     "tempo_reposicionamento_dias": 6,
+    "midias": [
+      {
+        "id_midia": 1,
+        "tipo": "imagem",
+        "rotulo": "Foto Principal - Extintor Pó ABC 4kg",
+        "url": "https://http2.mlstatic.com/D_NQ_NP_854921-MLB48921829101_012022-V.jpg",
+        "ordem": 1
+      },
+      {
+        "id_midia": 2,
+        "tipo": "imagem",
+        "rotulo": "Detalhe do Manômetro na Faixa Verde e Lacre Inmetro",
+        "url": "https://http2.mlstatic.com/D_NQ_NP_728419-MLB48921829102_012022-V.jpg",
+        "ordem": 2
+      },
+      {
+        "id_midia": 3,
+        "tipo": "video",
+        "rotulo": "Vídeo Demonstrativo de Acionamento e Pressurização",
+        "url": "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
+        "ordem": 3
+      }
+    ],
     "historico": [
       {
         "data": subDays(0, 2),
@@ -132,6 +155,22 @@
     "permalink": "https://produto.mercadolivre.com.br/MLB-2894012148",
     "data_criacao": "2023-09-01T10:15:00Z",
     "ultima_sincronizacao": subDays(0, 1),
+    "midias": [
+      {
+        "id_midia": 4,
+        "tipo": "imagem",
+        "rotulo": "Foto de Apresentação - Extintor AP 10 Litros",
+        "url": "https://http2.mlstatic.com/D_NQ_NP_728419-MLB48921829102_012022-V.jpg",
+        "ordem": 1
+      },
+      {
+        "id_midia": 5,
+        "tipo": "video",
+        "rotulo": "Demonstração de Teste Hidrostático do Casco",
+        "url": "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
+        "ordem": 2
+      }
+    ],
     "historico": [
       {
         "data": subDays(0, 1),
@@ -1050,6 +1089,83 @@
     };
   }
 
+  /**
+   * Retorna mídias de um anúncio (SCRUM-26 / #23)
+   */
+  function listarMidias(id_anuncio) {
+    const anuncios = loadAnuncios();
+    const a = anuncios.find((x) => x.id_anuncio === Number(id_anuncio));
+    return (a && Array.isArray(a.midias)) ? a.midias : [];
+  }
+
+  /**
+   * Adiciona foto ou vídeo ao anúncio (SCRUM-26 / #23)
+   */
+  function adicionarMidia(id_anuncio, dados) {
+    const anuncios = loadAnuncios();
+    const idx = anuncios.findIndex((x) => x.id_anuncio === Number(id_anuncio));
+    if (idx < 0) throw new Error("Anúncio não encontrado.");
+
+    const a = anuncios[idx];
+    a.midias = a.midias || [];
+
+    const tipo = dados.tipo || (dados.url.includes("youtube.com") || dados.url.includes("youtu.be") || dados.url.includes("vimeo.com") || dados.url.endsWith(".mp4") ? "video" : "imagem");
+
+    const novaMidia = {
+      id_midia: Date.now(),
+      tipo,
+      rotulo: dados.rotulo || (tipo === "video" ? "Vídeo Demonstrativo" : "Foto do Anúncio"),
+      url: dados.url,
+      ordem: Number(dados.ordem || a.midias.length + 1),
+      created_at: new Date().toISOString(),
+    };
+
+    a.midias.push(novaMidia);
+
+    // Registra ocorrência de atualização visual
+    a.historico = a.historico || [];
+    a.historico.unshift({
+      id_ocorrencia: Date.now() + 1,
+      data: new Date().toISOString(),
+      evento: "Atualização Visual",
+      titulo: `${tipo === "video" ? "Vídeo Demonstrativo" : "Foto"} Anexada`,
+      detalhe: `${tipo === "video" ? "Vídeo" : "Imagem"} "${novaMidia.rotulo}" adicionada ao catálogo de mídia do anúncio.`,
+      autor: "Gestor RezFire",
+    });
+
+    saveAnuncios(anuncios);
+    return novaMidia;
+  }
+
+  /**
+   * Remove foto ou vídeo do anúncio (SCRUM-26 / #23)
+   */
+  function removerMidia(id_anuncio, id_midia) {
+    const anuncios = loadAnuncios();
+    const idx = anuncios.findIndex((x) => x.id_anuncio === Number(id_anuncio));
+    if (idx < 0) throw new Error("Anúncio não encontrado.");
+
+    const a = anuncios[idx];
+    a.midias = a.midias || [];
+    const midiaRemovida = a.midias.find((m) => m.id_midia === Number(id_midia));
+    a.midias = a.midias.filter((m) => m.id_midia !== Number(id_midia));
+
+    if (midiaRemovida) {
+      a.historico = a.historico || [];
+      a.historico.unshift({
+        id_ocorrencia: Date.now(),
+        data: new Date().toISOString(),
+        evento: "Atualização Visual",
+        titulo: "Mídia Removida",
+        detalhe: `${midiaRemovida.tipo === "video" ? "Vídeo" : "Foto"} "${midiaRemovida.rotulo}" removida do anúncio.`,
+        autor: "Gestor RezFire",
+      });
+    }
+
+    saveAnuncios(anuncios);
+    return { sucesso: true };
+  }
+
   // Exportação Global
   window.RezFireAnuncios = {
     loadAnuncios,
@@ -1065,6 +1181,9 @@
     adicionarOcorrencia,
     marcarRecriado,
     listarRecriados,
+    listarMidias,
+    adicionarMidia,
+    removerMidia,
     REF_DATE
   };
 })();

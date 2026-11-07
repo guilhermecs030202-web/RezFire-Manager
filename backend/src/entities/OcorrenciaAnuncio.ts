@@ -43,3 +43,4 @@ export class OcorrenciaAnuncio {
   @CreateDateColumn({ type: 'timestamp' })
   created_at: Date;
 }
+

@@ -12,6 +12,7 @@ import {
 import { ConexaoMercadoLivre } from './ConexaoMercadoLivre';
 import { ProdutoAnuncio } from './ProdutoAnuncio';
 import { OcorrenciaAnuncio } from './OcorrenciaAnuncio';
+import { MidiaAnuncio } from './MidiaAnuncio';
 
 @Entity('anuncios_ml')
 export class AnuncioML {
@@ -90,5 +91,8 @@ export class AnuncioML {
 
   @OneToMany(() => OcorrenciaAnuncio, (o) => o.anuncio, { cascade: true })
   ocorrencias: OcorrenciaAnuncio[];
+
+  @OneToMany(() => MidiaAnuncio, (m) => m.anuncio, { cascade: true })
+  midias: MidiaAnuncio[];
 }
 

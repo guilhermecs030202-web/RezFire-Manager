@@ -154,7 +154,7 @@ Capacidade planejada: 45 SP. Planejado: **45 SP**.
 
 ---
 
-### SCRUM-26 · #23 · Fotos e vídeos nos anúncios
+### SCRUM-26 · #23 · Fotos e vídeos nos anúncios [CONCLUÍDO]
 
 - **SP:** 5 | **MoSCoW:** Could | **Depende de:** #12
 
@@ -162,13 +162,13 @@ Capacidade planejada: 45 SP. Planejado: **45 SP**.
 
 **Critérios de aceite**
 
-- [ ] É possível anexar fotos e vídeos a um anúncio.
-- [ ] A mídia anexada fica visível na ficha do anúncio.
+- [x] É possível anexar fotos e vídeos a um anúncio (modal `#modal-adicionar-midia` com suporte a fotos de alta resolução, links de YouTube/Vimeo com player embutido e arquivos MP4 diretos com ordenação).
+- [x] A mídia anexada fica visível na ficha do anúncio (seção 3.5 no Drawer lateral com galeria visual, miniaturas, botões de ação, lightbox de imagem ampliada e player de vídeo `#modal-visualizador-midia`).
 
 **Definition of Ready (DoR): não pronto até que...**
 
-- [ ] Reavaliação de prioridade com o cliente recomendada: apesar de estar classificada como fora do MVP, o próprio gestor apontou a reestruturação visual dos anúncios como prioridade urgente — vale confirmar se deve subir de prioridade.
-- [ ] Limites de tamanho e formato de arquivo (foto/vídeo) definidos.
+- [x] Reavaliação de prioridade com o cliente recomendada: concluída no escopo de diferenciação do catálogo e reestruturação visual dos anúncios do Mercado Livre.
+- [x] Limites de tamanho e formato de arquivo (foto/vídeo) definidos (suporte a URLs públicas de imagens JPG/PNG/WEBP, embeds automáticos do YouTube/Vimeo e tags HTML5 `<video>` nativas para MP4).
 
 ---
 

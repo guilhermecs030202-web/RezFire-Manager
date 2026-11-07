@@ -17,4 +17,10 @@ router.get('/:id/historico', controller.listarHistorico);
 router.post('/:id/historico', controller.adicionarOcorrencia);
 router.post('/:id/marcar-recriado', controller.marcarRecriado);
 
+// Rotas de Mídias (Fotos e Vídeos de Demonstração - SCRUM-26 / #23)
+router.get('/:id/midias', controller.listarMidias);
+router.post('/:id/midias', controller.adicionarMidia);
+router.delete('/:id/midias/:id_midia', controller.removerMidia);
+
 export default router;
+

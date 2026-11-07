@@ -845,6 +845,9 @@
     // Banner de Substituição / Herança de Anúncio Excluído (SCRUM-20 / #15)
     renderDrawerBannerRecriado(anuncio);
 
+    // Fotos e Vídeos de Demonstração (SCRUM-26 / #23)
+    renderizarMidiasDrawer(anuncio);
+
     // Histórico cronológico de ocorrências (SCRUM-19 / #14)
     renderDrawerHistorico(anuncio);
 
@@ -1141,6 +1144,254 @@
   function closeModalRelatorioRecriados() {
     const modal = document.getElementById("modal-relatorio-recriados");
     if (modal) modal.classList.remove("is-open");
+  }
+
+  // ─── Fotos e Vídeos de Demonstração (SCRUM-26 / #23) ────────────────────────
+
+  /**
+   * Converte URLs comuns de vídeo (YouTube, Vimeo) para embed ou retorna a URL direta.
+   */
+  function converterParaEmbedVideo(url) {
+    if (!url) return "";
+    const ytMatch = url.match(/(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?\/\s]{11})/i);
+    if (ytMatch && ytMatch[1]) {
+      return `https://www.youtube.com/embed/${ytMatch[1]}?autoplay=1`;
+    }
+    const vimeoMatch = url.match(/vimeo\.com\/(?:channels\/(?:\w+\/)?|groups\/([^\/]*)\/videos\/|album\/(\d+)\/video\/|)(\d+)(?:$|\/|\?)/i);
+    if (vimeoMatch && vimeoMatch[3]) {
+      return `https://player.vimeo.com/video/${vimeoMatch[3]}?autoplay=1`;
+    }
+    return url;
+  }
+
+  /**
+   * Renderiza a galeria de fotos e vídeos no Drawer Lateral
+   */
+  function renderizarMidiasDrawer(anuncio) {
+    const container = document.getElementById("drawer-midias-lista");
+    if (!container) return;
+
+    const midias = (anuncio && Array.isArray(anuncio.midias)) ? anuncio.midias : [];
+    if (midias.length === 0) {
+      container.innerHTML = `
+        <div class="p-3 bg-stone-50 border border-stone-200 rounded-lg text-xs text-stone-500 text-center">
+          Nenhuma foto ou vídeo cadastrado. Adicione para enriquecer a apresentação visual do extintor.
+        </div>
+      `;
+      return;
+    }
+
+    const midiasOrdenadas = [...midias].sort((a, b) => (a.ordem || 0) - (b.ordem || 0));
+
+    container.innerHTML = `
+      <div class="grid grid-cols-2 gap-2">
+        ${midiasOrdenadas.map((m) => {
+          const isVideo = (m.tipo || "").toUpperCase() === "VIDEO";
+          const iconBadge = isVideo
+            ? `<span class="bg-red-600 text-white text-[10px] font-bold px-1.5 py-0.5 rounded shadow">▶ VÍDEO</span>`
+            : `<span class="bg-emerald-600 text-white text-[10px] font-bold px-1.5 py-0.5 rounded shadow">📷 FOTO</span>`;
+
+          const thumbSrc = isVideo
+            ? "https://images.unsplash.com/photo-1574717024653-61fd2cf4d44d?w=300&auto=format&fit=crop&q=60"
+            : m.url;
+
+          return `
+            <div class="card p-2 bg-stone-50 border border-stone-200 rounded flex flex-col justify-between hover:border-amber-400 transition-colors">
+              <div class="relative w-full h-24 bg-stone-900 rounded overflow-hidden flex items-center justify-center mb-1.5 cursor-pointer btn-ver-midia" data-id="${m.id_midia}">
+                <img src="${thumbSrc}" alt="${m.rotulo}" class="w-full h-full object-cover opacity-90 hover:opacity-100 transition-opacity" onerror="this.src='https://placehold.co/120x80/292524/fafaf9?text=Midia'" />
+                <div class="absolute top-1 left-1">${iconBadge}</div>
+                ${isVideo ? `<div class="absolute inset-0 flex items-center justify-center bg-black/40"><span class="text-white text-xl">▶</span></div>` : ""}
+              </div>
+              <div>
+                <div class="text-[11px] font-bold text-stone-800 line-clamp-1" title="${m.rotulo}">${m.rotulo}</div>
+                <div class="flex items-center justify-between mt-2 pt-1.5 border-t border-stone-200">
+                  <button type="button" class="btn-ghost text-[10px] py-0.5 px-1.5 text-stone-700 btn-ver-midia" data-id="${m.id_midia}">
+                    ${isVideo ? "Assistir ▶" : "Ampliar 🔍"}
+                  </button>
+                  <button type="button" class="btn-ghost text-[10px] py-0.5 px-1.5 text-red-600 hover:bg-red-50 btn-remover-midia" data-id="${m.id_midia}" title="Excluir mídia">
+                    Excluir
+                  </button>
+                </div>
+              </div>
+            </div>
+          `;
+        }).join("")}
+      </div>
+    `;
+
+    container.querySelectorAll(".btn-ver-midia").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const idMidia = Number(btn.dataset.id);
+        const midia = midias.find((m) => m.id_midia === idMidia);
+        if (midia) openModalVisualizadorMidia(midia);
+      });
+    });
+
+    container.querySelectorAll(".btn-remover-midia").forEach((btn) => {
+      btn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        const idMidia = Number(btn.dataset.id);
+        removerMidiaAnuncio(idMidia);
+      });
+    });
+  }
+
+  function openModalAdicionarMidia() {
+    if (!state.anuncioSelecionado) return;
+    const modal = document.getElementById("modal-adicionar-midia");
+    const tipo = document.getElementById("midia-form-tipo");
+    const rotulo = document.getElementById("midia-form-rotulo");
+    const url = document.getElementById("midia-form-url");
+    const ordem = document.getElementById("midia-form-ordem");
+    if (!modal) return;
+
+    if (tipo) tipo.value = "FOTO";
+    if (rotulo) rotulo.value = "";
+    if (url) url.value = "";
+    if (ordem) ordem.value = ((state.anuncioSelecionado.midias || []).length + 1).toString();
+
+    modal.classList.add("is-open");
+    modal.style.display = "flex";
+  }
+
+  function closeModalAdicionarMidia() {
+    const modal = document.getElementById("modal-adicionar-midia");
+    if (modal) {
+      modal.classList.remove("is-open");
+      modal.style.display = "none";
+    }
+  }
+
+  async function salvarModalAdicionarMidia(e) {
+    e.preventDefault();
+    if (!state.anuncioSelecionado) return;
+
+    const tipo = document.getElementById("midia-form-tipo")?.value || "FOTO";
+    const rotulo = document.getElementById("midia-form-rotulo")?.value.trim();
+    const url = document.getElementById("midia-form-url")?.value.trim();
+    const ordem = Number(document.getElementById("midia-form-ordem")?.value || 0);
+
+    if (!rotulo || !url) {
+      alert("Por favor, preencha o rótulo e a URL da mídia.");
+      return;
+    }
+
+    const payload = {
+      tipo,
+      rotulo,
+      url,
+      ordem
+    };
+
+    try {
+      let novaMidia = null;
+      if (window.RezFireAPI && typeof window.RezFireAPI.anuncios?.adicionarMidia === "function") {
+        try {
+          const res = await window.RezFireAPI.anuncios.adicionarMidia(state.anuncioSelecionado.id_anuncio, payload);
+          if (res && res.sucesso && res.midia) novaMidia = res.midia;
+        } catch (apiErr) {
+          console.warn("[Anúncios] Backend indisponível para salvar mídia, usando fallback local:", apiErr);
+        }
+      }
+
+      if (!novaMidia && window.RezFireAnuncios) {
+        novaMidia = window.RezFireAnuncios.adicionarMidia(state.anuncioSelecionado.id_anuncio, payload);
+      }
+
+      if (novaMidia) {
+        state.anuncioSelecionado.midias = state.anuncioSelecionado.midias || [];
+        state.anuncioSelecionado.midias.push(novaMidia);
+      }
+
+      renderizarMidiasDrawer(state.anuncioSelecionado);
+      closeModalAdicionarMidia();
+      showToast(`${tipo === "VIDEO" ? "Vídeo demonstrativo" : "Foto"} anexada com sucesso!`);
+    } catch (err) {
+      console.error("[Anúncios] Erro ao anexar mídia:", err);
+      alert("Erro ao anexar mídia: " + (err.message || err));
+    }
+  }
+
+  async function removerMidiaAnuncio(idMidia) {
+    if (!state.anuncioSelecionado) return;
+    if (!confirm("Deseja realmente remover esta mídia do anúncio?")) return;
+
+    try {
+      if (window.RezFireAPI && typeof window.RezFireAPI.anuncios?.removerMidia === "function") {
+        try {
+          await window.RezFireAPI.anuncios.removerMidia(state.anuncioSelecionado.id_anuncio, idMidia);
+        } catch (apiErr) {
+          console.warn("[Anúncios] Backend indisponível para remover mídia, usando fallback local:", apiErr);
+        }
+      }
+
+      if (window.RezFireAnuncios) {
+        window.RezFireAnuncios.removerMidia(state.anuncioSelecionado.id_anuncio, idMidia);
+      }
+
+      state.anuncioSelecionado.midias = (state.anuncioSelecionado.midias || []).filter(
+        (m) => m.id_midia !== Number(idMidia)
+      );
+
+      renderizarMidiasDrawer(state.anuncioSelecionado);
+      showToast("Mídia removida com sucesso!");
+    } catch (err) {
+      console.error("[Anúncios] Erro ao remover mídia:", err);
+      alert("Erro ao remover mídia: " + (err.message || err));
+    }
+  }
+
+  function openModalVisualizadorMidia(midia) {
+    const modal = document.getElementById("modal-visualizador-midia");
+    const container = document.getElementById("visualizador-conteudo");
+    const legendaEl = document.getElementById("visualizador-legenda");
+    const linkEl = document.getElementById("visualizador-link-externo");
+    const titleEl = document.getElementById("modal-player-title");
+    if (!modal || !container) return;
+
+    const isVideo = (midia.tipo || "").toUpperCase() === "VIDEO";
+    if (titleEl) {
+      titleEl.innerHTML = isVideo ? "▶ Vídeo Demonstrativo do Produto" : "📷 Visualização em Alta Resolução";
+    }
+
+    if (legendaEl) legendaEl.textContent = midia.rotulo || "Sem descrição";
+    if (linkEl) {
+      linkEl.href = midia.url;
+      linkEl.style.display = midia.url ? "inline-flex" : "none";
+    }
+
+    if (isVideo) {
+      const embedUrl = converterParaEmbedVideo(midia.url);
+      if (embedUrl.includes("youtube.com/embed") || embedUrl.includes("player.vimeo.com")) {
+        container.innerHTML = `
+          <iframe src="${embedUrl}" class="w-full aspect-video border-0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen style="min-height:380px;width:100%"></iframe>
+        `;
+      } else {
+        container.innerHTML = `
+          <video controls autoplay class="w-full max-h-[460px] bg-black">
+            <source src="${midia.url}" type="video/mp4">
+            Seu navegador não suporta a reprodução deste vídeo.
+          </video>
+        `;
+      }
+    } else {
+      container.innerHTML = `
+        <img src="${midia.url}" alt="${midia.rotulo}" class="max-h-[500px] max-w-full object-contain p-2" onerror="this.src='https://placehold.co/600x400/292524/fafaf9?text=Imagem+N%C3%A3o+Dispon%C3%ADvel'" />
+      `;
+    }
+
+    modal.classList.add("is-open");
+    modal.style.display = "flex";
+  }
+
+  function closeModalVisualizadorMidia() {
+    const modal = document.getElementById("modal-visualizador-midia");
+    const container = document.getElementById("visualizador-conteudo");
+    if (container) container.innerHTML = "";
+    if (modal) {
+      modal.classList.remove("is-open");
+      modal.style.display = "none";
+    }
   }
 
   /**
@@ -1621,9 +1872,27 @@
       if (e.target.id === "modal-relatorio-recriados") closeModalRelatorioRecriados();
     });
 
+    // Modais de Mídia: Adicionar Mídia & Visualizador / Player (SCRUM-26 / #23)
+    document.getElementById("btn-abrir-modal-midia")?.addEventListener("click", openModalAdicionarMidia);
+    document.getElementById("btn-fechar-modal-midia")?.addEventListener("click", closeModalAdicionarMidia);
+    document.getElementById("btn-cancelar-midia")?.addEventListener("click", closeModalAdicionarMidia);
+    document.getElementById("form-adicionar-midia")?.addEventListener("submit", salvarModalAdicionarMidia);
+    document.getElementById("modal-adicionar-midia")?.addEventListener("click", (e) => {
+      if (e.target.id === "modal-adicionar-midia") closeModalAdicionarMidia();
+    });
+
+    document.getElementById("btn-fechar-visualizador-midia")?.addEventListener("click", closeModalVisualizadorMidia);
+    document.getElementById("modal-visualizador-midia")?.addEventListener("click", (e) => {
+      if (e.target.id === "modal-visualizador-midia") closeModalVisualizadorMidia();
+    });
+
     document.addEventListener("keydown", (e) => {
-      if (e.key === "Escape" && state.anuncioSelecionado) {
-        fecharDrawer();
+      if (e.key === "Escape") {
+        closeModalVisualizadorMidia();
+        closeModalAdicionarMidia();
+        if (state.anuncioSelecionado) {
+          fecharDrawer();
+        }
       }
     });
 

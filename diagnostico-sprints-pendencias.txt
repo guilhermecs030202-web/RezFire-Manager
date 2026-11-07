@@ -111,9 +111,11 @@ Todas as 10 User Stories (45 Story Points) da Sprint 1 foram implementadas, inte
     com cálculo do tempo de reposicionamento (em dias) e modal de relatório comparativo. Entidade
     OcorrenciaAnuncio integrada ao TypeORM e rotas dedicadas no backend.
 
-[ ] SCRUM-26 (#23) - Fotos e vídeos nos anúncios:
-    Galeria de fotos e links de vídeos de demonstração na ficha detalhada do anúncio.
-    Complexidade: Baixa.
+[X] SCRUM-26 (#23) - Fotos e vídeos nos anúncios [CONCLUÍDO]:
+    Galeria de fotos e links de vídeos de demonstração na ficha detalhada do anúncio (Drawer lateral).
+    Suporte a imagens de alta resolução com modal de visualização ampliada (lightbox), player embutido
+    para vídeos do YouTube/Vimeo e suporte a arquivos MP4 nativos. Cadastro e remoção de mídias com
+    auditoria no histórico, persistência via TypeORM (MidiaAnuncio) e sincronização com mock local.
 
 [ ] Interface do OAuth2 (#26):
     Adicionar um botão de atalho claro na interface do gestor (ex.: em Configurações

@@ -306,6 +306,20 @@ window.RezFireAPI = {
     async listarRecriados() {
       return window.RezFireAPI.request('/anuncios/relatorios/recriados');
     },
+    async listarMidias(id) {
+      return window.RezFireAPI.request(`/anuncios/${id}/midias`);
+    },
+    async adicionarMidia(id, dados) {
+      return window.RezFireAPI.request(`/anuncios/${id}/midias`, {
+        method: 'POST',
+        body: JSON.stringify(dados),
+      });
+    },
+    async removerMidia(id, id_midia) {
+      return window.RezFireAPI.request(`/anuncios/${id}/midias/${id_midia}`, {
+        method: 'DELETE',
+      });
+    },
   },
 };
 

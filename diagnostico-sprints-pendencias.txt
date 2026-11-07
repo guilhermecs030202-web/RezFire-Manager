@@ -99,10 +99,11 @@ Todas as 10 User Stories (45 Story Points) da Sprint 1 foram implementadas, inte
     completos e rótulo legível. Entidade InspecaoQualidade atualizada com campo relacional
     id_pedido e tipo Separacao. Laudo auditável vinculado diretamente à entrega e ao histórico.
 
-[ ] SCRUM-22 (#11) - Motivo de devoluções/mediações:
-    Ao registrar cancelamento ou devolução de pedido, permitir selecionar o motivo
-    (avaria no transporte, compra equivocada, desacordo comercial) para gerar relatórios.
-    Complexidade: Baixa.
+[X] SCRUM-22 (#11) - Motivo de devoluções/mediações (CONCLUÍDO):
+    Ao registrar cancelamento, devolução ou mediação de pedido, o motivo é selecionado
+    a partir de lista padronizada (Avaria no Transporte, Compra Equivocada, Desistência/CDC 7d,
+    Atraso na Entrega, Defeito/Despressurização, Outro). Gera estorno automático de estoque
+    em movimentacoes_estoque e disponibiliza modal de análise com ranking percentual e histórico auditável.
 
 [ ] SCRUM-19 (#14) / SCRUM-20 (#15) - Histórico de ocorrências de anúncios:
     Timeline cronológica registrando quando um anúncio teve queda de preço, pausou

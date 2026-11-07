@@ -16,6 +16,7 @@ let state = {
   pedidos: [],              // Lista completa de pedidos
   produtos: [],             // Catálogo de produtos para vinculação de itens
   filtroStatus: "todos",
+  filtroMotivo: "todos",    // "todos" ou motivo padronizado (SCRUM-22)
   filtroCanal: "todos",
   filtroPeriodo: "todos",   // "7" | "30" | "90" | "todos"
   ordem: "data_desc",       // "data_desc" | "data_asc" | "valor_desc" | "valor_asc" | "codigo_desc"
@@ -93,7 +94,12 @@ function normalizarPedido(p) {
     valor_total: Number(p.valor_total || 0),
     itens: itensMapeados,
     observacoes: p.observacoes || "",
-    motivo_cancelamento: p.motivo_cancelamento || "",
+    motivo_cancelamento: p.motivo_cancelamento || p.motivo_devolucao || "",
+    motivo_devolucao: p.motivo_devolucao || "",
+    tipo_ocorrencia: p.tipo_ocorrencia || (statusMapeado === "Cancelado" ? "Cancelamento" : ""),
+    detalhe_devolucao: p.detalhe_devolucao || "",
+    protocolo_mediacao: p.protocolo_mediacao || "",
+    data_devolucao: p.data_devolucao || null,
   };
 }
 
@@ -249,6 +255,13 @@ function getFilteredAndSortedPedidos() {
       }
     }
 
+    // 2.1 Filtro de Motivo de Devolução / Cancelamento (SCRUM-22)
+    if (state.filtroMotivo && state.filtroMotivo !== "todos") {
+      const motFiltro = state.filtroMotivo.toLowerCase();
+      const motPed = (p.motivo_devolucao || p.motivo_cancelamento || "").toLowerCase();
+      if (!motPed.includes(motFiltro)) return false;
+    }
+
     // 3. Filtro de Origem / Canal
     if (state.filtroCanal !== "todos") {
       if (p.canal !== state.filtroCanal) return false;
@@ -367,6 +380,11 @@ function renderTable() {
         </td>
         <td>
           ${getBadgeStatusComercial(p.status)}
+          ${(p.motivo_devolucao || (p.status === "Cancelado" && p.motivo_cancelamento)) ? `
+            <span style="font-size:0.68rem;color:var(--down);display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:130px;font-weight:600;margin-top:2px" title="Motivo: ${escapeHtml(p.motivo_devolucao || p.motivo_cancelamento)}${p.protocolo_mediacao ? ' | ML: ' + escapeHtml(p.protocolo_mediacao) : ''}">
+              ⚠ ${escapeHtml(p.motivo_devolucao || p.motivo_cancelamento)}
+            </span>
+          ` : ""}
           <div>${getLogisticsBadgeForPedido(p)}</div>
         </td>
         <td style="text-align:right" onclick="event.stopPropagation()">
@@ -547,6 +565,33 @@ function openDetalhePanel(pedidoId) {
           </div>
         `}
       </section>
+
+      <!-- Auditoria de Devolução / Mediação (SCRUM-22) -->
+      ${(pedido.status === "Cancelado" || pedido.motivo_devolucao) ? `
+        <section class="detalhe-section" style="background:#fef2f2;border:1px solid #fecaca;border-radius:8px;padding:12px;margin-bottom:14px">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+            <span style="font-size:0.75rem;font-weight:700;color:var(--down);text-transform:uppercase;letter-spacing:0.04em">
+              Auditoria de ${escapeHtml(pedido.tipo_ocorrencia || "Cancelamento / Devolução")}
+            </span>
+            ${pedido.protocolo_mediacao ? `
+              <span class="entrega-badge badge-cancelado" style="font-size:0.72rem;background:#fee2e2;color:#991b1b;border-color:#fca5a5">
+                Protocolo: ${escapeHtml(pedido.protocolo_mediacao)}
+              </span>
+            ` : ""}
+          </div>
+          <div style="font-size:0.9rem;font-weight:700;color:var(--ink);margin-bottom:4px">
+            Motivo Padronizado: <span style="color:var(--down)">${escapeHtml(pedido.motivo_devolucao || pedido.motivo_cancelamento || "Não informado")}</span>
+          </div>
+          ${pedido.detalhe_devolucao ? `
+            <div style="font-size:0.8rem;color:var(--muted);line-height:1.4;margin-top:6px;background:#fff;padding:8px;border-radius:4px;border:1px dashed #fca5a5">
+              <strong>Observação técnica:</strong> ${escapeHtml(pedido.detalhe_devolucao)}
+            </div>
+          ` : ""}
+          <div style="font-size:0.75rem;color:#7f1d1d;margin-top:8px">
+            ✓ Estoque físico estornado automaticamente e registrado no histórico de movimentações.
+          </div>
+        </section>
+      ` : ""}
 
       <!-- Observações -->
       ${pedido.observacoes ? `
@@ -825,17 +870,27 @@ function recalcularResumoFinanceiro() {
   return { subtotal, desconto, frete, total };
 }
 
-// ─── Modal de Cancelamento de Pedido com Motivo ───────────────────────────────
+// ─── Modal de Cancelamento / Devolução / Mediação (SCRUM-22 / #11) ───────────
 function openModalCancelamento(pedido) {
   if (!pedido) return;
   pedidoParaCancelar = pedido;
 
   const modal = document.getElementById("modal-cancelar-pedido");
   const codEl = document.getElementById("cancel-pedido-codigo");
-  const motivoEl = document.getElementById("cancel-motivo");
+  const tipoEl = document.getElementById("cancel-tipo-ocorrencia");
+  const motivoEl = document.getElementById("cancel-motivo-padronizado");
+  const protocoloEl = document.getElementById("cancel-protocolo-mediacao");
+  const obsEl = document.getElementById("cancel-detalhe-obs");
 
   if (codEl) codEl.textContent = pedido.codigo_pedido;
+  if (tipoEl) {
+    tipoEl.value = (pedido.canal === "Mercado Livre" || pedido.origem === "Mercado Livre")
+      ? "Mediacao"
+      : "Cancelamento";
+  }
   if (motivoEl) motivoEl.value = "";
+  if (protocoloEl) protocoloEl.value = pedido.codigo_externo_ml || "";
+  if (obsEl) obsEl.value = "";
   if (modal) modal.classList.add("is-open");
 }
 
@@ -847,9 +902,18 @@ function closeModalCancelamento() {
 
 async function executarCancelamento() {
   if (!pedidoParaCancelar) return;
-  const motivo = document.getElementById("cancel-motivo")?.value.trim();
+
+  const tipo = document.getElementById("cancel-tipo-ocorrencia")?.value || "Cancelamento";
+  const motivo = document.getElementById("cancel-motivo-padronizado")?.value?.trim();
+  const protocolo = document.getElementById("cancel-protocolo-mediacao")?.value?.trim() || null;
+  const detalhe = document.getElementById("cancel-detalhe-obs")?.value?.trim() || null;
+
   if (!motivo) {
-    alert("Por favor, informe o motivo do cancelamento.");
+    alert("Por favor, selecione um motivo padronizado da lista (Taxonomia SCRUM-22).");
+    return;
+  }
+  if (motivo === "Outro" && (!detalhe || detalhe.length < 5)) {
+    alert("Para o motivo 'Outro', detalhe e informe as observações técnicas.");
     return;
   }
 
@@ -857,15 +921,26 @@ async function executarCancelamento() {
   const btn = document.getElementById("btn-confirmar-cancelamento");
   if (btn) {
     btn.disabled = true;
-    btn.textContent = "Cancelando e Estornando...";
+    btn.textContent = "Gravando e Estornando Estoque...";
   }
 
   const dataCanc = new Date().toISOString();
+  const payloadDevolucao = {
+    motivo_devolucao: motivo,
+    tipo_ocorrencia: tipo,
+    detalhe_devolucao: detalhe,
+    protocolo_mediacao: protocolo,
+  };
 
   try {
-    // 1. Aciona o backend MySQL para estorno transacional automático de estoque
+    // 1. Aciona o backend MySQL para estorno transacional automático de estoque e gravação auditável
     if (window.RezFireAPI && p.id_pedido) {
-      const res = await window.RezFireAPI.pedidos.atualizarStatus(p.id_pedido, "Cancelado");
+      const res = await window.RezFireAPI.pedidos.atualizarStatus(
+        p.id_pedido,
+        "Cancelado",
+        undefined,
+        payloadDevolucao
+      );
       if (res && res.sucesso && res.pedido) {
         const pedIdx = state.pedidos.findIndex((x) => x.id_pedido === p.id_pedido);
         if (pedIdx >= 0) {
@@ -874,31 +949,98 @@ async function executarCancelamento() {
       }
     }
 
+    // 2. Atualiza estado em memória e sincroniza dados locais / fallback
     p.status = "Cancelado";
-    p.motivo_cancelamento = motivo;
+    p.motivo_devolucao = motivo;
+    p.tipo_ocorrencia = tipo;
+    p.detalhe_devolucao = detalhe;
+    p.protocolo_mediacao = protocolo;
+    p.motivo_cancelamento = `${tipo}: ${motivo}`;
+    p.data_devolucao = dataCanc;
     p.historico = p.historico || [];
     p.historico.push({
       data: dataCanc,
-      evento: "Cancelamento do Pedido",
-      descricao: `Motivo: ${motivo}. Estoque estornado no sistema.`,
+      evento: `Registro de ${tipo} (${motivo})`,
+      descricao: `Ocorrência: ${motivo}.${protocolo ? ' Protocolo ML: ' + protocolo + '.' : ''}${detalhe ? ' Obs: ' + detalhe + '.' : ''} Estoque físico estornado.`,
       usuario: "Gestor RezFire",
     });
 
-    // Sincroniza também no módulo de Entregas, se existir remessa correspondente
+    // 3. Sincroniza estoque localmente caso o backend não esteja ativo (modo offline/fallback)
+    if (window.RezFireData) {
+      if (typeof window.RezFireData.loadProducts === "function" && typeof window.RezFireData.saveProducts === "function") {
+        let prods = window.RezFireData.loadProducts();
+        (p.itens || []).forEach((item) => {
+          prods = prods.map((prod) => {
+            if (prod.id_produto === item.id_produto || prod.sku === item.sku) {
+              return {
+                ...prod,
+                quantidade_atual: Number(prod.quantidade_atual || 0) + Number(item.quantidade || 0),
+              };
+            }
+            return prod;
+          });
+        });
+        window.RezFireData.saveProducts(prods);
+      }
+
+      if (typeof window.RezFireData.loadMovements === "function" && typeof window.RezFireData.saveMovements === "function") {
+        const movs = window.RezFireData.loadMovements();
+        const nextId = movs.length > 0 ? Math.max(...movs.map((m) => m.id_movimentacao || 0)) + 1 : 1;
+        (p.itens || []).forEach((item, itemIdx) => {
+          movs.unshift({
+            id_movimentacao: nextId + itemIdx,
+            id_pedido: p.id_pedido,
+            codigo_pedido: p.codigo_pedido,
+            canal: p.canal,
+            tipo_envio: p.tipo_envio,
+            cliente: p.cliente,
+            uf: p.uf,
+            status_pedido: "Cancelado",
+            id_produto: item.id_produto,
+            sku: item.sku,
+            nome_produto: item.nome,
+            tipo: "Entrada",
+            motivo: `Estorno (${tipo}: ${motivo}) - Pedido #${p.codigo_pedido}`,
+            quantidade: item.quantidade,
+            preco_unitario: item.preco_unitario,
+            valor_total: item.subtotal,
+            data: dataCanc,
+            responsavel: "Gestor RezFire (Estorno Operacional)",
+          });
+        });
+        window.RezFireData.saveMovements(movs);
+      }
+
+      window.RezFireData.saveOrders(state.pedidos);
+    }
+
+    // 4. Sincroniza também no módulo de Entregas, se existir remessa correspondente
     if (window.RezFireEntregas && typeof window.RezFireEntregas.loadEntregas === "function") {
       let entregas = window.RezFireEntregas.loadEntregas();
       let entregaUpdated = false;
       entregas = entregas.map((ent) => {
-        if (ent.id_pedido_interno === p.id_pedido || ent.codigo_pedido_ml === p.codigo_pedido || ent.codigo_pedido_direto === p.codigo_pedido) {
+        if (
+          ent.id_pedido_interno === p.id_pedido ||
+          ent.codigo_pedido_ml === p.codigo_pedido ||
+          ent.codigo_pedido_direto === p.codigo_pedido
+        ) {
           entregaUpdated = true;
           return {
             ...ent,
             status_interno: window.RezFireEntregas.STATUS_INTERNO.CANCELADO,
             status_logistico: window.RezFireEntregas.STATUS_LOGISTICO.CANCELADO,
+            motivo_devolucao: motivo,
+            tipo_ocorrencia: tipo,
+            protocolo_mediacao: protocolo,
             historico: [
               ...(ent.historico || []),
-              { data: dataCanc, evento: "Pedido Cancelado no Módulo Comercial", descricao: `Motivo: ${motivo}`, tipo: "erro" }
-            ]
+              {
+                data: dataCanc,
+                evento: `Pedido ${tipo} no Módulo Comercial`,
+                descricao: `Motivo: ${motivo}.${protocolo ? ' Protocolo ML: ' + protocolo : ''}`,
+                tipo: "erro",
+              },
+            ],
           };
         }
         return ent;
@@ -908,24 +1050,147 @@ async function executarCancelamento() {
       }
     }
 
-    if (window.RezFireData) {
-      window.RezFireData.saveOrders(state.pedidos);
-    }
-
     closeModalCancelamento();
     closeDetalhePanel();
     renderKPIs();
     renderTable();
-    showToast(`Pedido ${p.codigo_pedido} cancelado. Estoque estornado no MySQL com sucesso!`, "sucesso");
+    showToast(`Ocorrência (${tipo}: ${motivo}) registrada com sucesso. Estoque estornado!`, "sucesso");
   } catch (err) {
-    console.error("[Pedidos] Erro ao cancelar pedido:", err);
-    alert("Erro ao cancelar pedido na API: " + (err.message || err));
+    console.error("[Pedidos] Erro ao registrar cancelamento/devolução:", err);
+    alert("Erro ao registrar devolução/cancelamento: " + (err.message || err));
   } finally {
     if (btn) {
       btn.disabled = false;
-      btn.textContent = "Confirmar Cancelamento";
+      btn.textContent = "Confirmar e Estornar Estoque";
     }
   }
+}
+
+// ─── Modal de Análise e Padrões de Devoluções (SCRUM-22 / #11) ───────────────
+async function openModalPadroesDevolucoes() {
+  const modal = document.getElementById("modal-padroes-devolucoes");
+  if (!modal) return;
+
+  const totalEl = document.getElementById("stat-total-ocorrencias");
+  const mediacoesEl = document.getElementById("stat-total-mediacoes");
+  const principalEl = document.getElementById("stat-principal-motivo");
+  const rankingEl = document.getElementById("container-ranking-motivos");
+  const tbodyEl = document.getElementById("tbody-ultimas-devolucoes");
+
+  let dadosEstatisticos = null;
+
+  // Tenta obter dados consolidados da API
+  if (window.RezFireAPI && typeof window.RezFireAPI.pedidos.obterEstatisticasDevolucoes === "function") {
+    try {
+      const res = await window.RezFireAPI.pedidos.obterEstatisticasDevolucoes();
+      if (res && res.sucesso) {
+        dadosEstatisticos = res;
+      }
+    } catch (e) {
+      console.warn("[Pedidos] Erro ao buscar estatísticas da API, calculando localmente:", e);
+    }
+  }
+
+  // Fallback / cálculo local reativo
+  if (!dadosEstatisticos) {
+    const pedidosCancelados = state.pedidos.filter((p) => p.status === "Cancelado" || p.motivo_devolucao);
+    const motivosContagem = {};
+    let totalMed = 0;
+
+    pedidosCancelados.forEach((p) => {
+      const m = p.motivo_devolucao || p.motivo_cancelamento || "Outro / Não especificado";
+      motivosContagem[m] = (motivosContagem[m] || 0) + 1;
+      if (p.protocolo_mediacao || (p.tipo_ocorrencia && p.tipo_ocorrencia.toLowerCase().includes("media"))) {
+        totalMed++;
+      }
+    });
+
+    const ranking = Object.entries(motivosContagem)
+      .map(([motivo, total]) => ({
+        motivo,
+        total,
+        percentual: pedidosCancelados.length > 0 ? Number(((total / pedidosCancelados.length) * 100).toFixed(1)) : 0,
+      }))
+      .sort((a, b) => b.total - a.total);
+
+    dadosEstatisticos = {
+      total_ocorrencias: pedidosCancelados.length,
+      total_com_protocolo_ml: totalMed,
+      ranking_motivos: ranking,
+      ultimas_ocorrencias: pedidosCancelados.slice(0, 10).map((p) => ({
+        id_pedido: p.id_pedido,
+        codigo_pedido: p.codigo_pedido,
+        cliente_nome: p.cliente || p.cliente_nome,
+        tipo_ocorrencia: p.tipo_ocorrencia || "Cancelamento",
+        motivo_devolucao: p.motivo_devolucao || p.motivo_cancelamento || "Não especificado",
+        protocolo_mediacao: p.protocolo_mediacao,
+        data_devolucao: p.data_devolucao || p.data_pedido,
+      })),
+    };
+  }
+
+  // Preenche KPIs
+  if (totalEl) totalEl.textContent = String(dadosEstatisticos.total_ocorrencias || 0);
+  if (mediacoesEl) mediacoesEl.textContent = String(dadosEstatisticos.total_com_protocolo_ml || 0);
+  if (principalEl) {
+    principalEl.textContent = dadosEstatisticos.ranking_motivos && dadosEstatisticos.ranking_motivos.length > 0
+      ? `${dadosEstatisticos.ranking_motivos[0].motivo} (${dadosEstatisticos.ranking_motivos[0].percentual}%)`
+      : "Nenhuma ocorrência";
+  }
+
+  // Preenche Ranking com Barras
+  if (rankingEl) {
+    if (!dadosEstatisticos.ranking_motivos || dadosEstatisticos.ranking_motivos.length === 0) {
+      rankingEl.innerHTML = `
+        <div style="font-size:0.85rem;color:var(--muted);text-align:center;padding:16px">
+          Nenhuma devolução ou cancelamento registrado no sistema.
+        </div>
+      `;
+    } else {
+      rankingEl.innerHTML = dadosEstatisticos.ranking_motivos.map((item) => `
+        <div style="display:flex;flex-direction:column;gap:4px">
+          <div style="display:flex;justify-content:space-between;font-size:0.82rem;font-weight:600;color:var(--ink)">
+            <span>${escapeHtml(item.motivo)}</span>
+            <span>${item.total} ocorrência(s) (${item.percentual}%)</span>
+          </div>
+          <div style="width:100%;height:8px;background:#f3f4f6;border-radius:4px;overflow:hidden">
+            <div style="width:${Math.min(100, Math.max(5, item.percentual))}%;height:100%;background:var(--down);border-radius:4px"></div>
+          </div>
+        </div>
+      `).join("");
+    }
+  }
+
+  // Preenche Tabela de Últimas Ocorrências
+  if (tbodyEl) {
+    const lista = dadosEstatisticos.ultimas_ocorrencias || [];
+    if (lista.length === 0) {
+      tbodyEl.innerHTML = `
+        <tr>
+          <td colspan="5" style="text-align:center;padding:16px;color:var(--muted)">Nenhuma ocorrência recente.</td>
+        </tr>
+      `;
+    } else {
+      tbodyEl.innerHTML = lista.map((o) => `
+        <tr style="border-bottom:1px solid #f1f5f9">
+          <td style="padding:8px 6px;font-family:monospace;font-weight:700">${escapeHtml(o.codigo_pedido)}</td>
+          <td style="padding:8px 6px">
+            <span class="entrega-badge badge-cancelado" style="font-size:0.7rem;padding:2px 6px">${escapeHtml(o.tipo_ocorrencia || "Cancelamento")}</span>
+          </td>
+          <td style="padding:8px 6px;font-weight:600;color:var(--down)">${escapeHtml(o.motivo_devolucao || "—")}</td>
+          <td style="padding:8px 6px;font-family:monospace;font-size:0.75rem">${o.protocolo_mediacao ? escapeHtml(o.protocolo_mediacao) : '<span style="color:var(--muted)">—</span>'}</td>
+          <td style="padding:8px 6px;color:var(--muted);font-size:0.75rem">${formatDateOnly(o.data_devolucao)}</td>
+        </tr>
+      `).join("");
+    }
+  }
+
+  modal.classList.add("is-open");
+}
+
+function closeModalPadroesDevolucoes() {
+  const modal = document.getElementById("modal-padroes-devolucoes");
+  if (modal) modal.classList.remove("is-open");
 }
 
 // ─── Toasts de Notificação ────────────────────────────────────────────────────
@@ -949,17 +1214,20 @@ function showToast(msg, tipo = "info") {
 window.limparTodosFiltros = function () {
   state.busca = "";
   state.filtroStatus = "todos";
+  state.filtroMotivo = "todos";
   state.filtroCanal = "todos";
   state.filtroPeriodo = "todos";
   state.pagina = 1;
 
   const b = document.getElementById("busca-pedidos");
   const s = document.getElementById("filtro-status");
+  const m = document.getElementById("filtro-motivo");
   const c = document.getElementById("filtro-canal");
   const p = document.getElementById("filtro-periodo");
 
   if (b) b.value = "";
   if (s) s.value = "todos";
+  if (m) m.value = "todos";
   if (c) c.value = "todos";
   if (p) p.value = "todos";
 
@@ -978,6 +1246,12 @@ function bindEvents() {
   // Filtros
   document.getElementById("filtro-status")?.addEventListener("change", (e) => {
     state.filtroStatus = e.target.value;
+    state.pagina = 1;
+    renderTable();
+  });
+
+  document.getElementById("filtro-motivo")?.addEventListener("change", (e) => {
+    state.filtroMotivo = e.target.value;
     state.pagina = 1;
     renderTable();
   });
@@ -1317,11 +1591,18 @@ function bindEvents() {
     }
   });
 
-  // Modal Cancelamento
+  // Modal Cancelamento / Devolução / Mediação (SCRUM-22)
   document.getElementById("btn-abortar-cancelamento")?.addEventListener("click", closeModalCancelamento);
   document.getElementById("btn-confirmar-cancelamento")?.addEventListener("click", executarCancelamento);
   document.getElementById("modal-cancelar-pedido")?.addEventListener("click", (e) => {
     if (e.target.id === "modal-cancelar-pedido") closeModalCancelamento();
+  });
+
+  // Modal de Padrões e Estatísticas de Devoluções / Mediações (SCRUM-22)
+  document.getElementById("btn-ver-padroes-devolucoes")?.addEventListener("click", openModalPadroesDevolucoes);
+  document.getElementById("btn-fechar-modal-padroes")?.addEventListener("click", closeModalPadroesDevolucoes);
+  document.getElementById("modal-padroes-devolucoes")?.addEventListener("click", (e) => {
+    if (e.target.id === "modal-padroes-devolucoes") closeModalPadroesDevolucoes();
   });
 
   // Fechar overlay

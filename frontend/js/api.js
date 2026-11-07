@@ -167,11 +167,24 @@ window.RezFireAPI = {
         body: JSON.stringify(dados),
       });
     },
-    async atualizarStatus(id, status, status_entrega) {
+    async atualizarStatus(id, status, status_entrega, dadosDevolucao = null) {
+      const payload = { status, status_entrega };
+      if (dadosDevolucao) {
+        Object.assign(payload, dadosDevolucao);
+      }
       return window.RezFireAPI.request(`/pedidos/${id}/status`, {
         method: 'PATCH',
-        body: JSON.stringify({ status, status_entrega }),
+        body: JSON.stringify(payload),
       });
+    },
+    async registrarDevolucao(id, dados) {
+      return window.RezFireAPI.request(`/pedidos/${id}/devolucao`, {
+        method: 'POST',
+        body: JSON.stringify(dados),
+      });
+    },
+    async obterEstatisticasDevolucoes() {
+      return window.RezFireAPI.request('/pedidos/estatisticas/devolucoes');
     },
   },
 

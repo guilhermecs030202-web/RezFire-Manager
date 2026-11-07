@@ -67,7 +67,14 @@ export class PedidoController {
   async atualizarStatus(req: Request, res: Response) {
     try {
       const id = Number(req.params.id);
-      const { status, status_entrega } = req.body;
+      const {
+        status,
+        status_entrega,
+        motivo_devolucao,
+        tipo_ocorrencia,
+        detalhe_devolucao,
+        protocolo_mediacao,
+      } = req.body;
       const id_usuario = req.usuario?.id_usuario;
 
       if (!status) {
@@ -77,11 +84,21 @@ export class PedidoController {
         });
       }
 
+      const dadosDevolucao = motivo_devolucao
+        ? {
+            motivo_devolucao: String(motivo_devolucao).trim(),
+            tipo_ocorrencia: tipo_ocorrencia || 'Cancelamento',
+            detalhe_devolucao: detalhe_devolucao ? String(detalhe_devolucao).trim() : undefined,
+            protocolo_mediacao: protocolo_mediacao ? String(protocolo_mediacao).trim() : undefined,
+          }
+        : undefined;
+
       const pedidoAtualizado = await pedidoService.atualizarStatus(
         id,
         status,
         status_entrega,
-        id_usuario
+        id_usuario,
+        dadosDevolucao
       );
 
       return res.json({
@@ -91,6 +108,51 @@ export class PedidoController {
       });
     } catch (error: any) {
       return res.status(400).json({ sucesso: false, mensagem: error.message });
+    }
+  }
+
+  async registrarDevolucao(req: Request, res: Response) {
+    try {
+      const id = Number(req.params.id);
+      const { motivo_devolucao, tipo_ocorrencia, detalhe_devolucao, protocolo_mediacao } = req.body;
+      const id_usuario = req.usuario?.id_usuario;
+
+      if (!motivo_devolucao || !String(motivo_devolucao).trim()) {
+        return res.status(400).json({
+          sucesso: false,
+          mensagem: 'O motivo da devolução/mediação é obrigatório e deve ser selecionado da lista padronizada.',
+        });
+      }
+
+      const pedidoAtualizado = await pedidoService.atualizarStatus(
+        id,
+        'Cancelado',
+        undefined,
+        id_usuario,
+        {
+          motivo_devolucao: String(motivo_devolucao).trim(),
+          tipo_ocorrencia: tipo_ocorrencia || 'Devolucao',
+          detalhe_devolucao: detalhe_devolucao ? String(detalhe_devolucao).trim() : undefined,
+          protocolo_mediacao: protocolo_mediacao ? String(protocolo_mediacao).trim() : undefined,
+        }
+      );
+
+      return res.json({
+        sucesso: true,
+        mensagem: 'Devolução/mediação registrada com sucesso e estoque estornado.',
+        pedido: pedidoAtualizado,
+      });
+    } catch (error: any) {
+      return res.status(400).json({ sucesso: false, mensagem: error.message });
+    }
+  }
+
+  async obterEstatisticasDevolucoes(_req: Request, res: Response) {
+    try {
+      const estatisticas = await pedidoService.obterEstatisticasDevolucoes();
+      return res.json({ sucesso: true, ...estatisticas });
+    } catch (error: any) {
+      return res.status(500).json({ sucesso: false, mensagem: error.message });
     }
   }
 

@@ -1393,16 +1393,19 @@ function registrarEntrega(entrega) {
   showToast("Entrega concluída registrada e pedido finalizado no módulo comercial!", "sucesso");
 }
 
-function cancelarPedidoComEstorno(entrega) {
+function cancelarPedidoComEstorno(entrega, motivo = "Avaria no Transporte", tipo = "Devolucao", protocolo = null) {
   const idx = state.entregas.findIndex((e) => e.id_entrega === entrega.id_entrega);
   if (idx < 0) return;
   const e = state.entregas[idx];
 
   e.status_interno = SI().CANCELADO;
   e.status_logistico = SL().CANCELADO;
+  e.motivo_devolucao = motivo;
+  e.tipo_ocorrencia = tipo;
+  e.protocolo_mediacao = protocolo;
 
-  // 1. Conforme a regra alinhada na Seção 7 do AGENTS.md:
-  // Como o débito de estoque já havia ocorrido na aprovação da venda, o cancelamento gera estorno no estoque e registro de Entrada em movimentações!
+  // 1. Conforme a regra alinhada na Seção 7 do AGENTS.md e SCRUM-22:
+  // Como o débito de estoque já havia ocorrido na aprovação da venda, o cancelamento/devolução gera estorno no estoque e registro de Entrada em movimentações!
   if (window.RezFireData) {
     if (typeof window.RezFireData.loadProducts === "function" && typeof window.RezFireData.saveProducts === "function") {
       let produtos = window.RezFireData.loadProducts();
@@ -1438,7 +1441,7 @@ function cancelarPedidoComEstorno(entrega) {
           sku: item.sku,
           nome_produto: item.nome,
           tipo: "Entrada",
-          motivo: "Cancelamento / Estorno de Pedido",
+          motivo: `Estorno (${tipo}: ${motivo}) - Pedido #${e.codigo_pedido_ml || e.codigo_pedido_direto || e.id_entrega}`,
           quantidade: item.quantidade,
           preco_unitario: item.preco_unitario,
           valor_total: item.subtotal,
@@ -1450,19 +1453,22 @@ function cancelarPedidoComEstorno(entrega) {
       window.RezFireData.saveMovements(movements);
     }
 
-    // Atualiza o status do pedido para "Cancelado" no módulo comercial
+    // Atualiza o status do pedido para "Cancelado" no módulo comercial com motivo padronizado
     if (typeof window.RezFireData.loadOrders === "function" && typeof window.RezFireData.saveOrders === "function") {
       let orders = window.RezFireData.loadOrders();
       let orderUpdated = false;
       orders = orders.map((ord) => {
         if (ord.id_pedido === e.id_pedido_interno || ord.codigo_pedido === e.codigo_pedido_ml || ord.codigo_pedido === e.codigo_pedido_direto) {
           ord.status = "Cancelado";
-          ord.motivo_cancelamento = "Cancelamento operacional no módulo de entregas.";
+          ord.motivo_devolucao = motivo;
+          ord.tipo_ocorrencia = tipo;
+          ord.protocolo_mediacao = protocolo;
+          ord.motivo_cancelamento = `${tipo}: ${motivo}`;
           ord.historico = ord.historico || [];
           ord.historico.push({
             data: REF().toISOString(),
-            evento: "Cancelamento Operacional",
-            descricao: "Cancelado na tela de entregas com estorno de estoque.",
+            evento: `Cancelamento Operacional (${tipo})`,
+            descricao: `Motivo: ${motivo}.${protocolo ? ' Protocolo ML: ' + protocolo : ''} Cancelado na tela de entregas com estorno de estoque.`,
             usuario: "Gestor RezFire",
           });
           orderUpdated = true;
@@ -1475,10 +1481,19 @@ function cancelarPedidoComEstorno(entrega) {
     }
   }
 
+  // Se houver backend conectado, sincroniza de forma transacional
+  if (window.RezFireAPI && e.id_pedido_interno) {
+    window.RezFireAPI.pedidos.atualizarStatus(e.id_pedido_interno, 'Cancelado', undefined, {
+      motivo_devolucao: motivo,
+      tipo_ocorrencia: tipo,
+      protocolo_mediacao: protocolo,
+    }).catch((err) => console.warn("[Entregas] Erro ao sincronizar cancelamento na API:", err));
+  }
+
   e.historico.push({
     data: REF().toISOString(),
-    evento: "Pedido Cancelado",
-    descricao: "Cancelamento operacional registrado. Estoque estornado automaticamente e movimentação de Entrada gerada no sistema.",
+    evento: `Pedido ${tipo}`,
+    descricao: `Ocorrência registrada: ${motivo}.${protocolo ? ' Protocolo ML: ' + protocolo : ''} Estoque estornado automaticamente e movimentação de Entrada gerada no sistema.`,
     tipo: "erro",
   });
 
@@ -1487,7 +1502,7 @@ function cancelarPedidoComEstorno(entrega) {
   renderTable();
   renderDetalhe(e);
   renderDetalheAcoes(e);
-  showToast("Pedido cancelado e estoque estornado com sucesso!", "sucesso");
+  showToast(`Pedido cancelado/devolvido (${motivo}) e estoque estornado com sucesso!`, "sucesso");
 }
 
 function renderDetalheAcoes(entrega) {

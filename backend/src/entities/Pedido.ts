@@ -53,6 +53,21 @@ export class Pedido {
   @Column({ type: 'timestamp', nullable: true })
   data_despacho: Date | null;
 
+  @Column({ type: 'varchar', length: 100, nullable: true })
+  motivo_devolucao: string | null;
+
+  @Column({ type: 'varchar', length: 50, nullable: true })
+  tipo_ocorrencia: 'Cancelamento' | 'Devolucao' | 'Mediacao' | string | null;
+
+  @Column({ type: 'text', nullable: true })
+  detalhe_devolucao: string | null;
+
+  @Column({ type: 'varchar', length: 100, nullable: true })
+  protocolo_mediacao: string | null;
+
+  @Column({ type: 'timestamp', nullable: true })
+  data_devolucao: Date | null;
+
   @CreateDateColumn({ type: 'timestamp' })
   created_at: Date;
 

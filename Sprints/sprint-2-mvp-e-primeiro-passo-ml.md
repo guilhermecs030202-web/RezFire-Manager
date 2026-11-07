@@ -119,7 +119,7 @@ Capacidade planejada: 45 SP. Planejado: **45 SP**.
 
 ---
 
-### SCRUM-22 · #11 · Motivo de devoluções/mediações
+### SCRUM-22 · #11 · Motivo de devoluções/mediações [CONCLUÍDO]
 
 - **SP:** 3 | **MoSCoW:** Could | **Depende de:** #9a
 
@@ -127,13 +127,13 @@ Capacidade planejada: 45 SP. Planejado: **45 SP**.
 
 **Critérios de aceite**
 
-- [ ] É possível registrar uma devolução/mediação vinculada a um pedido, com motivo selecionado de uma lista.
-- [ ] Os registros podem ser consultados posteriormente para identificar padrões.
+- [x] É possível registrar uma devolução/mediação vinculada a um pedido, com motivo selecionado de uma lista padronizada (Avaria no Transporte, Compra Equivocada, Desistência/CDC 7d, Atraso, Defeito/Despressurização, Outro).
+- [x] Os registros podem ser consultados posteriormente para identificar padrões (modal e painel de análise com ranking percentual, filtro por motivo na tabela de pedidos e histórico auditável).
 
 **Definition of Ready (DoR): não pronto até que...**
 
-- [ ] Confirmado com o cliente se esta story entra no MVP: o diagnóstico aponta baixa urgência atual (sem aumento relatado de devoluções).
-- [ ] Taxonomia mínima de motivos de devolução/mediação definida com o cliente.
+- [x] Confirmado com o cliente se esta story entra no MVP: o diagnóstico aponta baixa urgência atual (sem aumento relatado de devoluções).
+- [x] Taxonomia mínima de motivos de devolução/mediação definida com o cliente (alinhada à operação de extintores e regras de estorno pós-aprovação do AGENTS.md Seção 7).
 
 ---
 

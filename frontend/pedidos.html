@@ -247,6 +247,14 @@
           </p>
         </div>
         <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+          <button class="btn-ghost" id="btn-ver-padroes-devolucoes" style="font-size:0.84rem;padding:8px 14px;display:inline-flex;align-items:center;gap:6px;border-color:#fca5a5;color:var(--down)">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
+              <line x1="12" y1="9" x2="12" y2="13"/>
+              <line x1="12" y1="17" x2="12.01" y2="17"/>
+            </svg>
+            Padrões de Devoluções
+          </button>
           <button class="btn-ghost" id="btn-atualizar" style="font-size:0.84rem;padding:8px 14px;display:inline-flex;align-items:center;gap:6px">
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
               <path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8"/>
@@ -283,11 +291,25 @@
             <!-- Filtro de Status Comercial -->
             <div style="display:flex;align-items:center;gap:6px">
               <label for="filtro-status" style="font-size:0.72rem;font-weight:700;color:var(--muted);letter-spacing:0.05em">Status:</label>
-              <select id="filtro-status" class="search-input" style="width:200px">
+              <select id="filtro-status" class="search-input" style="width:160px">
                 <option value="todos">Todos os status</option>
                 <option value="Confirmado">Confirmado</option>
                 <option value="Concluído">Concluído</option>
                 <option value="Cancelado">Cancelado</option>
+              </select>
+            </div>
+
+            <!-- Filtro de Motivo / Devolução (SCRUM-22) -->
+            <div style="display:flex;align-items:center;gap:6px">
+              <label for="filtro-motivo" style="font-size:0.72rem;font-weight:700;color:var(--muted);letter-spacing:0.05em;white-space:nowrap">Motivo / Devolução:</label>
+              <select id="filtro-motivo" class="search-input" style="width:190px">
+                <option value="todos">Todos os motivos</option>
+                <option value="Avaria no Transporte">Avaria no Transporte</option>
+                <option value="Compra Equivocada / Modelo Incompatível">Compra Equivocada</option>
+                <option value="Desistência / Arrependimento (CDC 7 dias)">Desistência (CDC 7d)</option>
+                <option value="Atraso na Entrega">Atraso na Entrega</option>
+                <option value="Defeito de Fabricação / Despressurização">Defeito de Fabricação</option>
+                <option value="Outro">Outro</option>
               </select>
             </div>
 
@@ -539,27 +561,135 @@
     </div>
   </div>
 
-  <!-- Modal de Cancelamento de Pedido com Motivo ─────────────── -->
+  <!-- Modal de Cancelamento / Devolução / Mediação com Motivo Padronizado (SCRUM-22 / #11) ─────────────── -->
   <div class="modal-backdrop" id="modal-cancelar-pedido" role="dialog" aria-modal="true" aria-labelledby="cancel-title">
-    <div class="modal" style="width:min(480px, 96vw)">
+    <div class="modal" style="width:min(520px, 96vw)">
       <div class="modal-header">
-        <h2 id="cancel-title" style="color:var(--down);font-size:1.05rem">Cancelar Pedido</h2>
+        <h2 id="cancel-title" style="color:var(--down);font-size:1.05rem;display:flex;align-items:center;gap:6px">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="10"></circle>
+            <line x1="15" y1="9" x2="9" y2="15"></line>
+            <line x1="9" y1="9" x2="15" y2="15"></line>
+          </svg>
+          Registrar Devolução / Cancelamento / Mediação
+        </h2>
       </div>
       <p style="font-size:0.88rem;color:var(--ink);line-height:1.5;margin-bottom:12px">
-        Tem certeza que deseja cancelar o pedido <strong id="cancel-pedido-codigo"></strong>?
+        Pedido: <strong id="cancel-pedido-codigo"></strong>
         <span style="display:block;margin-top:4px;color:var(--muted);font-size:0.8rem">
-          Conforme a regra de negócio, se o estoque deste pedido já foi debitado na aprovação, o cancelamento gerará estorno nas movimentações.
+          Conforme a regra de negócio (AGENTS.md Seção 7), pedidos aprovados que são devolvidos ou cancelados geram estorno automático de entrada no estoque e registro em movimentações.
         </span>
       </p>
-      <div class="form-field" style="margin-bottom:16px">
-        <label for="cancel-motivo">Motivo do Cancelamento *</label>
-        <textarea id="cancel-motivo" rows="2" required placeholder="Ex: Desistência do comprador, erro de endereço, falta de insumo..."></textarea>
+
+      <form id="form-devolucao-cancelamento">
+        <div class="form-field" style="margin-bottom:12px">
+          <label for="cancel-tipo-ocorrencia">Tipo de Ocorrência *</label>
+          <select id="cancel-tipo-ocorrencia" class="search-input" style="width:100%" required>
+            <option value="Cancelamento">Cancelamento Comercial (Pré-Envio / Desistência)</option>
+            <option value="Devolucao">Devolução Pós-Entrega / Logística Reversa</option>
+            <option value="Mediacao">Mediação / Disputa no Mercado Livre</option>
+          </select>
+        </div>
+
+        <div class="form-field" style="margin-bottom:12px">
+          <label for="cancel-motivo-padronizado">Motivo Padronizado * <span style="font-size:0.72rem;color:var(--muted);font-weight:400">(Taxonomia SCRUM-22)</span></label>
+          <select id="cancel-motivo-padronizado" class="search-input" style="width:100%" required>
+            <option value="" disabled selected>Selecione o motivo padronizado...</option>
+            <option value="Avaria no Transporte">Avaria no Transporte</option>
+            <option value="Compra Equivocada / Modelo Incompatível">Compra Equivocada / Modelo Incompatível</option>
+            <option value="Desistência / Arrependimento (CDC 7 dias)">Desistência / Arrependimento (CDC 7 dias)</option>
+            <option value="Atraso na Entrega">Atraso na Entrega</option>
+            <option value="Defeito de Fabricação / Despressurização">Defeito de Fabricação / Despressurização</option>
+            <option value="Outro">Outro (especificar detalhadamente)</option>
+          </select>
+        </div>
+
+        <div class="form-field" style="margin-bottom:12px">
+          <label for="cancel-protocolo-mediacao">Protocolo / Ticket de Mediação Mercado Livre (Opcional)</label>
+          <input type="text" id="cancel-protocolo-mediacao" class="search-input" style="width:100%" placeholder="Ex: MED-589123891 ou Reclamação #40921" />
+        </div>
+
+        <div class="form-field" style="margin-bottom:16px">
+          <label for="cancel-detalhe-obs">Detalhes e Observações Técnicas</label>
+          <textarea id="cancel-detalhe-obs" class="search-input" style="width:100%" rows="2" placeholder="Observações para identificação de padrões, laudo do produto ou histórico da conversa com o cliente..."></textarea>
+        </div>
+
+        <div class="modal-actions">
+          <button type="button" class="btn-ghost" id="btn-abortar-cancelamento">Voltar</button>
+          <button type="submit" class="btn-primary" id="btn-confirmar-cancelamento" style="background:var(--down)">
+            Confirmar e Estornar Estoque
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Modal de Padrões e Estatísticas de Devoluções / Mediações (SCRUM-22) ─────────────── -->
+  <div class="modal-backdrop" id="modal-padroes-devolucoes" role="dialog" aria-modal="true" aria-labelledby="padroes-title">
+    <div class="modal" style="width:min(720px, 96vw);max-height:90vh;overflow-y:auto">
+      <div class="modal-header" style="display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid var(--line);padding-bottom:12px;margin-bottom:16px">
+        <h2 id="padroes-title" style="color:var(--ink);font-size:1.15rem;display:flex;align-items:center;gap:8px">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--down)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
+            <line x1="12" y1="9" x2="12" y2="13"/>
+            <line x1="12" y1="17" x2="12.01" y2="17"/>
+          </svg>
+          Padrões de Devoluções & Mediações (SCRUM-22)
+        </h2>
+        <button class="btn-ghost" id="btn-fechar-modal-padroes" style="padding:4px 8px;font-size:0.8rem">Fechar</button>
       </div>
-      <div class="modal-actions">
-        <button class="btn-ghost" id="btn-abortar-cancelamento">Voltar</button>
-        <button class="btn-primary" id="btn-confirmar-cancelamento" style="background:var(--down)">
-          Confirmar Cancelamento
-        </button>
+
+      <p style="font-size:0.85rem;color:var(--muted);line-height:1.5;margin-bottom:16px">
+        Monitore motivos recorrentes de devolução e mediações no Mercado Livre para identificar pontos de melhoria em descrições técnicas, embalagem de cilindros ou atendimento pós-venda.
+      </p>
+
+      <!-- Grid de Resumo -->
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;margin-bottom:20px">
+        <div class="card" style="padding:12px;background:#fef2f2;border-left:4px solid var(--down)">
+          <div style="font-size:0.75rem;color:var(--muted);text-transform:uppercase;font-weight:700">Total Ocorrências</div>
+          <div id="stat-total-ocorrencias" style="font-size:1.4rem;font-weight:800;color:var(--down);margin-top:4px">0</div>
+        </div>
+        <div class="card" style="padding:12px;background:#fffbeb;border-left:4px solid #f59e0b">
+          <div style="font-size:0.75rem;color:var(--muted);text-transform:uppercase;font-weight:700">Mediações ML</div>
+          <div id="stat-total-mediacoes" style="font-size:1.4rem;font-weight:800;color:#b45309;margin-top:4px">0</div>
+        </div>
+        <div class="card" style="padding:12px;background:#f0fdf4;border-left:4px solid #10b981">
+          <div style="font-size:0.75rem;color:var(--muted);text-transform:uppercase;font-weight:700">Principal Causa</div>
+          <div id="stat-principal-motivo" style="font-size:0.88rem;font-weight:700;color:#047857;margin-top:6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">-</div>
+        </div>
+      </div>
+
+      <!-- Ranking de Motivos com Barras Visuais -->
+      <div class="card" style="padding:16px;margin-bottom:20px">
+        <h3 style="font-size:0.95rem;font-weight:700;margin-bottom:12px;color:var(--ink)">
+          Distribuição por Motivo Padronizado
+        </h3>
+        <div id="container-ranking-motivos" style="display:flex;flex-direction:column;gap:10px">
+          <!-- Preenchido via JS -->
+        </div>
+      </div>
+
+      <!-- Histórico Recente de Ocorrências com Protocolo -->
+      <div class="card" style="padding:16px">
+        <h3 style="font-size:0.95rem;font-weight:700;margin-bottom:12px;color:var(--ink)">
+          Últimas Devoluções / Mediações Registradas
+        </h3>
+        <div style="overflow-x:auto">
+          <table class="table" style="width:100%;font-size:0.82rem">
+            <thead>
+              <tr style="border-bottom:1px solid var(--line);text-align:left">
+                <th style="padding:8px 6px">Pedido</th>
+                <th style="padding:8px 6px">Tipo</th>
+                <th style="padding:8px 6px">Motivo Padronizado</th>
+                <th style="padding:8px 6px">Protocolo ML</th>
+                <th style="padding:8px 6px">Data</th>
+              </tr>
+            </thead>
+            <tbody id="tbody-ultimas-devolucoes">
+              <!-- Preenchido via JS -->
+            </tbody>
+          </table>
+        </div>
       </div>
     </div>
   </div>

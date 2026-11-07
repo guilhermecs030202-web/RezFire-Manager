@@ -21,6 +21,13 @@ export interface CriarPedidoDTO {
   prazo_despacho?: Date | string;
 }
 
+export interface DadosDevolucaoDTO {
+  motivo_devolucao: string;
+  tipo_ocorrencia?: 'Cancelamento' | 'Devolucao' | 'Mediacao' | string;
+  detalhe_devolucao?: string;
+  protocolo_mediacao?: string;
+}
+
 export class PedidoService {
   private get pedidoRepo() {
     return AppDataSource.getRepository(Pedido);
@@ -262,13 +269,14 @@ export class PedidoService {
   }
 
   /**
-   * Atualiza status do pedido com estorno automático caso seja cancelado
+   * Atualiza status do pedido com estorno automático caso seja cancelado ou devolvido (SCRUM-22 / #11)
    */
   async atualizarStatus(
     id_pedido: number,
     novoStatus: 'Confirmado' | 'Concluido' | 'Cancelado',
     novoStatusEntrega?: 'A separar' | 'Pronto p/ despacho' | 'Despachado' | 'Entregue',
-    id_usuario?: number
+    id_usuario?: number,
+    dadosDevolucao?: DadosDevolucaoDTO
   ) {
     const queryRunner = AppDataSource.createQueryRunner();
     await queryRunner.connect();
@@ -292,6 +300,10 @@ export class PedidoService {
       // Se estiver cancelando um pedido que estava Confirmado ou Concluído -> ESTORNO AUTOMÁTICO
       if (novoStatus === 'Cancelado' && pedido.status !== 'Cancelado') {
         const agora = new Date();
+        const rotuloOcorrencia = dadosDevolucao?.tipo_ocorrencia || 'Cancelamento';
+        const motivoFormatado = dadosDevolucao?.motivo_devolucao
+          ? `Estorno (${rotuloOcorrencia}: ${dadosDevolucao.motivo_devolucao}) - Pedido #${pedido.codigo_pedido}`
+          : `Estorno (Cancelamento) - Pedido #${pedido.codigo_pedido}`;
 
         for (const item of pedido.itens) {
           const produto = item.produto;
@@ -312,7 +324,7 @@ export class PedidoService {
                 id_usuario: id_usuario || null,
                 tipo: 'Entrada',
                 quantidade: qtdEstorno,
-                motivo: `Estorno (Cancelamento) - Pedido #${pedido.codigo_pedido}`,
+                motivo: motivoFormatado,
                 data_movimentacao: agora,
               });
               await movRepoTx.save(mov);
@@ -330,12 +342,20 @@ export class PedidoService {
               id_usuario: id_usuario || null,
               tipo: 'Entrada',
               quantidade: item.quantidade,
-              motivo: `Estorno (Cancelamento) - Pedido #${pedido.codigo_pedido}`,
+              motivo: motivoFormatado,
               data_movimentacao: agora,
             });
             await movRepoTx.save(mov);
           }
         }
+      }
+
+      if (dadosDevolucao) {
+        pedido.motivo_devolucao = dadosDevolucao.motivo_devolucao;
+        pedido.tipo_ocorrencia = dadosDevolucao.tipo_ocorrencia || 'Cancelamento';
+        pedido.detalhe_devolucao = dadosDevolucao.detalhe_devolucao || null;
+        pedido.protocolo_mediacao = dadosDevolucao.protocolo_mediacao || null;
+        pedido.data_devolucao = new Date();
       }
 
       pedido.status = novoStatus;
@@ -359,6 +379,73 @@ export class PedidoService {
     } finally {
       await queryRunner.release();
     }
+  }
+
+  /**
+   * Obtém estatísticas e padrões de devoluções/mediações/cancelamentos (SCRUM-22 / #11)
+   */
+  async obterEstatisticasDevolucoes() {
+    const pedidosOcorrencias = await this.pedidoRepo
+      .createQueryBuilder('p')
+      .leftJoinAndSelect('p.itens', 'i')
+      .leftJoinAndSelect('i.produto', 'prod')
+      .where('p.status = :cancelado OR p.motivo_devolucao IS NOT NULL', { cancelado: 'Cancelado' })
+      .orderBy('p.data_devolucao', 'DESC')
+      .addOrderBy('p.updated_at', 'DESC')
+      .getMany();
+
+    const motivosContagem: Record<string, number> = {};
+    const ocorrenciasPorTipo: Record<string, number> = {
+      Cancelamento: 0,
+      Devolucao: 0,
+      Mediacao: 0,
+      Outro: 0,
+    };
+
+    const totalOcorrencias = pedidosOcorrencias.length;
+    let totalComProtocolo = 0;
+
+    for (const p of pedidosOcorrencias) {
+      const motivo = p.motivo_devolucao || 'Outro / Não especificado';
+      motivosContagem[motivo] = (motivosContagem[motivo] || 0) + 1;
+
+      const tipo = (p.tipo_ocorrencia || 'Cancelamento') as string;
+      if (ocorrenciasPorTipo[tipo] !== undefined) {
+        ocorrenciasPorTipo[tipo]++;
+      } else {
+        ocorrenciasPorTipo['Outro'] = (ocorrenciasPorTipo['Outro'] || 0) + 1;
+      }
+
+      if (p.protocolo_mediacao) {
+        totalComProtocolo++;
+      }
+    }
+
+    const rankingMotivos = Object.entries(motivosContagem)
+      .map(([motivo, total]) => ({
+        motivo,
+        total,
+        percentual: totalOcorrencias > 0 ? Number(((total / totalOcorrencias) * 100).toFixed(1)) : 0,
+      }))
+      .sort((a, b) => b.total - a.total);
+
+    return {
+      total_ocorrencias: totalOcorrencias,
+      total_com_protocolo_ml: totalComProtocolo,
+      por_tipo: ocorrenciasPorTipo,
+      ranking_motivos: rankingMotivos,
+      ultimas_ocorrencias: pedidosOcorrencias.slice(0, 15).map((p) => ({
+        id_pedido: p.id_pedido,
+        codigo_pedido: p.codigo_pedido,
+        cliente_nome: p.cliente_nome,
+        valor_total: Number(p.valor_total),
+        tipo_ocorrencia: p.tipo_ocorrencia || 'Cancelamento',
+        motivo_devolucao: p.motivo_devolucao || 'Não especificado',
+        detalhe_devolucao: p.detalhe_devolucao,
+        protocolo_mediacao: p.protocolo_mediacao,
+        data_devolucao: p.data_devolucao || p.updated_at,
+      })),
+    };
   }
 
   /**

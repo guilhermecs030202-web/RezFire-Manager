@@ -53,3 +53,4 @@ export class AddColunasLucroRealPedidos1700000000006 implements MigrationInterfa
     }
   }
 }
+

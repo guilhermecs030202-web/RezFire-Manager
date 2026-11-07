@@ -408,5 +408,38 @@ window.RezFireAPI = {
       });
     },
   },
+
+  // Base de Respostas Padrão de Pré-Venda (SCRUM-28 / #22)
+  respostasPadrao: {
+    async listar(params = {}) {
+      const query = new URLSearchParams(params).toString();
+      return window.RezFireAPI.request(`/respostas-padrao${query ? '?' + query : ''}`);
+    },
+    async buscarPorId(id) {
+      return window.RezFireAPI.request(`/respostas-padrao/${id}`);
+    },
+    async criar(dados) {
+      return window.RezFireAPI.request('/respostas-padrao', {
+        method: 'POST',
+        body: JSON.stringify(dados),
+      });
+    },
+    async atualizar(id, dados) {
+      return window.RezFireAPI.request(`/respostas-padrao/${id}`, {
+        method: 'PUT',
+        body: JSON.stringify(dados),
+      });
+    },
+    async excluir(id) {
+      return window.RezFireAPI.request(`/respostas-padrao/${id}`, {
+        method: 'DELETE',
+      });
+    },
+    async copiar(id) {
+      return window.RezFireAPI.request(`/respostas-padrao/${id}/copiar`, {
+        method: 'POST',
+      });
+    },
+  },
 };
 

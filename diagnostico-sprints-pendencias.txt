@@ -177,9 +177,11 @@ Todas as 10 User Stories (45 Story Points) da Sprint 1 foram implementadas, inte
     Premium, taxa fixa < R$ 79 e frete do vendedor - #18b) e apurando o lucro líquido real e margem líquida (#18c),
     com demonstrativo financeiro (DRE) detalhado e recálculo personalizado por venda na tela de pedidos (pedidos.html).
 
-[ ] Respostas padrão de pré-venda (#22):
-    Banco de respostas rápidas para dúvidas técnicas frequentes de clientes (ex.: capacidade
-    extintora, validade para vistorias do Corpo de Bombeiros).
+[X] Respostas padrão de pré-venda (#22) (SCRUM-28 - CONCLUÍDO):
+    Base de respostas técnicas e perguntas frequentes (validade de 5 anos veicular, recarga anual,
+    vistoria do Corpo de Bombeiros / AVCB, capacidade extintora 2A-20BC / 4A-40BC, selo INMETRO e suportes),
+    com busca por palavra-chave, filtro por categoria, cadastro/edição pelo gestor e botão de cópia instantânea
+    com 1 clique integrado nas telas de Anúncios (anuncios.html) e Pedidos (pedidos.html).
 
 [ ] Impacto de quedas de anúncio no faturamento (#17):
     Gráfico analítico histórico cruzando períodos de anúncios pausados com a oscilação da

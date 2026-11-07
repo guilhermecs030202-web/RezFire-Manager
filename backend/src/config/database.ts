@@ -19,6 +19,7 @@ import {
   OcorrenciaAnuncio,
   MidiaAnuncio,
   Notificacao,
+  RespostaPadrao,
 } from '../entities';
 
 export const AppDataSource = new DataSource({
@@ -47,6 +48,7 @@ export const AppDataSource = new DataSource({
     OcorrenciaAnuncio,
     MidiaAnuncio,
     Notificacao,
+    RespostaPadrao,
   ],
   migrations: [path.join(__dirname, '../migrations/*{.ts,.js}')],
   subscribers: [],

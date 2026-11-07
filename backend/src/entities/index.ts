@@ -14,4 +14,5 @@ export { InspecaoQualidade, ChecklistQualidadeEntrada } from './InspecaoQualidad
 export { OcorrenciaAnuncio } from './OcorrenciaAnuncio';
 export { MidiaAnuncio } from './MidiaAnuncio';
 export { Notificacao } from './Notificacao';
+export { RespostaPadrao } from './RespostaPadrao';
 

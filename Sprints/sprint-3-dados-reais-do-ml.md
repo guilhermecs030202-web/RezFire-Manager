@@ -160,21 +160,21 @@ Capacidade planejada: 45 SP. Planejado: **45 SP**.
 
 ---
 
-### SCRUM-28 · #22 · Respostas padrão de pré-venda
+### Concluída · SCRUM-28 · #22 · Respostas padrão de pré-venda
 
-- **SP:** 3 | **MoSCoW:** Won't | **Depende de:** -
+- **SP:** 3 | **MoSCoW:** Won't (Adiantada) | **Depende de:** -
 
 > Como gestor, quero manter uma base de respostas padrão para dúvidas frequentes (validade, capacidade extintora), para agilizar o atendimento pré-venda.
 
 **Critérios de aceite**
 
-- [ ] É possível cadastrar perguntas e respostas padrão.
-- [ ] As respostas padrão podem ser consultadas pelo gestor durante o atendimento.
+- [x] É possível cadastrar perguntas e respostas padrão.
+- [x] As respostas padrão podem ser consultadas pelo gestor durante o atendimento.
 
 **Definition of Ready (DoR): não pronto até que...**
 
-- [ ] Confirmada a não priorização para o MVP: o diagnóstico aponta o atendimento pré-venda atual como rápido e eficiente, ou seja, dor de baixa prioridade.
-- [ ] Caso avance, taxonomia das perguntas frequentes definida com o cliente.
+- [x] Confirmada a não priorização para o MVP: o diagnóstico aponta o atendimento pré-venda atual como rápido e eficiente, ou seja, dor de baixa prioridade.
+- [x] Caso avance, taxonomia das perguntas frequentes definida com o cliente.
 
 ---
 

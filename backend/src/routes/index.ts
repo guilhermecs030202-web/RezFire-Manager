@@ -12,6 +12,7 @@ import alertaRoutes from './alerta.routes';
 import anuncioRoutes from './anuncio.routes';
 import usuarioRoutes from './usuario.routes';
 import notificacaoRoutes from './notificacao.routes';
+import respostaPadraoRoutes from './respostaPadrao.routes';
 
 const router = Router();
 
@@ -28,5 +29,6 @@ router.use('/inspecoes', inspecaoRoutes);
 router.use('/alertas', alertaRoutes);
 router.use('/anuncios', anuncioRoutes);
 router.use('/notificacoes', notificacaoRoutes);
+router.use('/respostas-padrao', respostaPadraoRoutes);
 
 export default router;

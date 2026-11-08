@@ -1218,8 +1218,6 @@ function bindTabs() {
   }
 }
 
-}
-
 // ─── ABA 4: MERCADO LIVRE & QUEDAS DE ANÚNCIOS (#17 / SCRUM-25) ──────────────
 let mlCharts = {};
 

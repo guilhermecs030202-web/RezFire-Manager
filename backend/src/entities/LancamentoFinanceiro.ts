@@ -62,3 +62,4 @@ export class LancamentoFinanceiro {
   @UpdateDateColumn({ type: 'timestamp' })
   updated_at: Date;
 }
+

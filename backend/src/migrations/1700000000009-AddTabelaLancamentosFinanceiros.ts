@@ -50,3 +50,4 @@ export class AddTabelaLancamentosFinanceiros1700000000009 implements MigrationIn
     await queryRunner.query(`DROP TABLE IF EXISTS lancamentos_financeiros`);
   }
 }
+

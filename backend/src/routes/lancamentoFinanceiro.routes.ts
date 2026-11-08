@@ -16,3 +16,4 @@ router.put('/lancamentos/:id', controller.atualizar);
 router.delete('/lancamentos/:id', controller.excluir);
 
 export default router;
+

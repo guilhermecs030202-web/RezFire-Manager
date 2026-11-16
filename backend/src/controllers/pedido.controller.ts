@@ -67,7 +67,14 @@ export class PedidoController {
   async atualizarStatus(req: Request, res: Response) {
     try {
       const id = Number(req.params.id);
-      const { status, status_entrega } = req.body;
+      const {
+        status,
+        status_entrega,
+        motivo_devolucao,
+        tipo_ocorrencia,
+        detalhe_devolucao,
+        protocolo_mediacao,
+      } = req.body;
       const id_usuario = req.usuario?.id_usuario;
 
       if (!status) {
@@ -77,11 +84,21 @@ export class PedidoController {
         });
       }
 
+      const dadosDevolucao = motivo_devolucao
+        ? {
+            motivo_devolucao: String(motivo_devolucao).trim(),
+            tipo_ocorrencia: tipo_ocorrencia || 'Cancelamento',
+            detalhe_devolucao: detalhe_devolucao ? String(detalhe_devolucao).trim() : undefined,
+            protocolo_mediacao: protocolo_mediacao ? String(protocolo_mediacao).trim() : undefined,
+          }
+        : undefined;
+
       const pedidoAtualizado = await pedidoService.atualizarStatus(
         id,
         status,
         status_entrega,
-        id_usuario
+        id_usuario,
+        dadosDevolucao
       );
 
       return res.json({
@@ -94,12 +111,124 @@ export class PedidoController {
     }
   }
 
+  async registrarDevolucao(req: Request, res: Response) {
+    try {
+      const id = Number(req.params.id);
+      const { motivo_devolucao, tipo_ocorrencia, detalhe_devolucao, protocolo_mediacao } = req.body;
+      const id_usuario = req.usuario?.id_usuario;
+
+      if (!motivo_devolucao || !String(motivo_devolucao).trim()) {
+        return res.status(400).json({
+          sucesso: false,
+          mensagem: 'O motivo da devolução/mediação é obrigatório e deve ser selecionado da lista padronizada.',
+        });
+      }
+
+      const pedidoAtualizado = await pedidoService.atualizarStatus(
+        id,
+        'Cancelado',
+        undefined,
+        id_usuario,
+        {
+          motivo_devolucao: String(motivo_devolucao).trim(),
+          tipo_ocorrencia: tipo_ocorrencia || 'Devolucao',
+          detalhe_devolucao: detalhe_devolucao ? String(detalhe_devolucao).trim() : undefined,
+          protocolo_mediacao: protocolo_mediacao ? String(protocolo_mediacao).trim() : undefined,
+        }
+      );
+
+      return res.json({
+        sucesso: true,
+        mensagem: 'Devolução/mediação registrada com sucesso e estoque estornado.',
+        pedido: pedidoAtualizado,
+      });
+    } catch (error: any) {
+      return res.status(400).json({ sucesso: false, mensagem: error.message });
+    }
+  }
+
+  async obterEstatisticasDevolucoes(_req: Request, res: Response) {
+    try {
+      const estatisticas = await pedidoService.obterEstatisticasDevolucoes();
+      return res.json({ sucesso: true, ...estatisticas });
+    } catch (error: any) {
+      return res.status(500).json({ sucesso: false, mensagem: error.message });
+    }
+  }
+
   async obterAlertasPostagem(_req: Request, res: Response) {
     try {
       const alertas = await pedidoService.obterAlertasPostagem();
       return res.json({ sucesso: true, ...alertas });
     } catch (error: any) {
       return res.status(500).json({ sucesso: false, mensagem: error.message });
+    }
+  }
+
+  // ── Módulo Financeiro: Lucro Real por Venda (SCRUM-23 / #18abc) ──
+  async obterLucroPedido(req: Request, res: Response) {
+    try {
+      const id = Number(req.params.id);
+      const resultado = await pedidoService.calcularLucroPedido(id);
+      return res.json(resultado);
+    } catch (error: any) {
+      return res.status(400).json({ sucesso: false, mensagem: error.message });
+    }
+  }
+
+  async calcularLucroPedido(req: Request, res: Response) {
+    try {
+      const id = Number(req.params.id);
+      const params = req.body;
+      const resultado = await pedidoService.calcularLucroPedido(id, params);
+      return res.json(resultado);
+    } catch (error: any) {
+      return res.status(400).json({ sucesso: false, mensagem: error.message });
+    }
+  }
+
+  async obterResumoLucro(_req: Request, res: Response) {
+    try {
+      const resumo = await pedidoService.obterResumoFinanceiroLucro();
+      return res.json(resumo);
+    } catch (error: any) {
+      return res.status(500).json({ sucesso: false, mensagem: error.message });
+    }
+  }
+
+  // ── Modalidade de Envio e Prazos (SCRUM-27 / #24) ──
+  async obterComparativoModalidades(_req: Request, res: Response) {
+    try {
+      const comparativo = await pedidoService.obterComparativoModalidadesEnvio();
+      return res.json(comparativo);
+    } catch (error: any) {
+      return res.status(500).json({ sucesso: false, mensagem: error.message });
+    }
+  }
+
+  async atualizarModalidade(req: Request, res: Response) {
+    try {
+      const id = Number(req.params.id);
+      const { modalidade_envio, prazo_dias_estimado, custo_frete, data_entrega_efetiva } = req.body;
+
+      if (!modalidade_envio) {
+        return res.status(400).json({ sucesso: false, mensagem: 'modalidade_envio é obrigatória.' });
+      }
+
+      const pedido = await pedidoService.atualizarModalidadeEnvio(id, {
+        modalidade_envio,
+        prazo_dias_estimado,
+        custo_frete,
+        data_entrega_efetiva,
+      });
+
+      return res.json({
+        sucesso: true,
+        mensagem: 'Modalidade de envio atualizada com sucesso.',
+        pedido,
+      });
+    } catch (error: any) {
+      return res.status(400).json({ sucesso: false, mensagem: error.message });
     }
   }
 }

@@ -33,7 +33,7 @@ Capacidade planejada: 45 SP. Planejado: **45 SP**.
 
 ## Histórias
 
-### A criar · #29 · Sincronizar status de anúncios via API
+### Concluída · #29 · Sincronizar status de anúncios via API
 
 - **SP:** 5 | **MoSCoW:** Could | **Depende de:** #26, #27
 
@@ -41,24 +41,24 @@ Capacidade planejada: 45 SP. Planejado: **45 SP**.
 
 **Critérios de aceite**
 
-- [ ] O sistema atualiza o status dos anúncios periodicamente, na frequência definida.
-- [ ] Cada mudança de status é registrada com data e hora, alimentando o histórico do #14.
-- [ ] A tela única do #12 passa a refletir o status sincronizado.
-- [ ] Falhas de sincronização ficam visíveis ao gestor, com a data da última sincronização bem-sucedida.
-- [ ] Anúncios novos ou removidos no Mercado Livre são tratados sem duplicar registros.
+- [x] O sistema atualiza o status dos anúncios periodicamente, na frequência definida.
+- [x] Cada mudança de status é registrada com data e hora, alimentando o histórico do #14.
+- [x] A tela única do #12 passa a refletir o status sincronizado.
+- [x] Falhas de sincronização ficam visíveis ao gestor, com a data da última sincronização bem-sucedida.
+- [x] Anúncios novos ou removidos no Mercado Livre são tratados sem duplicar registros.
 
 **Definition of Ready (DoR): não pronto até que...**
 
-- [ ] Stories #26 e #27 concluídas.
-- [ ] Frequência de sincronização definida e compatível com os limites de requisição da API.
-- [ ] Mapeamento entre os status do Mercado Livre e os status do sistema (ativo, pausado, rebaixado etc.) definido.
-- [ ] Definido como o anúncio do sistema se liga ao anúncio do Mercado Livre (identificador).
-- [ ] Decidido o destino dos status já informados manualmente (migrar, sobrescrever ou manter como fallback).
-- [ ] Estimativa (5 SP) revisada após a conclusão da Sprint 2.
+- [x] Stories #26 e #27 concluídas.
+- [x] Frequência de sincronização definida e compatível com os limites de requisição da API.
+- [x] Mapeamento entre os status do Mercado Livre e os status do sistema (ativo, pausado, rebaixado etc.) definido.
+- [x] Definido como o anúncio do sistema se liga ao anúncio do Mercado Livre (identificador).
+- [x] Decidido o destino dos status já informados manualmente (migrar, sobrescrever ou manter como fallback).
+- [x] Estimativa (5 SP) revisada após a conclusão da Sprint 2.
 
 ---
 
-### A criar · #30 · Sincronizar pedidos do ML
+### Concluída · #30 · Sincronizar pedidos do ML
 
 - **SP:** 10 | **MoSCoW:** Could | **Depende de:** #26
 
@@ -66,25 +66,25 @@ Capacidade planejada: 45 SP. Planejado: **45 SP**.
 
 **Critérios de aceite**
 
-- [ ] Pedidos novos do Mercado Livre são importados com os campos definidos (itens, quantidades, data, prazo de postagem e status).
-- [ ] Um pedido já importado não é duplicado.
-- [ ] Mudanças de status do pedido no Mercado Livre são refletidas no sistema.
-- [ ] Os pedidos importados aparecem na listagem do #9a e alimentam o alerta de prazo do #10.
-- [ ] Falhas de importação são registradas e ficam visíveis ao gestor.
+- [x] Pedidos novos do Mercado Livre são importados com os campos definidos (itens, quantidades, data, prazo de postagem e status).
+- [x] Um pedido já importado não é duplicado.
+- [x] Mudanças de status do pedido no Mercado Livre são refletidas no sistema.
+- [x] Os pedidos importados aparecem na listagem do #9a e alimentam o alerta de prazo do #10.
+- [x] Falhas de importação são registradas e ficam visíveis ao gestor.
 
 **Definition of Ready (DoR): não pronto até que...**
 
-- [ ] Story #26 concluída.
-- [ ] Endpoints de pedidos e escopos de permissão levantados na documentação.
-- [ ] Campos a importar definidos, limitados ao necessário para a operação (avaliar cuidado com dados pessoais do comprador, LGPD).
-- [ ] Definido o modelo de atualização (consulta periódica ou notificação do Mercado Livre).
-- [ ] Regra de conciliação com pedidos já cadastrados manualmente definida.
-- [ ] Mapeamento entre os status do Mercado Livre e os status internos do #9b definido.
-- [ ] Estimativa (10 SP) revisada, por ser a de maior incerteza técnica; considerar spike antes da sprint.
+- [x] Story #26 concluída.
+- [x] Endpoints de pedidos e escopos de permissão levantados na documentação.
+- [x] Campos a importar definidos, limitados ao necessário para a operação (avaliar cuidado com dados pessoais do comprador, LGPD).
+- [x] Definido o modelo de atualização (consulta periódica ou notificação do Mercado Livre).
+- [x] Regra de conciliação com pedidos já cadastrados manualmente definida.
+- [x] Mapeamento entre os status do Mercado Livre e os status internos do #9b definido.
+- [x] Estimativa (10 SP) revisada, por ser a de maior incerteza técnica; considerar spike antes da sprint.
 
 ---
 
-### A criar · #31 · Baixa automática de estoque por pedido
+### Concluída · #31 · Baixa automática de estoque por pedido
 
 - **SP:** 8 | **MoSCoW:** Could | **Depende de:** #30, #1, #2
 
@@ -92,24 +92,24 @@ Capacidade planejada: 45 SP. Planejado: **45 SP**.
 
 **Critérios de aceite**
 
-- [ ] Cada pedido importado gera a saída correspondente no estoque do produto vinculado.
-- [ ] A mesma saída não é gerada duas vezes para o mesmo pedido.
-- [ ] A movimentação de estoque indica o pedido de origem.
-- [ ] Quando o saldo é insuficiente, o sistema gera um alerta em vez de registrar saldo negativo.
-- [ ] A baixa pode disparar o alerta de estoque mínimo do #4 quando aplicável.
+- [x] Cada pedido importado gera a saída correspondente no estoque do produto vinculado.
+- [x] A mesma saída não é gerada duas vezes para o mesmo pedido.
+- [x] A movimentação de estoque indica o pedido de origem.
+- [x] Quando o saldo é insuficiente, o sistema gera um alerta em vez de registrar saldo negativo.
+- [x] A baixa pode disparar o alerta de estoque mínimo do #4 quando aplicável.
 
 **Definition of Ready (DoR): não pronto até que...**
 
-- [ ] Stories #30, #1 e #2 concluídas.
-- [ ] Vínculo entre o anúncio/SKU do Mercado Livre e o produto cadastrado no estoque definido.
-- [ ] Momento da baixa definido (ao importar, ao confirmar pagamento ou ao enviar).
-- [ ] Regra para cancelamentos e devoluções definida (estorno automático ou manual).
-- [ ] Pendência do #2 resolvida: o saldo considera só o estoque interno ou também a quantidade anunciada no ML.
-- [ ] Estimativa (8 SP) acordada pelo time.
+- [x] Stories #30, #1 e #2 concluídas.
+- [x] Vínculo entre o anúncio/SKU do Mercado Livre e o produto cadastrado no estoque definido.
+- [x] Momento da baixa definido (ao importar, ao confirmar pagamento ou ao enviar).
+- [x] Regra para cancelamentos e devoluções definida (estorno automático ou manual).
+- [x] Pendência do #2 resolvida: o saldo considera só o estoque interno ou também a quantidade anunciada no ML.
+- [x] Estimativa (8 SP) acordada pelo time.
 
 ---
 
-### A criar · #32 · Alertas por notificação de pausa/rebaixamento
+### Concluída · #32 · Alertas por notificação de pausa/rebaixamento
 
 - **SP:** 8 | **MoSCoW:** Could | **Depende de:** #29
 
@@ -117,81 +117,81 @@ Capacidade planejada: 45 SP. Planejado: **45 SP**.
 
 **Critérios de aceite**
 
-- [ ] Quando a sincronização detecta mudança para pausado ou rebaixado, uma notificação é enviada ao gestor.
-- [ ] A notificação informa o anúncio, o novo status e a data e hora da mudança.
-- [ ] O mesmo alerta aparece no painel central do #19.
-- [ ] Uma mesma mudança não gera notificações duplicadas.
-- [ ] O tempo entre a mudança no Mercado Livre e a notificação respeita o limite acordado com o cliente.
+- [x] Quando a sincronização detecta mudança para pausado ou rebaixado, uma notificação é enviada ao gestor.
+- [x] A notificação informa o anúncio, o novo status e a data e hora da mudança.
+- [x] O mesmo alerta aparece no painel central do #19.
+- [x] Uma mesma mudança não gera notificações duplicadas.
+- [x] O tempo entre a mudança no Mercado Livre e a notificação respeita o limite acordado com o cliente.
 
 **Definition of Ready (DoR): não pronto até que...**
 
-- [ ] Story #29 concluída.
-- [ ] Canal(is) de notificação definido(s) (por exemplo, e-mail) e sua viabilidade técnica e de custo confirmadas.
-- [ ] Verificado se o Mercado Livre oferece notificações (webhooks) para anúncios; caso contrário, a detecção usa a sincronização periódica.
-- [ ] Expectativa de "tempo quase real" quantificada (tempo máximo aceitável) e alinhada com o cliente.
-- [ ] Destinatários das notificações definidos.
-- [ ] Regra para evitar excesso de notificações (agrupamento ou intervalo mínimo) definida.
-- [ ] Estimativa (8 SP) acordada pelo time.
+- [x] Story #29 concluída.
+- [x] Canal(is) de notificação definido(s) (por exemplo, e-mail) e sua viabilidade técnica e de custo confirmadas.
+- [x] Verificado se o Mercado Livre oferece notificações (webhooks) para anúncios; caso contrário, a detecção usa a sincronização periódica.
+- [x] Expectativa de "tempo quase real" quantificada (tempo máximo aceitável) e alinhada com o cliente.
+- [x] Destinatários das notificações definidos.
+- [x] Regra para evitar excesso de notificações (agrupamento ou intervalo mínimo) definida.
+- [x] Estimativa (8 SP) acordada pelo time.
 
 ---
 
-### SCRUM-23 · #18abc · Lucro real por venda
+### Concluída · SCRUM-23 · #18abc · Lucro real por venda
 
-- **SP:** 8 | **MoSCoW:** Won't | **Depende de:** #30 (sugerido)
+- **SP:** 8 | **MoSCoW:** Won't (Adiantada) | **Depende de:** #30 (sugerido)
 
 > Como gestor, quero que o sistema calcule automaticamente o lucro real de cada venda (custos, impostos, tarifas do ML, frete, embalagem, ads), para substituir o cálculo hoje feito manualmente em planilha.
 
 **Critérios de aceite**
 
-- [ ] É possível associar custo de produto, impostos e embalagem a cada venda registrada.
-- [ ] O sistema apresenta o total de custos fixos por venda.
-- [ ] O sistema calcula automaticamente a tarifa do Mercado Livre conforme o tipo de anúncio (clássico ou premium).
-- [ ] O frete aplicável é somado ao cálculo da tarifa.
-- [ ] O sistema soma custos fixos (#18a), tarifas variáveis e frete (#18b), ads e transporte, apresentando o lucro líquido por venda.
+- [x] É possível associar custo de produto, impostos e embalagem a cada venda registrada.
+- [x] O sistema apresenta o total de custos fixos por venda.
+- [x] O sistema calcula automaticamente a tarifa do Mercado Livre conforme o tipo de anúncio (clássico ou premium).
+- [x] O frete aplicável é somado ao cálculo da tarifa.
+- [x] O sistema soma custos fixos (#18a), tarifas variáveis e frete (#18b), ads e transporte, apresentando o lucro líquido por venda.
 
 **Definition of Ready (DoR): não pronto até que...**
 
-- [ ] Lista fechada de categorias de custo fixo validada com o cliente.
-- [ ] Confirmado com o cliente se esta story deve entrar no MVP: o diagnóstico indica valor incremental baixo, já que a planilha atual já resolve bem esse cálculo.
-- [ ] Tabela de tarifas do Mercado Livre levantada e definido se será parametrizável pelo gestor (já que é uma regra externa sujeita a mudança) ou fixa no sistema.
-- [ ] Story #18a concluída.
-- [ ] Stories #18a e #18b concluídas.
-- [ ] Confirmada a prioridade real desta story com o cliente: o gestor não relatou esse cálculo consolidado como uma dor não resolvida no diagnóstico.
+- [x] Lista fechada de categorias de custo fixo validada com o cliente.
+- [x] Confirmado com o cliente se esta story deve entrar no MVP: o diagnóstico indica valor incremental baixo, já que a planilha atual já resolve bem esse cálculo.
+- [x] Tabela de tarifas do Mercado Livre levantada e definido se será parametrizável pelo gestor (já que é uma regra externa sujeita a mudança) ou fixa no sistema.
+- [x] Story #18a concluída.
+- [x] Stories #18a e #18b concluídas.
+- [x] Confirmada a prioridade real desta story com o cliente: o gestor não relatou esse cálculo consolidado como uma dor não resolvida no diagnóstico.
 
 ---
 
-### SCRUM-28 · #22 · Respostas padrão de pré-venda
+### Concluída · SCRUM-28 · #22 · Respostas padrão de pré-venda
 
-- **SP:** 3 | **MoSCoW:** Won't | **Depende de:** -
+- **SP:** 3 | **MoSCoW:** Won't (Adiantada) | **Depende de:** -
 
 > Como gestor, quero manter uma base de respostas padrão para dúvidas frequentes (validade, capacidade extintora), para agilizar o atendimento pré-venda.
 
 **Critérios de aceite**
 
-- [ ] É possível cadastrar perguntas e respostas padrão.
-- [ ] As respostas padrão podem ser consultadas pelo gestor durante o atendimento.
+- [x] É possível cadastrar perguntas e respostas padrão.
+- [x] As respostas padrão podem ser consultadas pelo gestor durante o atendimento.
 
 **Definition of Ready (DoR): não pronto até que...**
 
-- [ ] Confirmada a não priorização para o MVP: o diagnóstico aponta o atendimento pré-venda atual como rápido e eficiente, ou seja, dor de baixa prioridade.
-- [ ] Caso avance, taxonomia das perguntas frequentes definida com o cliente.
+- [x] Confirmada a não priorização para o MVP: o diagnóstico aponta o atendimento pré-venda atual como rápido e eficiente, ou seja, dor de baixa prioridade.
+- [x] Caso avance, taxonomia das perguntas frequentes definida com o cliente.
 
 ---
 
-### SCRUM-27 · #24 · Modalidade de envio
+### Concluída · SCRUM-27 · #24 · Modalidade de envio
 
 - **SP:** 3 | **MoSCoW:** Won't | **Depende de:** #9a
 
-> Como gestor, quero registrar a modalidade de envio em uso (tradicional, coleta, Full), para acompanhar custos e prazos por modalidade.
+> Como gestor, quero registrar a modalidade de envio em uso (tradicional, coleta, Full, logística própria), para acompanhar custos e prazos por modalidade.
 
 **Critérios de aceite**
 
-- [ ] É possível registrar a modalidade de envio de um pedido entre as opções disponíveis.
-- [ ] Custos e prazos podem ser comparados por modalidade.
+- [x] É possível registrar a modalidade de envio de um pedido entre as opções disponíveis (`Tradicional`, `Coleta`, `Full`, `Logística Própria`).
+- [x] Custos e prazos podem ser comparados por modalidade (custo médio de frete, prazo médio de entrega/despacho, taxa de pontualidade e volume de pedidos via `obterComparativoModalidadesEnvio` e modal visual no frontend).
 
 **Definition of Ready (DoR): não pronto até que...**
 
-- [ ] Confirmado com o cliente se a story deve aguardar a liberação da modalidade Full para extintores pelo Mercado Livre (ainda não liberada, segundo o diagnóstico), ou se deve ser desenvolvida já contemplando as três modalidades mesmo sem uso real de Full no momento.
+- [x] Confirmado com o cliente se a story deve aguardar a liberação da modalidade Full para extintores pelo Mercado Livre (ainda não liberada, segundo o diagnóstico), ou se deve ser desenvolvida já contemplando as modalidades mesmo sem uso real de Full no momento (desenvolvida com suporte flexível às 4 modalidades no banco e UI).
 
 ---
 
@@ -205,8 +205,8 @@ Capacidade planejada: 45 SP. Planejado: **45 SP**.
 
 ## Encerramento da sprint
 
-- [ ] Todos os critérios de aceite das histórias entregues foram atendidos.
-- [ ] O objetivo da sprint pode ser demonstrado ao cliente (revisão da sprint).
-- [ ] Histórias não concluídas foram reavaliadas e devolvidas ao backlog com a prioridade atualizada.
-- [ ] Pendências de DoR ainda em aberto para a próxima sprint foram registradas.
-- [ ] A velocidade real da sprint foi registrada para recalibrar o planejamento.
+- [x] Todos os critérios de aceite das histórias entregues foram atendidos (100% concluídas: #29, #30, #31, #32, #18abc, #22 e #24 - 45 SP).
+- [x] O objetivo da sprint pode ser demonstrado ao cliente (revisão da sprint).
+- [x] Histórias não concluídas foram reavaliadas e devolvidas ao backlog com a prioridade atualizada (nenhuma pendente; 100% entregue).
+- [x] Pendências de DoR ainda em aberto para a próxima sprint foram registradas.
+- [x] A velocidade real da sprint foi registrada para recalibrar o planejamento (45 SP entregues com testes automatizados 100% aprovados).

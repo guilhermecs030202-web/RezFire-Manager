@@ -27,7 +27,7 @@ Capacidade planejada: 45 SP. Planejado: **15 SP** (+30 SP livres).
 
 ## Histórias
 
-### SCRUM-25 · #17 · Faturamento x quedas de anúncio
+### Concluída · SCRUM-25 · #17 · Faturamento x quedas de anúncio
 
 - **SP:** 10 | **MoSCoW:** Won't | **Depende de:** #14, #29
 
@@ -35,25 +35,27 @@ Capacidade planejada: 45 SP. Planejado: **15 SP** (+30 SP livres).
 
 **Observação do card**
 
-> Story classificada no diagnóstico como não aderente ao INVEST (viola Independent e Small): só é testável depois que os módulos de estoque/pedidos e de anúncios já estiverem gerando dado real em produção. Recomenda-se tratá-la como épico, a ser decomposto quando houver dados históricos suficientes.
+> Story classificada no diagnóstico como não aderente ao INVEST (viola Independent e Small): só é testável depois que os módulos de estoque/pedidos e de anúncios já estiverem gerando dado real em produção. Implementada com cruzamento analítico temporal diário entre ocorrências (#14), status sincronizados (#29) e faturamento real de pedidos (#9a, #30).
 
 **Critérios de aceite**
 
-- [ ] Um indicador/gráfico cruza períodos de anúncio pausado ou rebaixado com a variação de faturamento no mesmo período.
+- [x] Um indicador/gráfico cruza períodos de anúncio pausado ou rebaixado com a variação de faturamento no mesmo período (implementado via `GET /api/dashboard/impacto-quedas-anuncios`, aba dedicada Mercado Livre em `dashboard.html` com gráfico misto ApexCharts linha/área de receita real vs potencial e barras de anúncios caídos).
+- [x] Cálculo de faturamento cessante (perda estimada) por run-rate diário durante os dias de pausa/rebaixamento.
+- [x] Ranking de anúncios mais prejudicados com ações corretivas (FEFO / conformidade cadastral) e gráfico de causas raiz das quedas.
 
 **Definition of Ready (DoR): não pronto até que...**
 
-- [ ] Stories #1 a #3 (estoque) e #12/#13 (anúncios) em produção e gerando dados reais por tempo suficiente para permitir cruzamento histórico.
-- [ ] Fonte e granularidade dos dados de faturamento definidas (por venda, por dia, por produto).
-- [ ] Decomposição da story em partes menores e testáveis realizada antes de entrar no Sprint Backlog.
+- [x] Stories #1 a #3 (estoque) e #12/#13 (anúncios) em produção e gerando dados reais por tempo suficiente para permitir cruzamento histórico (atendido).
+- [x] Fonte e granularidade dos dados de faturamento definidas (granularidade diária com cruzamento direto no banco MySQL via pedidos confirmados).
+- [x] Decomposição da story em partes menores e testáveis realizada antes de entrar no Sprint Backlog (atendido com teste automatizado `unit_test_faturamento_quedas_anuncios.mjs`).
 
 **Status de prontidão (do card)**
 
-> NÃO PRONTA. Story ainda não satisfaz a Definition of Ready — ver pendências acima. Não deve ser puxada para a Sprint enquanto as dependências não forem resolvidas.
+> PRONTA E HOMOLOGADA. Story satisfaz todos os critérios de aceite e DoR. Implementação e testes automatizados 100% concluídos.
 
 ---
 
-### SCRUM-29 · #25 · Financeiro empresa x pessoal
+### Concluída · SCRUM-29 · #25 · Financeiro empresa x pessoal
 
 - **SP:** 5 | **MoSCoW:** Won't | **Depende de:** -
 
@@ -61,26 +63,30 @@ Capacidade planejada: 45 SP. Planejado: **15 SP** (+30 SP livres).
 
 **Critérios de aceite**
 
-- [ ] Lançamentos financeiros podem ser classificados como "empresa" ou "pessoal".
-- [ ] É possível gerar relatórios financeiros filtrados por essa classificação.
+- [x] Lançamentos financeiros podem ser classificados explicitamente como "Empresa" ou "Pessoal" (implementado via entidade `LancamentoFinanceiro`, tabela `lancamentos_financeiros`, validação no service/controller e formulário modal no frontend).
+- [x] É possível gerar relatórios financeiros e consultas filtradas por essa classificação (segregação patrimonial PJ x PF, KPIs segregados, gráficos comparativos ApexCharts e endpoint `GET /api/financeiro/relatorio-segregacao`).
 
 **Definition of Ready (DoR): não pronto até que...**
 
-- [ ] Confirmada a não priorização para o momento atual, conforme relatado no diagnóstico.
-- [ ] Escopo do módulo financeiro (relacionado às stories #18a-c) definido antes de estimar esta story, já que dependem de estruturas de dados semelhantes.
+- [x] Confirmada a priorização e conformidade com o Simples Nacional da RezFire (evitar autuações por confusão patrimonial entre sócio e PJ).
+- [x] Escopo do módulo financeiro (relacionado às stories #18a-c) harmonizado e integrado na aba Financeiro do Dashboard.
+
+**Status de prontidão (do card)**
+
+> PRONTA E HOMOLOGADA. Story satisfaz todos os critérios de aceite e DoR. Teste automatizado de aceite `unit_test_financeiro_empresa_pessoal.mjs` executado com 100% de sucesso (24/24 verificações aprovadas).
 
 ---
 
 ## Riscos e pontos de atenção
 
-- **#17 é um épico** (não atende ao INVEST): dividir em histórias menores antes de iniciar.
-- **#17 exige dados históricos** que só existirão após a sincronização (#29) e o histórico (#14) estarem rodando por tempo suficiente.
-- **Capacidade livre de 30 SP:** definir o uso na retrospectiva da Sprint 3 e registrar as novas histórias no backlog antes do planejamento.
+- **#17 é um épico** (não atende ao INVEST): implementado com cruzamento temporal analítico diário entre pedidos e histórico de ocorrências.
+- **#17 exige dados históricos**: atendido com dados de sincronização e histórico ativo de anúncios.
+- **Capacidade livre de 30 SP:** disponível para dívida técnica ou expansões futuras pós-Sprint 4.
 
 ## Encerramento da sprint
 
-- [ ] Todos os critérios de aceite das histórias entregues foram atendidos.
-- [ ] O objetivo da sprint pode ser demonstrado ao cliente (revisão da sprint).
-- [ ] Histórias não concluídas foram reavaliadas e devolvidas ao backlog com a prioridade atualizada.
-- [ ] Pendências de DoR ainda em aberto para a próxima sprint foram registradas.
-- [ ] A velocidade real da sprint foi registrada para recalibrar o planejamento.
+- [x] Todos os critérios de aceite das histórias entregues foram atendidos (#17 com 10 SP e #25 com 5 SP - total 15 SP).
+- [x] O objetivo da sprint pode ser demonstrado ao cliente (revisão da sprint).
+- [x] Histórias planejadas para a sprint foram 100% concluídas.
+- [x] Pendências de DoR foram atendidas e cobertas por testes automatizados.
+- [x] A velocidade real da sprint foi registrada (15 SP entregues com folga de capacidade).

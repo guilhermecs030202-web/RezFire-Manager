@@ -23,5 +23,15 @@ export class DashboardController {
       return res.status(500).json({ sucesso: false, mensagem: error.message });
     }
   }
+
+  async obterImpactoQuedasAnuncios(req: Request, res: Response) {
+    try {
+      const dias = req.query.dias ? Number(req.query.dias) : 30;
+      const resultado = await dashboardService.obterImpactoQuedasAnuncios(dias);
+      return res.json(resultado);
+    } catch (error: any) {
+      return res.status(500).json({ sucesso: false, mensagem: error.message });
+    }
+  }
 }
 

@@ -936,7 +936,7 @@ function renderFormSeparacao(entrega) {
       </h3>
       ${!concluida ? `
         <p style="color:var(--muted);font-size:0.83rem;margin-bottom:16px">
-          Selecione os lotes e confirme as quantidades de cada item. A separação só pode ser concluída quando todos os itens estiverem conferidos e as quantidades corretas.
+          Selecione os lotes e confirme as quantidades de cada item. A separação só pode ser concluída após a realização da <strong>Segunda Inspeção de Qualidade (Checagem Dupla)</strong>.
         </p>
       ` : ""}
       <div class="sep-itens-list">${itensHTML}</div>
@@ -949,8 +949,28 @@ function renderFormSeparacao(entrega) {
           <button class="btn-primary" id="btn-concluir-sep" 
             style="font-size:0.85rem"
             ${!todoConferido ? "disabled title='Conclua a conferência de todos os itens'" : ""}>
-            Concluir separação
+            Concluir Separação (2ª Inspeção)
           </button>
+        </div>
+      ` : ""}
+
+      ${concluida && entrega.segunda_inspecao ? `
+        <div style="margin-top:16px;padding:12px;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;font-size:0.8rem">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+            <strong style="color:#166534;font-size:0.85rem">🔍 Segunda Inspeção de Qualidade (Checagem Dupla)</strong>
+            <span style="background:#dcfce7;color:#15803d;padding:2px 8px;border-radius:4px;font-weight:800;font-size:0.7rem">✓ 100% CONFORME</span>
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px;color:#14532d;font-size:0.75rem;line-height:1.4">
+            <div>✓ Lacre & Selo Inmetro Intactos</div>
+            <div>✓ Manômetro na Faixa Verde</div>
+            <div>✓ Casco e Pintura sem Avarias</div>
+            <div>✓ Acessórios e Mangueira OK</div>
+            <div style="grid-column:span 2">✓ Rótulo e Instruções Legíveis</div>
+          </div>
+          <div style="margin-top:8px;padding-top:6px;border-top:1px solid #dcfce7;display:flex;justify-content:space-between;color:#15803d;font-size:0.72rem">
+            <span>Responsável: <strong>${entrega.segunda_inspecao.responsavel || 'Gestor RezFire'}</strong></span>
+            <span>Data: ${formatDateTime(entrega.segunda_inspecao.data_inspecao)}</span>
+          </div>
         </div>
       ` : ""}
     </section>
@@ -993,12 +1013,100 @@ function bindSeparacaoEvents(entrega) {
     });
   });
 
-  // Concluir separação
+  // Concluir separação com Segunda Inspeção de Qualidade
   content.querySelector("#btn-concluir-sep")?.addEventListener("click", () => {
-    confirmarAcao("Confirmar conclusão da separação? Todos os itens serão marcados como conferidos.", () => {
-      concluirSeparacao(entrega);
-    });
+    abrirModalSegundaInspecao(entrega);
   });
+}
+
+/**
+ * Modal de Segunda Inspeção de Qualidade (SCRUM-12 / #7)
+ */
+function abrirModalSegundaInspecao(entrega) {
+  const modal = document.getElementById("modal-segunda-inspecao");
+  if (!modal) {
+    concluirSeparacao(entrega);
+    return;
+  }
+
+  modal.style.display = "flex";
+
+  const dataLabel = document.getElementById("label-hora-inspecao-sep");
+  if (dataLabel) {
+    dataLabel.textContent = `Data: ${new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}`;
+  }
+
+  // Preenche checkboxes como conformes por padrão
+  ["chk-sep-lacre", "chk-sep-manometro", "chk-sep-casco", "chk-sep-acessorios", "chk-sep-rotulo"].forEach((id) => {
+    const chk = document.getElementById(id);
+    if (chk) chk.checked = true;
+  });
+
+  const btnConfirmar = document.getElementById("btn-confirmar-modal-inspecao");
+  const btnCancelar = document.getElementById("btn-cancelar-modal-inspecao");
+  const btnFechar = document.getElementById("btn-fechar-modal-inspecao");
+
+  const fechar = () => {
+    modal.style.display = "none";
+  };
+
+  btnCancelar.onclick = fechar;
+  btnFechar.onclick = fechar;
+
+  btnConfirmar.onclick = async () => {
+    const chkLacre = document.getElementById("chk-sep-lacre")?.checked ?? false;
+    const chkManometro = document.getElementById("chk-sep-manometro")?.checked ?? false;
+    const chkCasco = document.getElementById("chk-sep-casco")?.checked ?? false;
+    const chkAcessorios = document.getElementById("chk-sep-acessorios")?.checked ?? false;
+    const chkRotulo = document.getElementById("chk-sep-rotulo")?.checked ?? false;
+    const txtObs = document.getElementById("txt-obs-inspecao-sep")?.value.trim();
+
+    const todosConformes = chkLacre && chkManometro && chkCasco && chkAcessorios && chkRotulo;
+
+    if (!todosConformes) {
+      alert("⚠️ Atenção: Não é permitido liberar pedidos com itens não conformes. Substitua o extintor com defeito por uma unidade regular do estoque antes de liberar o despacho.");
+      return;
+    }
+
+    const laudoInspecao = {
+      id_inspecao: Date.now(),
+      tipo_inspecao: "Separacao",
+      id_pedido: entrega.id_pedido_interno || entrega.id_entrega,
+      resultado: "Aprovado",
+      responsavel: "Gestor RezFire",
+      data_inspecao: new Date().toISOString(),
+      checklist: {
+        lacre_inmetro_intacto: chkLacre,
+        manometro_faixa_verde: chkManometro,
+        sem_avarias_transporte: chkCasco,
+        suporte_acessorios: chkAcessorios,
+        rotulo_instrucoes: chkRotulo,
+      },
+      observacoes: txtObs || "Segunda inspeção concluída com 100% de conformidade. Itens liberados para despacho."
+    };
+
+    // Tenta persistir no backend via API se disponível
+    if (window.RezFireAPI && window.RezFireAPI.inspecoes && entrega.itens && entrega.itens.length > 0) {
+      try {
+        const primeiro = entrega.itens[0];
+        await window.RezFireAPI.inspecoes.registrar({
+          id_produto: primeiro.id_produto,
+          id_pedido: typeof entrega.id_pedido_interno === 'number' ? entrega.id_pedido_interno : undefined,
+          tipo_inspecao: "Separacao",
+          checklist: laudoInspecao.checklist,
+          quantidade_total: entrega.itens.reduce((s, i) => s + (i.quantidade || 1), 0),
+          quantidade_reprovada: 0,
+          responsavel: "Gestor RezFire",
+          observacoes: laudoInspecao.observacoes,
+        });
+      } catch (apiErr) {
+        console.warn("Aviso ao registrar 2ª inspeção no backend:", apiErr);
+      }
+    }
+
+    fechar();
+    concluirSeparacao(entrega, laudoInspecao);
+  };
 }
 
 // ─── Ações de Separação ───────────────────────────────────────────────────────
@@ -1175,17 +1283,22 @@ function removerLote(entrega, sku, idx2) {
   document.querySelector('.detalhe-tab[data-tab="separacao"]')?.click();
 }
 
-function concluirSeparacao(entrega) {
+function concluirSeparacao(entrega, laudoInspecao = null) {
   const idx = state.entregas.findIndex((e) => e.id_entrega === entrega.id_entrega);
   if (idx < 0) return;
   const e = state.entregas[idx];
 
   e.status_interno = SI().PRONTO_DESPACHO;
   e.separacao.concluida_em = REF().toISOString();
+
+  if (laudoInspecao) {
+    e.segunda_inspecao = laudoInspecao;
+  }
+
   e.historico.push({
     data: REF().toISOString(),
-    evento: "Separação concluída",
-    descricao: "Todos os itens conferidos. Pedido pronto para despacho.",
+    evento: "Segunda Inspeção de Qualidade (Checagem Dupla) APROVADA",
+    descricao: "Todos os 5 itens do checklist técnico conferidos (lacre INMETRO, manômetro na faixa verde, casco sem avarias, acessórios e rotulagem). Pedido liberado para despacho.",
     tipo: "sucesso",
   });
 
@@ -1194,7 +1307,7 @@ function concluirSeparacao(entrega) {
   renderTable();
   renderDetalhe(e);
   document.querySelector('.detalhe-tab[data-tab="separacao"]')?.click();
-  showToast("Separação concluída! Pedido pronto para despacho.", "sucesso");
+  showToast("Segunda inspeção aprovada! Pedido pronto para despacho.", "sucesso");
 }
 
 // ─── Ações logísticas ─────────────────────────────────────────────────────────
@@ -1280,16 +1393,19 @@ function registrarEntrega(entrega) {
   showToast("Entrega concluída registrada e pedido finalizado no módulo comercial!", "sucesso");
 }
 
-function cancelarPedidoComEstorno(entrega) {
+function cancelarPedidoComEstorno(entrega, motivo = "Avaria no Transporte", tipo = "Devolucao", protocolo = null) {
   const idx = state.entregas.findIndex((e) => e.id_entrega === entrega.id_entrega);
   if (idx < 0) return;
   const e = state.entregas[idx];
 
   e.status_interno = SI().CANCELADO;
   e.status_logistico = SL().CANCELADO;
+  e.motivo_devolucao = motivo;
+  e.tipo_ocorrencia = tipo;
+  e.protocolo_mediacao = protocolo;
 
-  // 1. Conforme a regra alinhada na Seção 7 do AGENTS.md:
-  // Como o débito de estoque já havia ocorrido na aprovação da venda, o cancelamento gera estorno no estoque e registro de Entrada em movimentações!
+  // 1. Conforme a regra alinhada na Seção 7 do AGENTS.md e SCRUM-22:
+  // Como o débito de estoque já havia ocorrido na aprovação da venda, o cancelamento/devolução gera estorno no estoque e registro de Entrada em movimentações!
   if (window.RezFireData) {
     if (typeof window.RezFireData.loadProducts === "function" && typeof window.RezFireData.saveProducts === "function") {
       let produtos = window.RezFireData.loadProducts();
@@ -1325,7 +1441,7 @@ function cancelarPedidoComEstorno(entrega) {
           sku: item.sku,
           nome_produto: item.nome,
           tipo: "Entrada",
-          motivo: "Cancelamento / Estorno de Pedido",
+          motivo: `Estorno (${tipo}: ${motivo}) - Pedido #${e.codigo_pedido_ml || e.codigo_pedido_direto || e.id_entrega}`,
           quantidade: item.quantidade,
           preco_unitario: item.preco_unitario,
           valor_total: item.subtotal,
@@ -1337,19 +1453,22 @@ function cancelarPedidoComEstorno(entrega) {
       window.RezFireData.saveMovements(movements);
     }
 
-    // Atualiza o status do pedido para "Cancelado" no módulo comercial
+    // Atualiza o status do pedido para "Cancelado" no módulo comercial com motivo padronizado
     if (typeof window.RezFireData.loadOrders === "function" && typeof window.RezFireData.saveOrders === "function") {
       let orders = window.RezFireData.loadOrders();
       let orderUpdated = false;
       orders = orders.map((ord) => {
         if (ord.id_pedido === e.id_pedido_interno || ord.codigo_pedido === e.codigo_pedido_ml || ord.codigo_pedido === e.codigo_pedido_direto) {
           ord.status = "Cancelado";
-          ord.motivo_cancelamento = "Cancelamento operacional no módulo de entregas.";
+          ord.motivo_devolucao = motivo;
+          ord.tipo_ocorrencia = tipo;
+          ord.protocolo_mediacao = protocolo;
+          ord.motivo_cancelamento = `${tipo}: ${motivo}`;
           ord.historico = ord.historico || [];
           ord.historico.push({
             data: REF().toISOString(),
-            evento: "Cancelamento Operacional",
-            descricao: "Cancelado na tela de entregas com estorno de estoque.",
+            evento: `Cancelamento Operacional (${tipo})`,
+            descricao: `Motivo: ${motivo}.${protocolo ? ' Protocolo ML: ' + protocolo : ''} Cancelado na tela de entregas com estorno de estoque.`,
             usuario: "Gestor RezFire",
           });
           orderUpdated = true;
@@ -1362,10 +1481,19 @@ function cancelarPedidoComEstorno(entrega) {
     }
   }
 
+  // Se houver backend conectado, sincroniza de forma transacional
+  if (window.RezFireAPI && e.id_pedido_interno) {
+    window.RezFireAPI.pedidos.atualizarStatus(e.id_pedido_interno, 'Cancelado', undefined, {
+      motivo_devolucao: motivo,
+      tipo_ocorrencia: tipo,
+      protocolo_mediacao: protocolo,
+    }).catch((err) => console.warn("[Entregas] Erro ao sincronizar cancelamento na API:", err));
+  }
+
   e.historico.push({
     data: REF().toISOString(),
-    evento: "Pedido Cancelado",
-    descricao: "Cancelamento operacional registrado. Estoque estornado automaticamente e movimentação de Entrada gerada no sistema.",
+    evento: `Pedido ${tipo}`,
+    descricao: `Ocorrência registrada: ${motivo}.${protocolo ? ' Protocolo ML: ' + protocolo : ''} Estoque estornado automaticamente e movimentação de Entrada gerada no sistema.`,
     tipo: "erro",
   });
 
@@ -1374,7 +1502,7 @@ function cancelarPedidoComEstorno(entrega) {
   renderTable();
   renderDetalhe(e);
   renderDetalheAcoes(e);
-  showToast("Pedido cancelado e estoque estornado com sucesso!", "sucesso");
+  showToast(`Pedido cancelado/devolvido (${motivo}) e estoque estornado com sucesso!`, "sucesso");
 }
 
 function renderDetalheAcoes(entrega) {

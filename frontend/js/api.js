@@ -167,10 +167,46 @@ window.RezFireAPI = {
         body: JSON.stringify(dados),
       });
     },
-    async atualizarStatus(id, status, status_entrega) {
+    async atualizarStatus(id, status, status_entrega, dadosDevolucao = null) {
+      const payload = { status, status_entrega };
+      if (dadosDevolucao) {
+        Object.assign(payload, dadosDevolucao);
+      }
       return window.RezFireAPI.request(`/pedidos/${id}/status`, {
         method: 'PATCH',
-        body: JSON.stringify({ status, status_entrega }),
+        body: JSON.stringify(payload),
+      });
+    },
+    async registrarDevolucao(id, dados) {
+      return window.RezFireAPI.request(`/pedidos/${id}/devolucao`, {
+        method: 'POST',
+        body: JSON.stringify(dados),
+      });
+    },
+    async obterEstatisticasDevolucoes() {
+      return window.RezFireAPI.request('/pedidos/estatisticas/devolucoes');
+    },
+    // Apuração de Lucro Real por Venda (SCRUM-23 / #18abc)
+    async obterLucro(id) {
+      return window.RezFireAPI.request(`/pedidos/${id}/lucro`);
+    },
+    async calcularLucro(id, params) {
+      return window.RezFireAPI.request(`/pedidos/${id}/lucro`, {
+        method: 'PUT',
+        body: JSON.stringify(params),
+      });
+    },
+    async obterResumoLucro() {
+      return window.RezFireAPI.request('/pedidos/resumo-lucro');
+    },
+    // Modalidade de Envio (SCRUM-27 / #24)
+    async obterComparativoModalidades() {
+      return window.RezFireAPI.request('/pedidos/comparativo-modalidades');
+    },
+    async atualizarModalidade(id, dados) {
+      return window.RezFireAPI.request(`/pedidos/${id}/modalidade`, {
+        method: 'PATCH',
+        body: JSON.stringify(dados),
       });
     },
   },
@@ -182,6 +218,57 @@ window.RezFireAPI = {
     },
     async obterGraficos(dias = 30) {
       return window.RezFireAPI.request(`/dashboard/graficos?dias=${dias}`);
+    },
+    async obterImpactoQuedas(dias = 30) {
+      return window.RezFireAPI.request(`/dashboard/impacto-quedas-anuncios?dias=${dias}`);
+    },
+  },
+
+  // Módulo de Finanças & Segregação Patrimonial (SCRUM-29 · #25)
+  financeiro: {
+    async listar(filtros = {}) {
+      const params = new URLSearchParams();
+      if (filtros.classificacao) params.append('classificacao', filtros.classificacao);
+      if (filtros.tipo) params.append('tipo', filtros.tipo);
+      if (filtros.categoria) params.append('categoria', filtros.categoria);
+      if (filtros.dias) params.append('dias', String(filtros.dias));
+      if (filtros.data_inicio) params.append('data_inicio', filtros.data_inicio);
+      if (filtros.data_fim) params.append('data_fim', filtros.data_fim);
+      const qs = params.toString() ? `?${params.toString()}` : '';
+      const res = await window.RezFireAPI.request(`/financeiro/lancamentos${qs}`);
+      return (res && res.lancamentos) ? res.lancamentos : res;
+    },
+    async criar(dados) {
+      const res = await window.RezFireAPI.request('/financeiro/lancamentos', {
+        method: 'POST',
+        body: JSON.stringify(dados),
+      });
+      return (res && res.lancamento) ? res.lancamento : res;
+    },
+    async atualizar(id, dados) {
+      const res = await window.RezFireAPI.request(`/financeiro/lancamentos/${id}`, {
+        method: 'PUT',
+        body: JSON.stringify(dados),
+      });
+      return (res && res.lancamento) ? res.lancamento : res;
+    },
+    async excluir(id) {
+      return window.RezFireAPI.request(`/financeiro/lancamentos/${id}`, {
+        method: 'DELETE',
+      });
+    },
+    async obterRelatorioSegregacao(diasOuFiltros = 30) {
+      const params = new URLSearchParams();
+      if (typeof diasOuFiltros === 'number') {
+        params.append('dias', String(diasOuFiltros));
+      } else if (typeof diasOuFiltros === 'object') {
+        if (diasOuFiltros.dias) params.append('dias', String(diasOuFiltros.dias));
+        if (diasOuFiltros.data_inicio) params.append('data_inicio', diasOuFiltros.data_inicio);
+        if (diasOuFiltros.data_fim) params.append('data_fim', diasOuFiltros.data_fim);
+      }
+      const qs = params.toString() ? `?${params.toString()}` : '';
+      const res = await window.RezFireAPI.request(`/financeiro/relatorio-segregacao${qs}`);
+      return (res && res.relatorio) ? res.relatorio : res;
     },
   },
 
@@ -234,6 +321,37 @@ window.RezFireAPI = {
     async sincronizar() {
       return window.RezFireAPI.request('/ml/sincronizar', { method: 'POST' });
     },
+    async consultarAnuncios(options = {}) {
+      const page = options.page || 1;
+      const limit = options.limit || 50;
+      return window.RezFireAPI.request(`/ml/anuncios/consultar?page=${page}&limit=${limit}`, {
+        method: 'POST',
+      });
+    },
+    async sincronizarStatus(dados = {}) {
+      return window.RezFireAPI.request('/ml/anuncios/sincronizar-status', {
+        method: 'POST',
+        body: JSON.stringify(dados),
+      });
+    },
+    async getStatusSincronizacao() {
+      return window.RezFireAPI.request('/ml/anuncios/sincronizar-status');
+    },
+    async sincronizarPedidos(dados = {}) {
+      return window.RezFireAPI.request('/ml/pedidos/sincronizar', {
+        method: 'POST',
+        body: JSON.stringify(dados),
+      });
+    },
+    async getStatusSincronizacaoPedidos() {
+      return window.RezFireAPI.request('/ml/pedidos/sincronizacao-status');
+    },
+    async desconectar() {
+      return window.RezFireAPI.request('/ml/desconectar', { method: 'POST' });
+    },
+    async processarCallback(code) {
+      return window.RezFireAPI.request(`/ml/callback?code=${encodeURIComponent(code)}`);
+    },
   },
 
   // Módulo de Inspeção de Qualidade (SCRUM-11 / #6)
@@ -245,6 +363,9 @@ window.RezFireAPI = {
     async buscarPorId(id) {
       return window.RezFireAPI.request(`/inspecoes/${id}`);
     },
+    async buscarPorPedido(idPedido) {
+      return window.RezFireAPI.request(`/inspecoes/pedido/${idPedido}`);
+    },
     async obterResumo() {
       return window.RezFireAPI.request('/inspecoes/resumo');
     },
@@ -252,6 +373,132 @@ window.RezFireAPI = {
       return window.RezFireAPI.request('/inspecoes', {
         method: 'POST',
         body: JSON.stringify(dados),
+      });
+    },
+  },
+
+  // Central Unificada de Alertas (SCRUM-24 / #19)
+  alertas: {
+    async obterCentral() {
+      return window.RezFireAPI.request('/alertas/central');
+    },
+  },
+
+  // Módulo de Anúncios, Histórico e Recriação (SCRUM-19 / #14 e SCRUM-20 / #15)
+  anuncios: {
+    async listar(params = {}) {
+      const query = new URLSearchParams(params).toString();
+      return window.RezFireAPI.request(`/anuncios${query ? '?' + query : ''}`);
+    },
+    async buscarPorId(id) {
+      return window.RezFireAPI.request(`/anuncios/${id}`);
+    },
+    async listarHistorico(id) {
+      return window.RezFireAPI.request(`/anuncios/${id}/historico`);
+    },
+    async adicionarOcorrencia(id, dados) {
+      return window.RezFireAPI.request(`/anuncios/${id}/historico`, {
+        method: 'POST',
+        body: JSON.stringify(dados),
+      });
+    },
+    async marcarRecriado(id, dados) {
+      return window.RezFireAPI.request(`/anuncios/${id}/marcar-recriado`, {
+        method: 'POST',
+        body: JSON.stringify(dados),
+      });
+    },
+    async listarRecriados() {
+      return window.RezFireAPI.request('/anuncios/relatorios/recriados');
+    },
+    async listarMidias(id) {
+      return window.RezFireAPI.request(`/anuncios/${id}/midias`);
+    },
+    async adicionarMidia(id, dados) {
+      return window.RezFireAPI.request(`/anuncios/${id}/midias`, {
+        method: 'POST',
+        body: JSON.stringify(dados),
+      });
+    },
+    async removerMidia(id, id_midia) {
+      return window.RezFireAPI.request(`/anuncios/${id}/midias/${id_midia}`, {
+        method: 'DELETE',
+      });
+    },
+  },
+
+  usuarios: {
+    async listar() {
+      return window.RezFireAPI.request('/usuarios');
+    },
+    async obter(id) {
+      return window.RezFireAPI.request(`/usuarios/${id}`);
+    },
+    async criar(dados) {
+      return window.RezFireAPI.request('/usuarios', {
+        method: 'POST',
+        body: JSON.stringify(dados),
+      });
+    },
+    async atualizar(id, dados) {
+      return window.RezFireAPI.request(`/usuarios/${id}`, {
+        method: 'PUT',
+        body: JSON.stringify(dados),
+      });
+    },
+    async alternarStatus(id) {
+      return window.RezFireAPI.request(`/usuarios/${id}/status`, {
+        method: 'PATCH',
+      });
+    },
+  },
+
+  // Módulo de Notificações ao Gestor (User Story #32)
+  notificacoes: {
+    async listar(limite = 30) {
+      return window.RezFireAPI.request(`/notificacoes?limite=${limite}`);
+    },
+    async marcarComoLida(id) {
+      return window.RezFireAPI.request(`/notificacoes/${id}/lida`, {
+        method: 'PUT',
+      });
+    },
+    async marcarTodasComoLidas() {
+      return window.RezFireAPI.request('/notificacoes/marcar-todas', {
+        method: 'PUT',
+      });
+    },
+  },
+
+  // Base de Respostas Padrão de Pré-Venda (SCRUM-28 / #22)
+  respostasPadrao: {
+    async listar(params = {}) {
+      const query = new URLSearchParams(params).toString();
+      return window.RezFireAPI.request(`/respostas-padrao${query ? '?' + query : ''}`);
+    },
+    async buscarPorId(id) {
+      return window.RezFireAPI.request(`/respostas-padrao/${id}`);
+    },
+    async criar(dados) {
+      return window.RezFireAPI.request('/respostas-padrao', {
+        method: 'POST',
+        body: JSON.stringify(dados),
+      });
+    },
+    async atualizar(id, dados) {
+      return window.RezFireAPI.request(`/respostas-padrao/${id}`, {
+        method: 'PUT',
+        body: JSON.stringify(dados),
+      });
+    },
+    async excluir(id) {
+      return window.RezFireAPI.request(`/respostas-padrao/${id}`, {
+        method: 'DELETE',
+      });
+    },
+    async copiar(id) {
+      return window.RezFireAPI.request(`/respostas-padrao/${id}/copiar`, {
+        method: 'POST',
       });
     },
   },

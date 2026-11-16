@@ -11,6 +11,7 @@ import { Produto } from './Produto';
 import { LoteEstoque } from './LoteEstoque';
 import { MovimentacaoEstoque } from './MovimentacaoEstoque';
 import { Usuario } from './Usuario';
+import { Pedido } from './Pedido';
 
 export interface ChecklistQualidadeEntrada {
   avarias_casco: boolean;     // Ausência de mossas, amassados ou deformações
@@ -18,6 +19,14 @@ export interface ChecklistQualidadeEntrada {
   rotulo_legivel: boolean;    // Rótulo, serigrafia e instruções legíveis
   manometro_pressao: boolean; // Manômetro com ponteiro na faixa verde
   lacre_acessorios: boolean;  // Lacre/selo Inmetro intacto e acessórios completos
+}
+
+export interface ChecklistQualidadeSeparacao {
+  lacre_inmetro_intacto: boolean;  // Lacre e selo Inmetro intactos e legíveis
+  manometro_faixa_verde: boolean;  // Manômetro com ponteiro na faixa verde
+  sem_avarias_transporte: boolean; // Casco e pintura sem amassados ou deformações
+  suporte_acessorios: boolean;     // Acessórios completos (mangueira, bico, suporte)
+  rotulo_instrucoes: boolean;      // Rótulo e instruções de operação legíveis
 }
 
 @Entity('inspecoes_qualidade')
@@ -49,6 +58,13 @@ export class InspecaoQualidade {
   movimentacao: MovimentacaoEstoque | null;
 
   @Column({ type: 'int', unsigned: true, nullable: true })
+  id_pedido: number | null;
+
+  @ManyToOne(() => Pedido, { onDelete: 'SET NULL', nullable: true })
+  @JoinColumn({ name: 'id_pedido' })
+  pedido: Pedido | null;
+
+  @Column({ type: 'int', unsigned: true, nullable: true })
   id_usuario: number | null;
 
   @ManyToOne(() => Usuario, { onDelete: 'SET NULL', nullable: true })
@@ -59,7 +75,7 @@ export class InspecaoQualidade {
   tipo_inspecao: 'Entrada' | 'Separacao';
 
   @Column({ type: 'json' })
-  checklist: ChecklistQualidadeEntrada;
+  checklist: ChecklistQualidadeEntrada | ChecklistQualidadeSeparacao | Record<string, boolean>;
 
   @Column({
     type: 'enum',

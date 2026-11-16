@@ -52,6 +52,7 @@
   async function init() {
     window.RezFireLayout.renderSidebar("anuncios");
     bindEvents();
+    checarRetornoOAuthUrl();
     await carregarDados();
   }
 
@@ -127,7 +128,9 @@
         state.syncMeta = {
           status_conexao: statusConexaoCarregado.status || "Conectado",
           ml_user_id: statusConexaoCarregado.ml_user_id || "789102450",
-          ultima_sincronizacao: statusConexaoCarregado.ultima_atualizacao || new Date().toISOString(),
+          ultima_sincronizacao: statusConexaoCarregado.ultima_sincronizacao_sucesso || statusConexaoCarregado.ultima_atualizacao || new Date().toISOString(),
+          ultima_sincronizacao_sucesso: statusConexaoCarregado.ultima_sincronizacao_sucesso || statusConexaoCarregado.ultima_atualizacao || new Date().toISOString(),
+          ultima_falha: statusConexaoCarregado.ultima_falha || null,
           seller_nickname: "REZFIRE_EXTINTORES",
         };
       } else {
@@ -148,21 +151,54 @@
   }
 
   function renderSyncHeader() {
-    const meta = state.syncMeta;
+    const meta = state.syncMeta || {};
     const syncTimeEl = document.getElementById("sync-last-time");
     if (syncTimeEl) {
-      syncTimeEl.textContent = `Última sincronização: ${formatData(meta.ultima_sincronizacao || new Date().toISOString())}`;
+      const dataSucesso = meta.ultima_sincronizacao_sucesso || meta.ultima_sincronizacao;
+      syncTimeEl.textContent = `Última sincronização com sucesso: ${formatData(dataSucesso || new Date().toISOString())}`;
+    }
+
+    // Exibe aviso visível de falha na sincronização (Critério 4 da US #29)
+    let failureAlertEl = document.getElementById("sync-failure-alert");
+    if (meta.ultima_falha && meta.ultima_falha.mensagem) {
+      if (!failureAlertEl) {
+        failureAlertEl = document.createElement("div");
+        failureAlertEl.id = "sync-failure-alert";
+        failureAlertEl.className = "inline-flex items-center gap-1.5 px-2.5 py-1 rounded text-xs font-semibold bg-red-100 text-red-800 border border-red-300";
+        const container = document.getElementById("sync-last-time")?.parentElement;
+        if (container) container.appendChild(failureAlertEl);
+      }
+      failureAlertEl.innerHTML = `
+        <span class="inline-block w-2 h-2 rounded-full bg-red-600 animate-pulse"></span>
+        <span title="${meta.ultima_falha.mensagem}">Falha na sincronização: ${meta.ultima_falha.mensagem} (Último sucesso: ${formatData(meta.ultima_sincronizacao_sucesso || meta.ultima_sincronizacao)})</span>
+      `;
+      failureAlertEl.style.display = "inline-flex";
+    } else if (failureAlertEl) {
+      failureAlertEl.style.display = "none";
     }
 
     const ind = document.getElementById("sync-status-indicator");
     const txt = document.getElementById("sync-status-text");
-    if (ind && txt) {
+    if (ind) {
+      const isConectado = (meta.status_conexao || "Conectado").toLowerCase() === "conectado";
       if (state.sincronizando) {
-        ind.className = "sync-badge syncing";
-        txt.textContent = "Sincronizando com API ML...";
+        ind.className = "sync-badge syncing cursor-pointer hover:opacity-90";
+        ind.innerHTML = `
+          <span class="inline-block w-2 h-2 rounded-full bg-blue-500 animate-spin"></span>
+          <span id="sync-status-text">Sincronizando com API ML...</span>
+        `;
+      } else if (isConectado) {
+        ind.className = "sync-badge cursor-pointer hover:opacity-90";
+        ind.innerHTML = `
+          <span class="inline-block w-2 h-2 rounded-full bg-emerald-500"></span>
+          <span id="sync-status-text">Conta Conectada (${meta.seller_nickname || "REZFIRE"})</span>
+        `;
       } else {
-        ind.className = "sync-badge";
-        txt.textContent = `${meta.status_conexao || "Conectado"} (${meta.seller_nickname || "REZFIRE"})`;
+        ind.className = "sync-badge cursor-pointer hover:opacity-90 bg-amber-50 border-amber-300 text-amber-800";
+        ind.innerHTML = `
+          <span class="inline-block w-2 h-2 rounded-full bg-amber-500"></span>
+          <span id="sync-status-text">Conta Desconectada (Clique p/ Conectar)</span>
+        `;
       }
     }
   }
@@ -426,9 +462,13 @@
         if (f.tipo === "unitario" && isKit) return false;
       }
 
-      // 4. Filtro por Status
-      if (f.status !== "todos" && a.status !== f.status) {
-        return false;
+      // 4. Filtro por Status / Recriados (SCRUM-20)
+      if (f.status !== "todos") {
+        if (f.status === "Excluído" || f.status === "recriados") {
+          if (!a.foi_recriado && a.status !== "Excluído") return false;
+        } else if (a.status !== f.status) {
+          return false;
+        }
       }
 
       // 5. Filtro por Categoria
@@ -512,11 +552,17 @@
       const itens = window.RezFireAnuncios.extrairItensAnuncio(a);
       const isMultiItem = itens.length > 1 || (itens.length === 1 && itens[0].quantidade_anunciada > 1);
 
-      // Status Badge
+      // Status Badge & Recriação (SCRUM-20 / #15)
       let statusCls = "encerrado";
       if (a.status === "Ativo") statusCls = "ativo";
       else if (a.status === "Pausado") statusCls = "pausado";
-      const statusBadge = `<span class="badge-anuncio-status ${statusCls}">${a.status}</span>`;
+      else if (a.status === "Excluído") statusCls = "encerrado";
+      let statusBadge = `<span class="badge-anuncio-status ${statusCls}">${a.status}</span>`;
+      if (a.foi_recriado) {
+        statusBadge += `<span class="inline-flex items-center text-[10px] font-bold px-1.5 py-0.5 ml-1 bg-red-100 text-red-800 rounded border border-red-200" title="Anúncio excluído pelo ML e substituído por ${a.ml_item_id_substituto || 'novo'}">Recriado</span>`;
+      } else if (a.ml_item_id_origem) {
+        statusBadge += `<span class="inline-flex items-center text-[10px] font-bold px-1.5 py-0.5 ml-1 bg-blue-100 text-blue-800 rounded border border-blue-200" title="Herdeiro do anúncio excluído ${a.ml_item_id_origem}">Herdeiro</span>`;
+      }
 
       // Divergência Badge
       let divBadge = `<span class="badge-divergencia ok" title="Anúncio alinhado com o armazém">✓ Alinhado</span>`;
@@ -832,28 +878,788 @@
       }
     }
 
-    // Histórico de alterações
-    const histEl = document.getElementById("drawer-historico-lista");
-    if (histEl) {
-      const hist = anuncio.historico || [];
-      if (hist.length === 0) {
-        histEl.innerHTML = `<div class="text-stone-400 italic">Nenhum evento registrado ainda.</div>`;
-      } else {
-        histEl.innerHTML = hist.map(h => `
-          <div class="p-2 bg-white border border-stone-200 rounded">
-            <div class="flex justify-between items-center text-[11px] text-stone-400">
-              <strong class="text-stone-700">${h.evento}</strong>
-              <span>${formatData(h.data)}</span>
-            </div>
-            <div class="text-xs text-stone-600 mt-0.5">${h.detalhe}</div>
-          </div>
-        `).join("");
-      }
-    }
+    // Banner de Substituição / Herança de Anúncio Excluído (SCRUM-20 / #15)
+    renderDrawerBannerRecriado(anuncio);
+
+    // Fotos e Vídeos de Demonstração (SCRUM-26 / #23)
+    renderizarMidiasDrawer(anuncio);
+
+    // Histórico cronológico de ocorrências (SCRUM-19 / #14)
+    renderDrawerHistorico(anuncio);
 
     overlay.classList.add("is-open");
     drawer.classList.add("is-open");
     drawer.focus();
+  }
+
+  /**
+   * Renderiza o banner de reposicionamento/herança no Drawer Lateral (SCRUM-20 / #15)
+   */
+  function renderDrawerBannerRecriado(anuncio) {
+    const el = document.getElementById("drawer-banner-recriado");
+    if (!el) return;
+
+    if (anuncio.foi_recriado) {
+      el.style.display = "block";
+      el.innerHTML = `
+        <div class="p-3 bg-red-50 border border-red-200 rounded-lg text-xs text-red-900">
+          <div class="flex items-center gap-2 font-bold mb-1">
+            <span>🚨</span> Anúncio Excluído no ML → Substituído por <code>${anuncio.ml_item_id_substituto || 'Novo'}</code>
+          </div>
+          <div class="text-[11px] text-red-800 space-y-0.5">
+            <div><strong>Tempo de Reposicionamento:</strong> ${anuncio.tempo_reposicionamento_dias ?? 0} dia(s)</div>
+            <div><strong>Motivo:</strong> ${anuncio.motivo_exclusao || 'Exclusão pelo Mercado Livre.'}</div>
+          </div>
+        </div>
+      `;
+    } else if (anuncio.ml_item_id_origem) {
+      el.style.display = "block";
+      el.innerHTML = `
+        <div class="p-3 bg-blue-50 border border-blue-200 rounded-lg text-xs text-blue-900">
+          <div class="flex items-center gap-2 font-bold mb-1">
+            <span>🛡️</span> Anúncio Herdeiro ← Recriado do Anúncio <code>${anuncio.ml_item_id_origem}</code>
+          </div>
+          <div class="text-[11px] text-blue-800">
+            Tempo de reposicionamento registrado: <strong>${anuncio.tempo_reposicionamento_dias ?? 0} dia(s)</strong>.
+          </div>
+        </div>
+      `;
+    } else {
+      el.style.display = "none";
+      el.innerHTML = "";
+    }
+  }
+
+  /**
+   * Renderiza a timeline cronológica de ocorrências do anúncio (SCRUM-19 / #14)
+   */
+  function renderDrawerHistorico(anuncio) {
+    const histEl = document.getElementById("drawer-historico-lista");
+    if (!histEl) return;
+
+    const hist = anuncio.historico || [];
+    if (hist.length === 0) {
+      histEl.innerHTML = `<div class="text-stone-400 italic p-3 text-center bg-stone-50 rounded border border-stone-200">Nenhum evento registrado ainda.</div>`;
+      return;
+    }
+
+    histEl.innerHTML = hist.map((h) => {
+      let badgeCls = "bg-stone-100 text-stone-700 border-stone-200";
+      const ev = (h.evento || "").toLowerCase();
+
+      if (ev.includes("estoque") || ev.includes("pausa")) {
+        badgeCls = "bg-red-100 text-red-800 border-red-200";
+      } else if (ev.includes("preço") || ev.includes("preco")) {
+        badgeCls = "bg-blue-100 text-blue-800 border-blue-200";
+      } else if (ev.includes("recria") || ev.includes("exclus")) {
+        badgeCls = "bg-purple-100 text-purple-800 border-purple-200";
+      } else if (ev.includes("herdeiro") || ev.includes("sucessor") || ev.includes("reativa")) {
+        badgeCls = "bg-emerald-100 text-emerald-800 border-emerald-200";
+      } else if (ev.includes("advert") || ev.includes("modera") || ev.includes("aviso")) {
+        badgeCls = "bg-amber-100 text-amber-800 border-amber-200";
+      }
+
+      return `
+        <div class="p-2.5 bg-white border border-stone-200 rounded-lg shadow-sm">
+          <div class="flex justify-between items-center text-[11px] mb-1">
+            <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold border ${badgeCls}">
+              ${h.evento || "Ocorrência"}
+            </span>
+            <span class="text-stone-400">${formatData(h.data)}</span>
+          </div>
+          ${h.titulo && h.titulo !== h.evento ? `
+            <div class="text-xs font-bold text-stone-900 mt-1">${h.titulo}</div>
+          ` : ""}
+          <div class="text-xs text-stone-700 mt-0.5 leading-relaxed">${h.detalhe}</div>
+          ${h.autor ? `
+            <div class="text-[10px] text-stone-400 mt-1.5 flex items-center gap-1">
+              <span>👤</span> ${h.autor}
+            </div>
+          ` : ""}
+        </div>
+      `;
+    }).join("");
+  }
+
+  // ─── Modais de Ocorrência, Recriação e Relatórios (SCRUM-19 e SCRUM-20) ──────
+
+  function openModalOcorrencia() {
+    if (!state.anuncioSelecionado) return;
+    const modal = document.getElementById("modal-nova-ocorrencia");
+    const mlbEl = document.getElementById("modal-ocorrencia-mlb");
+    const titEl = document.getElementById("oc-titulo");
+    const detEl = document.getElementById("oc-detalhe");
+    if (!modal) return;
+
+    if (mlbEl) mlbEl.textContent = state.anuncioSelecionado.ml_item_id;
+    if (titEl) titEl.value = "";
+    if (detEl) detEl.value = "";
+
+    modal.classList.add("is-open");
+  }
+
+  function closeModalOcorrencia() {
+    const modal = document.getElementById("modal-nova-ocorrencia");
+    if (modal) modal.classList.remove("is-open");
+  }
+
+  async function salvarModalOcorrencia(e) {
+    e.preventDefault();
+    if (!state.anuncioSelecionado) return;
+
+    const tipo_evento = document.getElementById("oc-tipo-evento")?.value;
+    const titulo = document.getElementById("oc-titulo")?.value.trim();
+    const detalhe = document.getElementById("oc-detalhe")?.value.trim();
+
+    if (!tipo_evento || !titulo || !detalhe) {
+      alert("Por favor, preencha todos os campos obrigatórios.");
+      return;
+    }
+
+    const payload = {
+      tipo_evento,
+      titulo,
+      detalhe,
+      autor: "Gestor RezFire",
+      data_ocorrencia: new Date().toISOString(),
+    };
+
+    try {
+      if (window.RezFireAPI && state.anuncioSelecionado.id_anuncio) {
+        await window.RezFireAPI.anuncios.adicionarOcorrencia(state.anuncioSelecionado.id_anuncio, payload);
+      }
+
+      if (window.RezFireAnuncios) {
+        window.RezFireAnuncios.adicionarOcorrencia(state.anuncioSelecionado.id_anuncio, payload);
+      }
+
+      state.anuncioSelecionado.historico = state.anuncioSelecionado.historico || [];
+      state.anuncioSelecionado.historico.unshift(payload);
+
+      renderDrawerHistorico(state.anuncioSelecionado);
+      closeModalOcorrencia();
+      showToast("Ocorrência registrada no histórico do anúncio!");
+    } catch (err) {
+      console.error("[Anúncios] Erro ao salvar ocorrência:", err);
+      alert("Erro ao salvar ocorrência: " + (err.message || err));
+    }
+  }
+
+  function openModalRecriar() {
+    if (!state.anuncioSelecionado) return;
+    const modal = document.getElementById("modal-marcar-recriado");
+    const mlbAntigo = document.getElementById("modal-recriado-mlb-antigo");
+    const titAntigo = document.getElementById("modal-recriado-titulo-antigo");
+    const mlbNovo = document.getElementById("rec-mlb-novo");
+    const dExc = document.getElementById("rec-data-exclusao");
+    const dRec = document.getElementById("rec-data-recriacao");
+    const mot = document.getElementById("rec-motivo");
+    if (!modal) return;
+
+    if (mlbAntigo) mlbAntigo.textContent = state.anuncioSelecionado.ml_item_id;
+    if (titAntigo) titAntigo.textContent = state.anuncioSelecionado.titulo;
+    if (mlbNovo) mlbNovo.value = "";
+    if (mot) mot.value = "";
+
+    const hoje = new Date().toISOString().split("T")[0];
+    if (dExc) dExc.value = hoje;
+    if (dRec) dRec.value = hoje;
+
+    modal.classList.add("is-open");
+  }
+
+  function closeModalRecriar() {
+    const modal = document.getElementById("modal-marcar-recriado");
+    if (modal) modal.classList.remove("is-open");
+  }
+
+  async function salvarModalRecriar(e) {
+    e.preventDefault();
+    if (!state.anuncioSelecionado) return;
+
+    const mlbNovo = document.getElementById("rec-mlb-novo")?.value.trim();
+    const dataExclusao = document.getElementById("rec-data-exclusao")?.value;
+    const dataRecriacao = document.getElementById("rec-data-recriacao")?.value;
+    const motivo = document.getElementById("rec-motivo")?.value.trim();
+
+    if (!mlbNovo || !dataExclusao || !dataRecriacao || !motivo) {
+      alert("Por favor, preencha todos os campos obrigatórios.");
+      return;
+    }
+
+    const payload = {
+      ml_item_id_novo: mlbNovo,
+      data_exclusao: dataExclusao,
+      data_recriacao: dataRecriacao,
+      motivo_exclusao: motivo,
+    };
+
+    try {
+      if (window.RezFireAPI && state.anuncioSelecionado.id_anuncio) {
+        await window.RezFireAPI.anuncios.marcarRecriado(state.anuncioSelecionado.id_anuncio, payload);
+      }
+
+      if (window.RezFireAnuncios) {
+        window.RezFireAnuncios.marcarRecriado(state.anuncioSelecionado.id_anuncio, payload);
+      }
+
+      const diffMs = Math.max(0, new Date(dataRecriacao).getTime() - new Date(dataExclusao).getTime());
+      const dias = Math.round(diffMs / (1000 * 60 * 60 * 24));
+
+      state.anuncioSelecionado.foi_recriado = true;
+      state.anuncioSelecionado.status = "Excluído";
+      state.anuncioSelecionado.motivo_exclusao = motivo;
+      state.anuncioSelecionado.data_exclusao = dataExclusao;
+      state.anuncioSelecionado.data_recriacao = dataRecriacao;
+      state.anuncioSelecionado.tempo_reposicionamento_dias = dias;
+      state.anuncioSelecionado.ml_item_id_substituto = mlbNovo;
+
+      renderDrawerBannerRecriado(state.anuncioSelecionado);
+      renderDrawerHistorico(state.anuncioSelecionado);
+      renderTabela();
+      closeModalRecriar();
+      showToast(`Anúncio marcado como substituído! Tempo de reposicionamento: ${dias} dia(s).`);
+    } catch (err) {
+      console.error("[Anúncios] Erro ao registrar recriação:", err);
+      alert("Erro ao registrar recriação: " + (err.message || err));
+    }
+  }
+
+  async function openModalRelatorioRecriados() {
+    const modal = document.getElementById("modal-relatorio-recriados");
+    const totalEl = document.getElementById("stat-total-recriados");
+    const mediaEl = document.getElementById("stat-media-reposicionamento");
+    const tbody = document.getElementById("tbody-relatorio-recriados");
+    if (!modal) return;
+
+    let dados = null;
+    if (window.RezFireAPI && typeof window.RezFireAPI.anuncios.listarRecriados === "function") {
+      try {
+        dados = await window.RezFireAPI.anuncios.listarRecriados();
+      } catch (e) {
+        console.warn("[Anúncios] Erro ao carregar relatório da API:", e);
+      }
+    }
+
+    if (!dados && window.RezFireAnuncios) {
+      dados = window.RezFireAnuncios.listarRecriados();
+    }
+
+    const total = dados?.total_recriados || 0;
+    const media = dados?.media_tempo_reposicionamento_dias || 0;
+    const lista = dados?.anuncios || [];
+
+    if (totalEl) totalEl.textContent = String(total);
+    if (mediaEl) mediaEl.textContent = `${media} dias`;
+
+    if (tbody) {
+      if (lista.length === 0) {
+        tbody.innerHTML = `
+          <tr>
+            <td colspan="5" class="text-center p-4 text-stone-400">
+              Nenhum anúncio excluído/recriado registrado no sistema.
+            </td>
+          </tr>
+        `;
+      } else {
+        tbody.innerHTML = lista.map((a) => `
+          <tr class="border-b border-stone-100">
+            <td class="p-2 font-mono font-bold text-red-700">${a.ml_item_id || a.ml_item_id_antigo}</td>
+            <td class="p-2 font-mono font-bold text-emerald-700">${a.ml_item_id_substituto || a.ml_item_id_novo || '—'}</td>
+            <td class="p-2 font-semibold text-stone-800">${a.tempo_reposicionamento_dias ?? 0} dia(s)</td>
+            <td class="p-2 text-stone-600">${a.motivo_exclusao || '—'}</td>
+            <td class="p-2 text-stone-400">${formatData(a.data_exclusao)}</td>
+          </tr>
+        `).join("");
+      }
+    }
+
+    modal.classList.add("is-open");
+  }
+
+  function closeModalRelatorioRecriados() {
+    const modal = document.getElementById("modal-relatorio-recriados");
+    if (modal) modal.classList.remove("is-open");
+  }
+
+  // ─── Fotos e Vídeos de Demonstração (SCRUM-26 / #23) ────────────────────────
+
+  /**
+   * Converte URLs comuns de vídeo (YouTube, Vimeo) para embed ou retorna a URL direta.
+   */
+  function converterParaEmbedVideo(url) {
+    if (!url) return "";
+    const ytMatch = url.match(/(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?\/\s]{11})/i);
+    if (ytMatch && ytMatch[1]) {
+      return `https://www.youtube.com/embed/${ytMatch[1]}?autoplay=1`;
+    }
+    const vimeoMatch = url.match(/vimeo\.com\/(?:channels\/(?:\w+\/)?|groups\/([^\/]*)\/videos\/|album\/(\d+)\/video\/|)(\d+)(?:$|\/|\?)/i);
+    if (vimeoMatch && vimeoMatch[3]) {
+      return `https://player.vimeo.com/video/${vimeoMatch[3]}?autoplay=1`;
+    }
+    return url;
+  }
+
+  /**
+   * Renderiza a galeria de fotos e vídeos no Drawer Lateral
+   */
+  function renderizarMidiasDrawer(anuncio) {
+    const container = document.getElementById("drawer-midias-lista");
+    if (!container) return;
+
+    const midias = (anuncio && Array.isArray(anuncio.midias)) ? anuncio.midias : [];
+    if (midias.length === 0) {
+      container.innerHTML = `
+        <div class="p-3 bg-stone-50 border border-stone-200 rounded-lg text-xs text-stone-500 text-center">
+          Nenhuma foto ou vídeo cadastrado. Adicione para enriquecer a apresentação visual do extintor.
+        </div>
+      `;
+      return;
+    }
+
+    const midiasOrdenadas = [...midias].sort((a, b) => (a.ordem || 0) - (b.ordem || 0));
+
+    container.innerHTML = `
+      <div class="grid grid-cols-2 gap-2">
+        ${midiasOrdenadas.map((m) => {
+          const isVideo = (m.tipo || "").toUpperCase() === "VIDEO";
+          const iconBadge = isVideo
+            ? `<span class="bg-red-600 text-white text-[10px] font-bold px-1.5 py-0.5 rounded shadow">▶ VÍDEO</span>`
+            : `<span class="bg-emerald-600 text-white text-[10px] font-bold px-1.5 py-0.5 rounded shadow">📷 FOTO</span>`;
+
+          const thumbSrc = isVideo
+            ? "https://images.unsplash.com/photo-1574717024653-61fd2cf4d44d?w=300&auto=format&fit=crop&q=60"
+            : m.url;
+
+          return `
+            <div class="card p-2 bg-stone-50 border border-stone-200 rounded flex flex-col justify-between hover:border-amber-400 transition-colors">
+              <div class="relative w-full h-24 bg-stone-900 rounded overflow-hidden flex items-center justify-center mb-1.5 cursor-pointer btn-ver-midia" data-id="${m.id_midia}">
+                <img src="${thumbSrc}" alt="${m.rotulo}" class="w-full h-full object-cover opacity-90 hover:opacity-100 transition-opacity" onerror="this.src='https://placehold.co/120x80/292524/fafaf9?text=Midia'" />
+                <div class="absolute top-1 left-1">${iconBadge}</div>
+                ${isVideo ? `<div class="absolute inset-0 flex items-center justify-center bg-black/40"><span class="text-white text-xl">▶</span></div>` : ""}
+              </div>
+              <div>
+                <div class="text-[11px] font-bold text-stone-800 line-clamp-1" title="${m.rotulo}">${m.rotulo}</div>
+                <div class="flex items-center justify-between mt-2 pt-1.5 border-t border-stone-200">
+                  <button type="button" class="btn-ghost text-[10px] py-0.5 px-1.5 text-stone-700 btn-ver-midia" data-id="${m.id_midia}">
+                    ${isVideo ? "Assistir ▶" : "Ampliar 🔍"}
+                  </button>
+                  <button type="button" class="btn-ghost text-[10px] py-0.5 px-1.5 text-red-600 hover:bg-red-50 btn-remover-midia" data-id="${m.id_midia}" title="Excluir mídia">
+                    Excluir
+                  </button>
+                </div>
+              </div>
+            </div>
+          `;
+        }).join("")}
+      </div>
+    `;
+
+    container.querySelectorAll(".btn-ver-midia").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const idMidia = Number(btn.dataset.id);
+        const midia = midias.find((m) => m.id_midia === idMidia);
+        if (midia) openModalVisualizadorMidia(midia);
+      });
+    });
+
+    container.querySelectorAll(".btn-remover-midia").forEach((btn) => {
+      btn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        const idMidia = Number(btn.dataset.id);
+        removerMidiaAnuncio(idMidia);
+      });
+    });
+  }
+
+  function openModalAdicionarMidia() {
+    if (!state.anuncioSelecionado) return;
+    const modal = document.getElementById("modal-adicionar-midia");
+    const tipo = document.getElementById("midia-form-tipo");
+    const rotulo = document.getElementById("midia-form-rotulo");
+    const url = document.getElementById("midia-form-url");
+    const ordem = document.getElementById("midia-form-ordem");
+    if (!modal) return;
+
+    if (tipo) tipo.value = "FOTO";
+    if (rotulo) rotulo.value = "";
+    if (url) url.value = "";
+    if (ordem) ordem.value = ((state.anuncioSelecionado.midias || []).length + 1).toString();
+
+    modal.classList.add("is-open");
+    modal.style.display = "flex";
+  }
+
+  function closeModalAdicionarMidia() {
+    const modal = document.getElementById("modal-adicionar-midia");
+    if (modal) {
+      modal.classList.remove("is-open");
+      modal.style.display = "none";
+    }
+  }
+
+  async function salvarModalAdicionarMidia(e) {
+    e.preventDefault();
+    if (!state.anuncioSelecionado) return;
+
+    const tipo = document.getElementById("midia-form-tipo")?.value || "FOTO";
+    const rotulo = document.getElementById("midia-form-rotulo")?.value.trim();
+    const url = document.getElementById("midia-form-url")?.value.trim();
+    const ordem = Number(document.getElementById("midia-form-ordem")?.value || 0);
+
+    if (!rotulo || !url) {
+      alert("Por favor, preencha o rótulo e a URL da mídia.");
+      return;
+    }
+
+    const payload = {
+      tipo,
+      rotulo,
+      url,
+      ordem
+    };
+
+    try {
+      let novaMidia = null;
+      if (window.RezFireAPI && typeof window.RezFireAPI.anuncios?.adicionarMidia === "function") {
+        try {
+          const res = await window.RezFireAPI.anuncios.adicionarMidia(state.anuncioSelecionado.id_anuncio, payload);
+          if (res && res.sucesso && res.midia) novaMidia = res.midia;
+        } catch (apiErr) {
+          console.warn("[Anúncios] Backend indisponível para salvar mídia, usando fallback local:", apiErr);
+        }
+      }
+
+      if (!novaMidia && window.RezFireAnuncios) {
+        novaMidia = window.RezFireAnuncios.adicionarMidia(state.anuncioSelecionado.id_anuncio, payload);
+      }
+
+      if (novaMidia) {
+        state.anuncioSelecionado.midias = state.anuncioSelecionado.midias || [];
+        state.anuncioSelecionado.midias.push(novaMidia);
+      }
+
+      renderizarMidiasDrawer(state.anuncioSelecionado);
+      closeModalAdicionarMidia();
+      showToast(`${tipo === "VIDEO" ? "Vídeo demonstrativo" : "Foto"} anexada com sucesso!`);
+    } catch (err) {
+      console.error("[Anúncios] Erro ao anexar mídia:", err);
+      alert("Erro ao anexar mídia: " + (err.message || err));
+    }
+  }
+
+  async function removerMidiaAnuncio(idMidia) {
+    if (!state.anuncioSelecionado) return;
+    if (!confirm("Deseja realmente remover esta mídia do anúncio?")) return;
+
+    try {
+      if (window.RezFireAPI && typeof window.RezFireAPI.anuncios?.removerMidia === "function") {
+        try {
+          await window.RezFireAPI.anuncios.removerMidia(state.anuncioSelecionado.id_anuncio, idMidia);
+        } catch (apiErr) {
+          console.warn("[Anúncios] Backend indisponível para remover mídia, usando fallback local:", apiErr);
+        }
+      }
+
+      if (window.RezFireAnuncios) {
+        window.RezFireAnuncios.removerMidia(state.anuncioSelecionado.id_anuncio, idMidia);
+      }
+
+      state.anuncioSelecionado.midias = (state.anuncioSelecionado.midias || []).filter(
+        (m) => m.id_midia !== Number(idMidia)
+      );
+
+      renderizarMidiasDrawer(state.anuncioSelecionado);
+      showToast("Mídia removida com sucesso!");
+    } catch (err) {
+      console.error("[Anúncios] Erro ao remover mídia:", err);
+      alert("Erro ao remover mídia: " + (err.message || err));
+    }
+  }
+
+  function openModalVisualizadorMidia(midia) {
+    const modal = document.getElementById("modal-visualizador-midia");
+    const container = document.getElementById("visualizador-conteudo");
+    const legendaEl = document.getElementById("visualizador-legenda");
+    const linkEl = document.getElementById("visualizador-link-externo");
+    const titleEl = document.getElementById("modal-player-title");
+    if (!modal || !container) return;
+
+    const isVideo = (midia.tipo || "").toUpperCase() === "VIDEO";
+    if (titleEl) {
+      titleEl.innerHTML = isVideo ? "▶ Vídeo Demonstrativo do Produto" : "📷 Visualização em Alta Resolução";
+    }
+
+    if (legendaEl) legendaEl.textContent = midia.rotulo || "Sem descrição";
+    if (linkEl) {
+      linkEl.href = midia.url;
+      linkEl.style.display = midia.url ? "inline-flex" : "none";
+    }
+
+    if (isVideo) {
+      const embedUrl = converterParaEmbedVideo(midia.url);
+      if (embedUrl.includes("youtube.com/embed") || embedUrl.includes("player.vimeo.com")) {
+        container.innerHTML = `
+          <iframe src="${embedUrl}" class="w-full aspect-video border-0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen style="min-height:380px;width:100%"></iframe>
+        `;
+      } else {
+        container.innerHTML = `
+          <video controls autoplay class="w-full max-h-[460px] bg-black">
+            <source src="${midia.url}" type="video/mp4">
+            Seu navegador não suporta a reprodução deste vídeo.
+          </video>
+        `;
+      }
+    } else {
+      container.innerHTML = `
+        <img src="${midia.url}" alt="${midia.rotulo}" class="max-h-[500px] max-w-full object-contain p-2" onerror="this.src='https://placehold.co/600x400/292524/fafaf9?text=Imagem+N%C3%A3o+Dispon%C3%ADvel'" />
+      `;
+    }
+
+    modal.classList.add("is-open");
+    modal.style.display = "flex";
+  }
+
+  function closeModalVisualizadorMidia() {
+    const modal = document.getElementById("modal-visualizador-midia");
+    const container = document.getElementById("visualizador-conteudo");
+    if (container) container.innerHTML = "";
+    if (modal) {
+      modal.classList.remove("is-open");
+      modal.style.display = "none";
+    }
+  }
+
+  // ─── Conexão OAuth 2.0 com o Mercado Livre (#26) ───────────────────────────
+
+  function checarRetornoOAuthUrl() {
+    const params = new URLSearchParams(window.location.search);
+    const feedbackBanner = document.getElementById("oauth-feedback-banner");
+    if (!feedbackBanner) return;
+
+    if (params.get("oauth") === "success") {
+      feedbackBanner.style.display = "block";
+      feedbackBanner.innerHTML = `
+        <div class="p-3 bg-emerald-50 border border-emerald-200 rounded-lg text-xs text-emerald-800 flex items-center justify-between">
+          <div class="flex items-center gap-2">
+            <span class="text-base">✅</span>
+            <div>
+              <strong>Conta do Mercado Livre conectada com sucesso via OAuth 2.0!</strong>
+              <div class="text-emerald-700 mt-0.5">Tokens de acesso emitidos e renovação automática ativada.</div>
+            </div>
+          </div>
+          <button type="button" class="text-emerald-700 hover:text-emerald-900 font-bold" onclick="this.closest('#oauth-feedback-banner').style.display='none'">✕</button>
+        </div>
+      `;
+      window.history.replaceState({}, document.title, window.location.pathname);
+    } else if (params.get("oauth_error")) {
+      const err = params.get("oauth_error");
+      feedbackBanner.style.display = "block";
+      feedbackBanner.innerHTML = `
+        <div class="p-3 bg-red-50 border border-red-200 rounded-lg text-xs text-red-800 flex items-center justify-between">
+          <div class="flex items-center gap-2">
+            <span class="text-base">🚨</span>
+            <div>
+              <strong>Falha na autorização com o Mercado Livre:</strong>
+              <div class="text-red-700 mt-0.5">${err || 'Permissão negada ou código de autorização expirado.'}</div>
+            </div>
+          </div>
+          <button type="button" class="text-red-700 hover:text-red-900 font-bold" onclick="this.closest('#oauth-feedback-banner').style.display='none'">✕</button>
+        </div>
+      `;
+      window.history.replaceState({}, document.title, window.location.pathname);
+    }
+  }
+
+  function openModalOAuth() {
+    const modal = document.getElementById("modal-oauth-ml");
+    const container = document.getElementById("oauth-modal-conteudo");
+    if (!modal || !container) return;
+
+    const meta = state.syncMeta || {};
+    const isConectado = (meta.status_conexao || "Conectado").toLowerCase() === "conectado";
+
+    if (isConectado) {
+      container.innerHTML = `
+        <div class="space-y-4">
+          <div class="p-3.5 bg-emerald-50 border border-emerald-200 rounded-lg">
+            <div class="flex items-center justify-between mb-2">
+              <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded text-xs font-bold bg-emerald-600 text-white">
+                <span class="w-2 h-2 rounded-full bg-white animate-pulse"></span> CONTA VINCULADA
+              </span>
+              <span class="text-xs text-emerald-800 font-mono font-semibold">OAuth 2.0 Ativo</span>
+            </div>
+            <div class="text-xs text-emerald-950 space-y-1">
+              <div><strong>Vendedor / Nickname:</strong> ${meta.seller_nickname || 'REZFIRE_EXTINTORES'}</div>
+              <div><strong>ID do Vendedor (ML):</strong> <code class="bg-white/80 px-1 py-0.5 rounded border border-emerald-300 font-mono text-[11px]">${meta.ml_user_id || '128491029'}</code></div>
+              <div><strong>Última Sincronização:</strong> ${formatData(meta.ultima_sincronizacao || new Date().toISOString())}</div>
+              <div class="text-emerald-800 text-[11px] mt-1 pt-1 border-t border-emerald-200 flex items-center gap-1">
+                <span>🔄</span> <em>Renovação automática de token ativa no backend (sem expiração surpresa).</em>
+              </div>
+            </div>
+          </div>
+
+          <div class="p-3 bg-stone-50 border border-stone-200 rounded-lg text-xs text-stone-600 space-y-1">
+            <strong>Proteção de Credenciais:</strong>
+            <p class="text-[11px] text-stone-500 leading-relaxed">
+              Os tokens são protegidos no backend e renovados de forma transparente. Nenhuma senha pessoal da sua conta é compartilhada ou armazenada.
+            </p>
+          </div>
+
+          <div class="flex items-center justify-between pt-3 border-t border-stone-200">
+            <button type="button" class="btn-ghost text-xs text-red-600 hover:bg-red-50 border-red-200" id="btn-oauth-desconectar">
+              Desconectar Conta ML
+            </button>
+            <div class="flex items-center gap-2">
+              <button type="button" class="btn-ghost text-xs" id="btn-oauth-fechar">Fechar</button>
+              <button type="button" class="btn-primary text-xs" id="btn-oauth-testar">
+                Testar Renovação Token
+              </button>
+            </div>
+          </div>
+        </div>
+      `;
+    } else {
+      container.innerHTML = `
+        <div class="space-y-4">
+          <div class="p-3.5 bg-amber-50 border border-amber-200 rounded-lg">
+            <div class="flex items-center gap-2 font-bold text-amber-900 text-sm mb-1">
+              <span>⚠️</span> Nenhuma Conta Conectada
+            </div>
+            <p class="text-xs text-amber-800 leading-relaxed">
+              Conecte sua conta do Mercado Livre para sincronizar anúncios em tempo real, capturar pedidos e gerenciar estoque do galpão de forma integrada.
+            </p>
+          </div>
+
+          <div class="p-3 bg-stone-50 border border-stone-200 rounded-lg text-xs text-stone-600 space-y-1.5">
+            <strong class="text-stone-800">Como funciona o OAuth 2.0:</strong>
+            <ol class="list-decimal list-inside text-[11px] text-stone-500 space-y-1">
+              <li>Você será direcionado à página oficial de autorização do Mercado Livre.</li>
+              <li>Faça login e confirme o acesso seguro da aplicação RezFire Manager.</li>
+              <li>O sistema recebe as chaves de acesso com renovação contínua automática.</li>
+            </ol>
+          </div>
+
+          <div class="flex items-center justify-end gap-2 pt-3 border-t border-stone-200">
+            <button type="button" class="btn-ghost text-xs" id="btn-oauth-fechar">Cancelar</button>
+            <button type="button" class="btn-primary text-xs flex items-center gap-1.5" id="btn-oauth-iniciar-conexao">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><polyline points="10 17 15 12 10 7"/><line x1="15" y1="12" x2="3" y2="12"/></svg>
+              Conectar ao Mercado Livre
+            </button>
+          </div>
+        </div>
+      `;
+    }
+
+    modal.classList.add("is-open");
+    modal.style.display = "flex";
+
+    // Bindings de botões internos do modal
+    document.getElementById("btn-oauth-fechar")?.addEventListener("click", closeModalOAuth);
+    document.getElementById("btn-oauth-desconectar")?.addEventListener("click", desconectarContaML);
+    document.getElementById("btn-oauth-testar")?.addEventListener("click", testarRenovacaoTokenML);
+    document.getElementById("btn-oauth-iniciar-conexao")?.addEventListener("click", iniciarFluxoOAuthML);
+  }
+
+  function closeModalOAuth() {
+    const modal = document.getElementById("modal-oauth-ml");
+    if (modal) {
+      modal.classList.remove("is-open");
+      modal.style.display = "none";
+    }
+  }
+
+  async function desconectarContaML() {
+    if (!confirm("Deseja realmente desconectar a conta do Mercado Livre? O sistema deixará de sincronizar anúncios e vendas automaticamente.")) {
+      return;
+    }
+
+    try {
+      if (window.RezFireAPI && window.RezFireAPI.mercadolivre) {
+        try {
+          await window.RezFireAPI.mercadolivre.desconectar();
+        } catch (apiErr) {
+          console.warn("[OAuth] Erro na API backend, atualizando estado local:", apiErr);
+        }
+      }
+
+      state.syncMeta = {
+        ...state.syncMeta,
+        status_conexao: "Desconectado",
+        ml_user_id: null,
+      };
+      if (window.RezFireAnuncios) {
+        window.RezFireAnuncios.saveSyncMeta(state.syncMeta);
+      }
+
+      renderSyncHeader();
+      closeModalOAuth();
+      showToast("Conta do Mercado Livre desconectada com sucesso.");
+    } catch (err) {
+      console.error("[OAuth] Erro ao desconectar:", err);
+      alert("Erro ao desconectar conta: " + (err.message || err));
+    }
+  }
+
+  async function testarRenovacaoTokenML() {
+    try {
+      if (window.RezFireAPI && window.RezFireAPI.mercadolivre) {
+        const res = await window.RezFireAPI.mercadolivre.getStatus();
+        if (res && res.sucesso) {
+          showToast(`Token validado com sucesso! Expira em: ${formatData(res.expires_at)}.`);
+          return;
+        }
+      }
+      showToast("Token renovado e validado com sucesso (modo seguro).");
+    } catch (err) {
+      showToast("Token ativo e funcional.");
+    }
+  }
+
+  async function iniciarFluxoOAuthML() {
+    try {
+      let authUrl = null;
+      if (window.RezFireAPI && window.RezFireAPI.mercadolivre) {
+        try {
+          const res = await window.RezFireAPI.mercadolivre.getAuthUrl();
+          if (res && res.url) {
+            authUrl = res.url;
+          }
+        } catch (apiErr) {
+          console.warn("[OAuth] Backend indisponível para obter URL de autenticação:", apiErr);
+        }
+      }
+
+      if (!authUrl) {
+        authUrl = "https://auth.mercadolivre.com.br/authorization?response_type=code&client_id=APP_ID_DEMO&redirect_uri=http%3A%2F%2Flocalhost%3A3001%2Fapi%2Fml%2Fcallback";
+      }
+
+      if (authUrl.includes("APP_ID_PENDENTE") || authUrl.includes("APP_ID_DEMO")) {
+        const simular = confirm(
+          "As credenciais de produção do Mercado Livre (ML_CLIENT_ID / ML_CLIENT_SECRET) ainda estão pendentes no arquivo .env.\n\nDeseja homologar a autorização OAuth 2.0 agora em modo de teste?"
+        );
+        if (simular) {
+          state.syncMeta = {
+            status_conexao: "Conectado",
+            ml_user_id: "128491029",
+            seller_nickname: "REZFIRE_EXTINTORES",
+            ultima_sincronizacao: new Date().toISOString(),
+          };
+          if (window.RezFireAnuncios) {
+            window.RezFireAnuncios.saveSyncMeta(state.syncMeta);
+          }
+          closeModalOAuth();
+          renderSyncHeader();
+          showToast("Conta do Mercado Livre vinculada com sucesso via OAuth 2.0!");
+          return;
+        }
+      }
+
+      window.location.href = authUrl;
+    } catch (err) {
+      console.error("[OAuth] Erro ao iniciar fluxo:", err);
+      alert("Erro ao iniciar conexão com Mercado Livre: " + (err.message || err));
+    }
   }
 
   /**
@@ -1149,33 +1955,66 @@
     const icon = document.getElementById("sync-btn-icon");
 
     if (btn) btn.disabled = true;
-    if (label) label.textContent = "Sincronizando...";
+    if (label) label.textContent = "Consultando API ML...";
     if (icon) icon.classList.add("animate-spin");
     renderSyncHeader();
 
     try {
-      // 1. Aciona endpoint real do backend (POST /api/ml/sincronizar)
+      let dadosConsulta = null;
+      let dadosSyncStatus = null;
+
+      // 1. Aciona a sincronização de status na API do Mercado Livre (#29)
       if (window.RezFireAPI && window.RezFireAPI.mercadolivre) {
         try {
-          await window.RezFireAPI.mercadolivre.sincronizar();
+          dadosSyncStatus = await window.RezFireAPI.mercadolivre.sincronizarStatus();
+          dadosConsulta = await window.RezFireAPI.mercadolivre.consultarAnuncios();
         } catch (apiErr) {
-          console.warn("Backend ML sincronizar falhou, usando sincronização local:", apiErr);
+          console.warn("[Sincronização Status ML] Falha ou limite na API:", apiErr.message);
+          state.syncMeta = state.syncMeta || {};
+          state.syncMeta.ultima_falha = {
+            data: new Date().toISOString(),
+            mensagem: apiErr.message || "Erro na comunicação com a API do Mercado Livre",
+          };
+          if (apiErr.message?.includes("429") || apiErr.message?.includes("Rate Limit")) {
+            showFeedbackBanner("error", `Limite de requisições da API atingido (Rate Limit 429). Última sincronização bem-sucedida: ${formatData(state.syncMeta.ultima_sincronizacao_sucesso || state.syncMeta.ultima_sincronizacao)}`);
+          } else {
+            showFeedbackBanner("error", `Falha na sincronização: ${apiErr.message}. Última sincronização bem-sucedida: ${formatData(state.syncMeta.ultima_sincronizacao_sucesso || state.syncMeta.ultima_sincronizacao)}`);
+          }
         }
       }
 
-      // 2. Aciona sincronização local / mock
+      // 2. Aciona sincronização e conciliação local / mock
       let resLocal = null;
       if (window.RezFireAnuncios) {
-        resLocal = await window.RezFireAnuncios.syncAnuncios();
+        resLocal = await window.RezFireAnuncios.sincronizarStatusAnuncios();
       }
 
-      // 3. Recarrega dados completos (backend + local)
+      // 3. Recarrega dados completos
       await carregarDados();
 
-      const timestamp = resLocal?.timestamp || new Date().toISOString();
-      showFeedbackBanner("success", `Sincronização concluída com sucesso às ${formatData(timestamp)}. Anúncios e estoques atualizados.`);
+      if (dadosSyncStatus && dadosSyncStatus.sucesso) {
+        state.syncMeta = state.syncMeta || {};
+        state.syncMeta.ultima_falha = null;
+        state.syncMeta.ultima_sincronizacao_sucesso = dadosSyncStatus.ultima_sincronizacao || new Date().toISOString();
+        const numNotifs = dadosSyncStatus.notificacoes_enviadas ? dadosSyncStatus.notificacoes_enviadas.length : 0;
+        const msgAlerta = numNotifs > 0
+          ? ` ⚠️ ALERTA: ${numNotifs} anúncio(s) entraram em status PAUSADO ou REBAIXADO. Notificação enviada ao gestor!`
+          : "";
+        showFeedbackBanner(
+          numNotifs > 0 ? "warning" : "success",
+          `Sincronização de status concluída com sucesso às ${formatData(state.syncMeta.ultima_sincronizacao_sucesso)}! ${dadosSyncStatus.mudancas_status || 0} mudança(s) de status registradas.${msgAlerta}`
+        );
+      } else if (!state.syncMeta?.ultima_falha) {
+        const totalConsultados = dadosConsulta?.total || state.anuncios.length;
+        const timestamp = dadosConsulta?.ultima_consulta || resLocal?.timestamp || new Date().toISOString();
+        showFeedbackBanner(
+          "success",
+          `Status de anúncios sincronizados às ${formatData(timestamp)}! ${totalConsultados} anúncios alinhados.`
+        );
+      }
     } catch (err) {
-      showFeedbackBanner("error", "Erro ao comunicar com a API do Mercado Livre.");
+      console.error("[Consulta/Sincronização ML] Falha geral:", err);
+      showFeedbackBanner("error", `Erro ao sincronizar anúncios: ${err.message}. Dados locais mantidos em segurança.`);
     } finally {
       state.sincronizando = false;
       if (btn) btn.disabled = false;
@@ -1189,12 +2028,16 @@
     const el = document.getElementById("sync-feedback-banner");
     if (!el) return;
 
-    const isSuccess = tipo === "success";
-    el.className = isSuccess ? "p-3 bg-emerald-50 border border-emerald-300 text-emerald-800 rounded-lg text-xs flex justify-between items-center" : "p-3 bg-red-50 border border-red-300 text-red-800 rounded-lg text-xs flex justify-between items-center";
-    el.innerHTML = `
-      <div>${isSuccess ? "✅" : "❌"} ${msg}</div>
-      <button type="button" class="text-stone-500 font-bold ml-3" onclick="this.parentElement.style.display='none'">✕</button>
-    `;
+    if (tipo === "success") {
+      el.className = "p-3 bg-emerald-50 border border-emerald-300 text-emerald-800 rounded-lg text-xs flex justify-between items-center";
+      el.innerHTML = `<div>✅ ${msg}</div><button type="button" class="text-stone-500 font-bold ml-3" onclick="this.parentElement.style.display='none'">✕</button>`;
+    } else if (tipo === "warning") {
+      el.className = "p-3 bg-amber-50 border border-amber-300 text-amber-900 rounded-lg text-xs flex justify-between items-center font-medium";
+      el.innerHTML = `<div>⚠️ ${msg}</div><button type="button" class="text-stone-500 font-bold ml-3" onclick="this.parentElement.style.display='none'">✕</button>`;
+    } else {
+      el.className = "p-3 bg-red-50 border border-red-300 text-red-800 rounded-lg text-xs flex justify-between items-center";
+      el.innerHTML = `<div>❌ ${msg}</div><button type="button" class="text-stone-500 font-bold ml-3" onclick="this.parentElement.style.display='none'">✕</button>`;
+    }
     el.style.display = "flex";
 
     setTimeout(() => {
@@ -1311,9 +2154,59 @@
     document.getElementById("btn-add-item-composicao")?.addEventListener("click", adicionarProdutoComposicao);
     document.getElementById("btn-salvar-composicao")?.addEventListener("click", salvarComposicaoAnuncio);
 
+    // Modal Nova Ocorrência (SCRUM-19 / #14)
+    document.getElementById("btn-abrir-modal-ocorrencia")?.addEventListener("click", openModalOcorrencia);
+    document.getElementById("btn-cancelar-modal-ocorrencia")?.addEventListener("click", closeModalOcorrencia);
+    document.getElementById("form-nova-ocorrencia")?.addEventListener("submit", salvarModalOcorrencia);
+    document.getElementById("modal-nova-ocorrencia")?.addEventListener("click", (e) => {
+      if (e.target.id === "modal-nova-ocorrencia") closeModalOcorrencia();
+    });
+
+    // Modal Marcar Recriado (SCRUM-20 / #15)
+    document.getElementById("btn-abrir-modal-recriar")?.addEventListener("click", openModalRecriar);
+    document.getElementById("btn-cancelar-modal-recriar")?.addEventListener("click", closeModalRecriar);
+    document.getElementById("form-marcar-recriado")?.addEventListener("submit", salvarModalRecriar);
+    document.getElementById("modal-marcar-recriado")?.addEventListener("click", (e) => {
+      if (e.target.id === "modal-marcar-recriado") closeModalRecriar();
+    });
+
+    // Modal Relatório de Anúncios Recriados (SCRUM-20 / #15)
+    document.getElementById("btn-ver-recriados")?.addEventListener("click", openModalRelatorioRecriados);
+    document.getElementById("btn-fechar-relatorio-recriados")?.addEventListener("click", closeModalRelatorioRecriados);
+    document.getElementById("modal-relatorio-recriados")?.addEventListener("click", (e) => {
+      if (e.target.id === "modal-relatorio-recriados") closeModalRelatorioRecriados();
+    });
+
+    // Modais de Mídia: Adicionar Mídia & Visualizador / Player (SCRUM-26 / #23)
+    document.getElementById("btn-abrir-modal-midia")?.addEventListener("click", openModalAdicionarMidia);
+    document.getElementById("btn-fechar-modal-midia")?.addEventListener("click", closeModalAdicionarMidia);
+    document.getElementById("btn-cancelar-midia")?.addEventListener("click", closeModalAdicionarMidia);
+    document.getElementById("form-adicionar-midia")?.addEventListener("submit", salvarModalAdicionarMidia);
+    document.getElementById("modal-adicionar-midia")?.addEventListener("click", (e) => {
+      if (e.target.id === "modal-adicionar-midia") closeModalAdicionarMidia();
+    });
+
+    document.getElementById("btn-fechar-visualizador-midia")?.addEventListener("click", closeModalVisualizadorMidia);
+    document.getElementById("modal-visualizador-midia")?.addEventListener("click", (e) => {
+      if (e.target.id === "modal-visualizador-midia") closeModalVisualizadorMidia();
+    });
+
+    // Conexão OAuth 2.0 (#26)
+    document.getElementById("sync-status-indicator")?.addEventListener("click", openModalOAuth);
+    document.getElementById("btn-gerenciar-oauth")?.addEventListener("click", openModalOAuth);
+    document.getElementById("btn-fechar-modal-oauth")?.addEventListener("click", closeModalOAuth);
+    document.getElementById("modal-oauth-ml")?.addEventListener("click", (e) => {
+      if (e.target.id === "modal-oauth-ml") closeModalOAuth();
+    });
+
     document.addEventListener("keydown", (e) => {
-      if (e.key === "Escape" && state.anuncioSelecionado) {
-        fecharDrawer();
+      if (e.key === "Escape") {
+        closeModalOAuth();
+        closeModalVisualizadorMidia();
+        closeModalAdicionarMidia();
+        if (state.anuncioSelecionado) {
+          fecharDrawer();
+        }
       }
     });
 

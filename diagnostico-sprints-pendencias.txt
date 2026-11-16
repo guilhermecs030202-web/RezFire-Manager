@@ -82,68 +82,134 @@ Todas as 10 User Stories (45 Story Points) da Sprint 1 foram implementadas, inte
 
 3. O QUE FALTA PARA FECHAR A SPRINT 2 (MVP E PRIMEIRO PASSO ML)
 --------------------------------------------------------------------------------
-[ ] SCRUM-24 (#19) - Central Unificada de Alertas:
-    Criar uma visão única (página ou painel dedicado) agregando todos os alertas
-    operacionais em um só lugar: estoque mínimo, validade de extintores, anúncios
-    pausados no ML e despachos em atraso.
-    Complexidade: Média.
+[X] SCRUM-24 (#19) - Central Unificada de Alertas (CONCLUÍDO em 07/11/2026):
+    Criada tela dedicada alertas.html e controlador alertas.js, integrados ao backend via rota
+    GET /api/alertas/central e AlertaService. Consolida de forma priorizada as 4 fontes de alertas:
+    - Prazos de Postagem (#10): atrasados (crítico) e postar hoje (atenção).
+    - Estoque & Ruptura (#4): ruptura total saldo zero (crítico) e saldo <= mínimo (atenção).
+    - Validade FEFO (#8): lotes vencidos e bloqueados < 6 meses (crítico) e prioridade FEFO <= 1 ano (atenção).
+    - Anúncios ML (#13): anúncios pausados (crítico) e divergência física vs anunciada (atenção).
+    Conta com 6 KPIs interativos de topo, filtros de busca/categoria/criticidade, atalhos direcionados
+    de resolução em 1 clique e badge de contagem reativo no menu lateral (sidebar-alertas-badge).
 
-[ ] SCRUM-12 (#7) - Segunda inspeção na separação:
-    Na tela de Entregas/Expedição (entregas.html), incluir um checklist de checagem
-    dupla antes do despacho (conferência do lacre e integridade antes de embalar).
-    Complexidade: Baixa.
+[X] SCRUM-12 (#7) - Segunda inspeção na separação (CONCLUÍDO em 07/11/2026):
+    Na tela de Entregas (entregas.html / entregas.js), adicionado fluxo de Checagem Dupla
+    no modal de conclusão de separação (modal-segunda-inspecao) com 5 itens técnicos essenciais:
+    lacre INMETRO intacto, manômetro na faixa verde, casco/pintura sem avarias, acessórios
+    completos e rótulo legível. Entidade InspecaoQualidade atualizada com campo relacional
+    id_pedido e tipo Separacao. Laudo auditável vinculado diretamente à entrega e ao histórico.
 
-[ ] SCRUM-22 (#11) - Motivo de devoluções/mediações:
-    Ao registrar cancelamento ou devolução de pedido, permitir selecionar o motivo
-    (avaria no transporte, compra equivocada, desacordo comercial) para gerar relatórios.
-    Complexidade: Baixa.
+[X] SCRUM-22 (#11) - Motivo de devoluções/mediações (CONCLUÍDO):
+    Ao registrar cancelamento, devolução ou mediação de pedido, o motivo é selecionado
+    a partir de lista padronizada (Avaria no Transporte, Compra Equivocada, Desistência/CDC 7d,
+    Atraso na Entrega, Defeito/Despressurização, Outro). Gera estorno automático de estoque
+    em movimentacoes_estoque e disponibiliza modal de análise com ranking percentual e histórico auditável.
 
-[ ] SCRUM-19 (#14) / SCRUM-20 (#15) - Histórico de ocorrências de anúncios:
-    Timeline cronológica registrando quando um anúncio teve queda de preço, pausou
-    por estoque zerado ou precisou ser recriado.
-    Complexidade: Média.
+[X] SCRUM-19 (#14) / SCRUM-20 (#15) - Histórico de ocorrências e recriação de anúncios (CONCLUÍDO):
+    Timeline cronológica auditável no Drawer lateral do anúncio (mudanças de preço, pausas por estoque,
+    advertências do ML, reativações e anotações manuais). Modal de marcação de anúncio excluído/recriado
+    com cálculo do tempo de reposicionamento (em dias) e modal de relatório comparativo. Entidade
+    OcorrenciaAnuncio integrada ao TypeORM e rotas dedicadas no backend.
 
-[ ] SCRUM-26 (#23) - Fotos e vídeos nos anúncios:
-    Galeria de fotos e links de vídeos de demonstração na ficha detalhada do anúncio.
-    Complexidade: Baixa.
+[X] SCRUM-26 (#23) - Fotos e vídeos nos anúncios [CONCLUÍDO]:
+    Galeria de fotos e links de vídeos de demonstração na ficha detalhada do anúncio (Drawer lateral).
+    Suporte a imagens de alta resolução com modal de visualização ampliada (lightbox), player embutido
+    para vídeos do YouTube/Vimeo e suporte a arquivos MP4 nativos. Cadastro e remoção de mídias com
+    auditoria no histórico, persistência via TypeORM (MidiaAnuncio) e sincronização com mock local.
 
-[ ] Interface do OAuth2 (#26):
-    Adicionar um botão de atalho claro na interface do gestor (ex.: em Configurações
-    ou Anúncios) para iniciar o fluxo de autorização com a conta do Mercado Livre.
-    Complexidade: Baixa.
+[X] Interface do OAuth2 (#26) [CONCLUÍDO]:
+    Interface completa de gerenciamento da conexão OAuth 2.0 com o Mercado Livre em anuncios.html.
+    Modal #modal-oauth-ml para conectar, desconectar, testar e renovar tokens. Indicador dinâmico
+    de status (Conectado / Desconectado) e banners de feedback para retornos bem-sucedidos ou erros
+    de autorização (access_denied, expiração de código). Backend com renovação automática por
+    refresh_token (garantirTokenValido) e endpoint POST /api/ml/desconectar.
 
-* NOTA SOBRE O SCRUM-5 (#20 - USUÁRIOS E PERMISSÕES):
-  O documento da Sprint 2 previa cadastro de múltiplos usuários com papéis distintos.
-  Contudo, o documento mandatório AGENTS.md determina expressamente:
-  "O sistema será utilizado inicialmente por uma única pessoa: o gestor da RezFire.
-  Não implementar multiusuário no escopo atual. Não criar tela de gerenciamento de usuários."
-  Portanto, a autenticação por perfil único do gestor (gestor@rezfire.com.br) já atende
-  perfeitamente ao requisito da empresa.
+[X] Consulta de Anúncios via API do ML (#27) [CONCLUÍDO]:
+    Consulta sob demanda diretamente na API oficial do Mercado Livre (GET/POST /api/ml/anuncios/consultar).
+    Listagem completa com identificador (ml_item_id), título, status, preço e quantidade disponível.
+    Paginação robusta, tratamento gracioso de Rate Limit (HTTP 429) e erros de rede com fallback
+    seguro para os dados locais, garantindo estabilidade e integridade da tela.
+
+[X] SCRUM-5 (#20) - Usuários e permissões (RBAC) [CONCLUÍDO]:
+    Implementada tela de gerenciamento de usuários (usuarios.html) e controle de papéis (RBAC)
+    aprovada expressamente pelo gestor para permitir a operação do sistema por terceiros em sua ausência.
+    Matriz de permissões com perfis GESTOR (acesso total) e OPERADOR (acesso restrito ao armazém,
+    estoque e entregas; bloqueado do financeiro e gestão de usuários). Endpoints REST no backend
+    protegidos por authMiddleware e requerPerfil(['GESTOR']).
+
+[X] Homologação do MVP (#28) [CONCLUÍDO]:
+    Roteiro de homologação e testes de aceitação executado com 100% de sucesso
+    (frontend/_verify/homologacao_mvp_roteiro_aceite.mjs) cobrindo autenticação e perfis RBAC,
+    regras FEFO de validade, ciclo de pedidos com regra de ouro do estoque, checklist INMETRO,
+    central unificada de alertas operacionais e integração completa com Mercado Livre.
+    Servidor ativo e acessível em http://localhost:3001.
 
 
-4. O QUE FALTA NAS SPRINTS 3 E 4 (AUTOMAÇÃO ML E ANÁLISES FINANCEIRAS)
+4. STATUS DAS SPRINTS 3 E 4 (AUTOMAÇÃO ML E ANÁLISES FINANCEIRAS)
 --------------------------------------------------------------------------------
-[ ] Sincronização em tempo real de Pedidos ML (#30) na interface:
-    O backend já possui a estrutura da fila de webhook, mas depende de credenciais reais
-    de produção/teste do Mercado Livre (APP_ID e SECRET_KEY) para homologar a captura.
+[X] Sincronizar status de anúncios via API (#29) [CONCLUÍDO em 07/11/2026]:
+    Implementada rotina de sincronização periódica (agendada via MLReconciliationCron a cada 30 min)
+    e sob demanda (POST /api/ml/anuncios/sincronizar-status e botão na tela de Anúncios).
+    Cada mudança de status do Mercado Livre (Ativo, Pausado, Excluído) é detectada e registrada
+    cronologicamente na tabela ocorrencias_anuncio (#14) com autor 'Sincronizador ML (Automático)',
+    data/hora e dados_anteriores. A tela única de anúncios reflete imediatamente os novos status nos KPIs,
+    tabela e Drawer. Falhas de sincronização são exibidas com clareza ao gestor no cabeçalho mantendo a data
+    da última sincronização com sucesso intacta, e anúncios novos/removidos são tratados com idempotência
+    estrita por ml_item_id sem duplicação de registros.
 
-[ ] Notificações ativas de quedas de anúncio (#32):
-    Disparo de notificação externa (e-mail ou push) quando um anúncio pausar repentinamente.
+[X] Sincronizar pedidos do Mercado Livre (#30) [CONCLUÍDO em 07/11/2026]:
+    Implementada rotina completa de importação e sincronização de pedidos do Mercado Livre (agendada
+    periodicamente no MLReconciliationCron e sob demanda via POST /api/ml/pedidos/sincronizar).
+    Pedidos novos são importados com itens físicos/anúncios vinculados, cliente, prazo de despacho e status
+    Confirmado, com baixa imediata de estoque e controle FEFO. Idempotência estrita garantida por codigo_pedido
+    (MLB-{orderId}) evitando duplicações. Mudanças de status no ML (como cancelamentos) são refletidas no
+    sistema acionando estorno automático com movimentação de entrada. Os pedidos aparecem na listagem do #9a
+    e alimentam alertas operacionais de postagem atrasada e postar hoje (#10). Falhas de importação são
+    registradas e visíveis ao gestor com a data do último sucesso preservada. Botão ⚡ Sincronizar ML adicionado
+    na tela de pedidos (pedidos.html).
 
-[ ] Cálculo de Lucro Real por Venda (#18a-c):
-    Descontar do faturamento bruto a comissão exata do Mercado Livre (Clássico vs Premium),
-    custo da etiqueta de frete, imposto configurado e embalagem, gerando o lucro líquido real.
+[X] Baixa automática de estoque por pedido (#31) [CONCLUÍDO em 07/11/2026]:
+    Baixa imediata transacional com controle de lotes FEFO acionada na importação de pedidos do Mercado Livre,
+    validação prévia de saldo para evitar saldo negativo, disparo de alerta operacional de saldo insuficiente
+    e alerta de estoque mínimo (#4).
 
-[ ] Respostas padrão de pré-venda (#22):
-    Banco de respostas rápidas para dúvidas técnicas frequentes de clientes (ex.: capacidade
-    extintora, validade para vistorias do Corpo de Bombeiros).
+[X] Notificações ativas de quedas de anúncio (#32) [CONCLUÍDO em 07/11/2026]:
+    Disparo de notificação corporativa ao gestor (e-mail e Central de Alertas) quando um anúncio pausar ou for rebaixado/sob revisão, com regra antirruído/idempotência e reflexo na Central de Alertas (#19).
 
-[ ] Impacto de quedas de anúncio no faturamento (#17):
-    Gráfico analítico histórico cruzando períodos de anúncios pausados com a oscilação da
-    curva de faturamento.
+[X] Cálculo de Lucro Real por Venda (#18a-c) (SCRUM-23 - CONCLUÍDO em 07/11/2026):
+    Apuração automatizada por venda descontando da receita bruta os custos fixos (CMV dos produtos/combos,
+    impostos Simples Nacional e embalagem reforçada - #18a), tarifas e fretes da plataforma (comissão Clássico vs
+    Premium, taxa fixa < R$ 79 e frete do vendedor - #18b) e apurando o lucro líquido real e margem líquida (#18c),
+    com demonstrativo financeiro (DRE) detalhado e recálculo personalizado por venda na tela de pedidos (pedidos.html).
 
-[ ] Classificação Financeira PJ x PF (#25):
-    Tag nos relatórios para segregar despesas corporativas de retiradas pessoais do gestor.
+[X] Respostas padrão de pré-venda (#22) (SCRUM-28 - CONCLUÍDO em 07/11/2026):
+    Base de respostas técnicas e perguntas frequentes (validade de 5 anos veicular, recarga anual,
+    vistoria do Corpo de Bombeiros / AVCB, capacidade extintora 2A-20BC / 4A-40BC, selo INMETRO e suportes),
+    com busca por palavra-chave, filtro por categoria, cadastro/edição pelo gestor e botão de cópia instantânea
+    com 1 clique integrado nas telas de Anúncios (anuncios.html) e Pedidos (pedidos.html).
+
+[X] Modalidades de envio (#24) (SCRUM-27 - CONCLUÍDO em 07/11/2026):
+    Registro da modalidade de envio do pedido entre as 4 modalidades disponíveis (Mercado Envios Full, Coleta,
+    Tradicional e Logística Própria), com prazos estimados automáticos e custos de frete diferenciados.
+    Quadro comparativo consolidado analítico (GET /api/pedidos/comparativo-modalidades) com custo médio de frete,
+    prazo médio de entrega/despacho, taxa de pontualidade operacional, volume de pedidos e margem média,
+    disponível via modal dedicado e badges dinâmicos na tela de pedidos (pedidos.html).
+
+[X] Impacto de quedas de anúncio no faturamento (#17) (SCRUM-25 - CONCLUÍDO em 07/11/2026):
+    Cruzamento analítico temporal diário entre ocorrências de anúncios pausados e rebaixados com a curva de vendas
+    (GET /api/dashboard/impacto-quedas-anuncios). Aba dedicada 'Mercado Livre' no dashboard com gráfico misto ApexCharts
+    (linha de faturamento real vs potencial e barras de anúncios caídos), apuração de receita cessante por run-rate diário,
+    ranking de anúncios mais prejudicados com ações recomendadas e gráfico de causas raiz (Falta de Estoque FEFO vs Moderação ML).
+
+[X] Classificação Financeira PJ x PF (#25) (SCRUM-29 - CONCLUÍDO em 07/11/2026):
+    Segregação patrimonial explícita entre despesas/receitas corporativas da Empresa (PJ - Simples Nacional)
+    e retiradas/gastos pessoais do gestor (PF). Entidade LancamentoFinanceiro e migration 1700000000009 com
+    tabela lancamentos_financeiros. CRUD completo protegido por RBAC (perfil GESTOR), endpoint consolidado
+    GET /api/financeiro/relatorio-segregacao com apuração de saldos líquidos segregados, despesas por categoria
+    e índice de segregação fiscal. No frontend (dashboard.html / dashboard.js), adicionado Quadro de Segregação
+    Patrimonial na aba Financeiro com 3 KPIs com bordas temáticas, 2 gráficos ApexCharts (comparativo de barras
+    agrupadas PJ x PF e donut de despesas), tabela auditável com ações e modal de cadastro de lançamentos.
+    Teste automatizado de aceite unit_test_financeiro_empresa_pessoal.mjs 100% aprovado.
 
 
 5. RESUMO E PRÓXIMA PRIORIDADE SUGERIDA

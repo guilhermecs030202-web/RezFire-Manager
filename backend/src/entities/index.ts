@@ -11,4 +11,9 @@ export { ProdutoAnuncio } from './ProdutoAnuncio';
 export { DocumentoCertificacao } from './DocumentoCertificacao';
 export { EventoMercadoLivre } from './EventoMercadoLivre';
 export { InspecaoQualidade, ChecklistQualidadeEntrada } from './InspecaoQualidade';
+export { OcorrenciaAnuncio } from './OcorrenciaAnuncio';
+export { MidiaAnuncio } from './MidiaAnuncio';
+export { Notificacao } from './Notificacao';
+export { RespostaPadrao } from './RespostaPadrao';
+export { LancamentoFinanceiro } from './LancamentoFinanceiro';
 

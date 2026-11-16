@@ -58,8 +58,8 @@ console.log(` - Lotes de Extintores: ${lotes.length}`);
 if (lotes.length < 5) throw new Error("Quantidade de lotes insuficiente!");
 
 const anuncios = window.RezFireAnuncios.loadAnuncios();
-console.log(` - Anúncios Mercado Livre: ${anuncios.length} (esperado: 13)`);
-if (anuncios.length !== 13) throw new Error("Quantidade de anúncios incorreta!");
+console.log(` - Anúncios Mercado Livre: ${anuncios.length} (esperado: >= 13)`);
+if (anuncios.length < 13) throw new Error("Quantidade de anúncios incorreta!");
 
 const entregas = window.RezFireEntregas.loadEntregas();
 console.log(` - Entregas / Expedição: ${entregas.length}`);

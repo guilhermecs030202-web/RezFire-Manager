@@ -1,5 +1,9 @@
 import { AppDataSource } from '../config/database';
-import { InspecaoQualidade, ChecklistQualidadeEntrada } from '../entities/InspecaoQualidade';
+import {
+  InspecaoQualidade,
+  ChecklistQualidadeEntrada,
+  ChecklistQualidadeSeparacao,
+} from '../entities/InspecaoQualidade';
 import { Produto } from '../entities/Produto';
 import { LoteEstoque } from '../entities/LoteEstoque';
 
@@ -7,9 +11,10 @@ export interface RegistrarInspecaoDTO {
   id_produto: number;
   id_lote?: number | null;
   id_movimentacao?: number | null;
+  id_pedido?: number | null;
   id_usuario?: number | null;
   tipo_inspecao?: 'Entrada' | 'Separacao';
-  checklist: ChecklistQualidadeEntrada;
+  checklist: ChecklistQualidadeEntrada | ChecklistQualidadeSeparacao | Record<string, boolean>;
   quantidade_total: number;
   quantidade_reprovada?: number;
   motivo_reprovacao?: string;
@@ -28,6 +33,7 @@ export class InspecaoService {
    */
   async listar(filtros: {
     id_produto?: number;
+    id_pedido?: number;
     tipo_inspecao?: 'Entrada' | 'Separacao';
     resultado?: 'Aprovado' | 'Reprovado' | 'Aprovado Parcial';
     data_inicio?: string;
@@ -39,11 +45,16 @@ export class InspecaoService {
       .leftJoinAndSelect('i.produto', 'p')
       .leftJoinAndSelect('i.lote', 'l')
       .leftJoinAndSelect('i.movimentacao', 'm')
+      .leftJoinAndSelect('i.pedido', 'ped')
       .leftJoinAndSelect('i.usuario', 'u')
       .orderBy('i.data_inspecao', 'DESC');
 
     if (filtros.id_produto) {
       qb.andWhere('i.id_produto = :id_produto', { id_produto: filtros.id_produto });
+    }
+
+    if (filtros.id_pedido) {
+      qb.andWhere('i.id_pedido = :id_pedido', { id_pedido: filtros.id_pedido });
     }
 
     if (filtros.tipo_inspecao) {
@@ -131,7 +142,18 @@ export class InspecaoService {
   }
 
   /**
-   * Registra uma inspeção de qualidade
+   * Busca as inspeções vinculadas a um pedido específico (SCRUM-12 / #7)
+   */
+  async buscarPorPedido(id_pedido: number) {
+    return this.inspecaoRepo.find({
+      where: { id_pedido },
+      relations: ['produto', 'lote', 'usuario'],
+      order: { data_inspecao: 'DESC' },
+    });
+  }
+
+  /**
+   * Registra uma inspeção de qualidade (Entrada ou Segunda Inspeção na Separação)
    */
   async registrar(dados: RegistrarInspecaoDTO) {
     const prodRepo = AppDataSource.getRepository(Produto);
@@ -141,12 +163,28 @@ export class InspecaoService {
     }
 
     const { checklist } = dados;
-    const todosConformes =
-      checklist.avarias_casco &&
-      checklist.sem_corrosao &&
-      checklist.rotulo_legivel &&
-      checklist.manometro_pressao &&
-      checklist.lacre_acessorios;
+    const isSeparacao = dados.tipo_inspecao === 'Separacao';
+
+    let todosConformes = false;
+    if (isSeparacao) {
+      const sep = checklist as ChecklistQualidadeSeparacao;
+      todosConformes = Boolean(
+        sep.lacre_inmetro_intacto &&
+        sep.manometro_faixa_verde &&
+        sep.sem_avarias_transporte &&
+        sep.suporte_acessorios &&
+        sep.rotulo_instrucoes
+      );
+    } else {
+      const ent = checklist as ChecklistQualidadeEntrada;
+      todosConformes = Boolean(
+        ent.avarias_casco &&
+        ent.sem_corrosao &&
+        ent.rotulo_legivel &&
+        ent.manometro_pressao &&
+        ent.lacre_acessorios
+      );
+    }
 
     let qtdReprovada = Number(dados.quantidade_reprovada || 0);
     if (!todosConformes && qtdReprovada <= 0) {
@@ -167,6 +205,7 @@ export class InspecaoService {
       id_produto: dados.id_produto,
       id_lote: dados.id_lote || null,
       id_movimentacao: dados.id_movimentacao || null,
+      id_pedido: dados.id_pedido || null,
       id_usuario: dados.id_usuario || null,
       tipo_inspecao: dados.tipo_inspecao || 'Entrada',
       checklist: dados.checklist,
@@ -175,7 +214,7 @@ export class InspecaoService {
       quantidade_aprovada: qtdAprovada,
       quantidade_reprovada: qtdReprovada,
       motivo_reprovacao: qtdReprovada > 0 ? (dados.motivo_reprovacao || 'Não-conformidade detectada no checklist físico') : null,
-      destino_reprovados: qtdReprovada > 0 ? (dados.destino_reprovados || 'Devolucao Fornecedor') : null,
+      destino_reprovados: qtdReprovada > 0 ? (dados.destino_reprovados || (isSeparacao ? 'Quarentena' : 'Devolucao Fornecedor')) : null,
       observacoes: dados.observacoes || null,
       responsavel: dados.responsavel || 'Gestor RezFire',
       data_inspecao: new Date(),

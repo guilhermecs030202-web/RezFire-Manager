@@ -9,6 +9,7 @@ router.use(authMiddleware);
 
 router.get('/kpis', controller.obterKpis);
 router.get('/graficos', controller.obterGraficos);
+router.get('/impacto-quedas-anuncios', controller.obterImpactoQuedasAnuncios);
 
 export default router;
 

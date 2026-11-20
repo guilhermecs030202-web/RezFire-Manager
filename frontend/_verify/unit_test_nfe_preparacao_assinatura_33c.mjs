@@ -91,7 +91,8 @@ async function runTests() {
 
   let tokenGestor = null;
   let tokenOperador = null;
-  let emitenteExistiaAntes = false;
+  let emitenteSnapshotAntes = null;
+  let instalouCertTemporario = false;
   let idOperadorCriado = null;
   let idProdutoTeste = null;
   const idsPedidosTeste = [];
@@ -110,7 +111,15 @@ async function runTests() {
     const movRepo = AppDataSource.getRepository(MovimentacaoEstoque);
     const nfRepo = AppDataSource.getRepository(NotaFiscal);
 
-    emitenteExistiaAntes = (await emitenteRepo.count()) > 0;
+    const emitenteAntes = await emitenteRepo.findOne({ where: {} });
+    if (emitenteAntes) {
+      emitenteSnapshotAntes = {
+        id_emitente: emitenteAntes.id_emitente,
+        ambiente: emitenteAntes.ambiente,
+        proximo_numero_nfe: emitenteAntes.proximo_numero_nfe,
+        hadCert: Boolean(emitenteAntes.certificado_titular),
+      };
+    }
 
     // 1. Setup de Gestor, Operador (RBAC), Emitente + Certificado A1
     console.log('Passo 1: Setup de Emitente Fiscal, Certificado A1 e Autenticação...');
@@ -147,16 +156,17 @@ async function runTests() {
       Authorization: `Bearer ${tokenGestor}`,
     };
 
-    const cnpjEmitente = '11222333000181';
+    const cnpjEmitente = emitenteAntes?.cnpj || '11222333000181';
+    const razaoEmitente = emitenteAntes?.razao_social || 'RezFire Equipamentos Contra Incendio Ltda';
     const senhaCert = 'RezFire#33c!2026';
     const numeroInicial = 500;
 
-    if (!emitenteExistiaAntes) {
+    if (!emitenteAntes) {
       await fetch(`${BASE_URL}/fiscal/emitente`, {
         method: 'PUT',
         headers: gestorHeaders,
         body: JSON.stringify({
-          razao_social: 'RezFire Equipamentos Contra Incendio Ltda',
+          razao_social: razaoEmitente,
           nome_fantasia: 'RezFire',
           cnpj: cnpjEmitente,
           inscricao_estadual: '110042490114',
@@ -173,9 +183,12 @@ async function runTests() {
           modo_integracao: 'sefaz_direto',
         }),
       });
+    }
+
+    if (!emitenteAntes?.certificado_titular) {
       const pfx = gerarPkcs12Teste({
         cnpj: cnpjEmitente,
-        razao: 'REZFIRE EQUIPAMENTOS',
+        razao: razaoEmitente.toUpperCase().slice(0, 30),
         diasInicio: -10,
         diasFim: 365,
         senha: senhaCert,
@@ -189,6 +202,7 @@ async function runTests() {
         body: formCert,
       });
       assert(upCertRes.status === 200, 'Certificado A1 instalado para assinatura XMLDSig');
+      instalouCertTemporario = upCertRes.status === 200;
     }
 
     const emitenteAtual = (await (await fetch(`${BASE_URL}/fiscal/emitente`, { headers: gestorHeaders })).json()).emitente;
@@ -242,10 +256,10 @@ async function runTests() {
     const prepBloqData = await prepBloqRes.json();
     assert(
       prepBloqRes.status === 422 &&
-        prepBloqData.bloqueado === true &&
-        Array.isArray(prepBloqData.erros_validacao) &&
-        prepBloqData.erros_validacao.some((e) => e.secao === 'destinatario' && e.campo && e.motivo) &&
-        prepBloqData.erros_validacao.some((e) => e.secao === 'item' && e.campo && e.motivo),
+      prepBloqData.bloqueado === true &&
+      Array.isArray(prepBloqData.erros_validacao) &&
+      prepBloqData.erros_validacao.some((e) => e.secao === 'destinatario' && e.campo && e.motivo) &&
+      prepBloqData.erros_validacao.some((e) => e.secao === 'item' && e.campo && e.motivo),
       'Preparação bloqueada (HTTP 422) apontando campo e motivo de destinatário e produto faltantes'
     );
 
@@ -328,16 +342,16 @@ async function runTests() {
     const xml = String(nf1.xml_assinado || '');
     assert(
       xml.includes('<NFe xmlns="http://www.portalfiscal.inf.br/nfe">') &&
-        xml.includes(`<nNF>${nf1.numero}</nNF>`) &&
-        xml.includes('<emit>') &&
-        xml.includes('<dest>') &&
-        xml.includes('<det nItem="1">') &&
-        xml.includes('<NCM>84241000</NCM>') &&
-        xml.includes('<vProd>918.00</vProd>') &&
-        xml.includes('<vFrete>26.00</vFrete>') &&
-        xml.includes('<vDesc>18.00</vDesc>') &&
-        xml.includes('<vNF>926.00</vNF>') &&
-        xml.includes('<Signature xmlns="http://www.w3.org/2000/09/xmldsig#">'),
+      xml.includes(`<nNF>${nf1.numero}</nNF>`) &&
+      xml.includes('<emit>') &&
+      xml.includes('<dest>') &&
+      xml.includes('<det nItem="1">') &&
+      xml.includes('<NCM>84241000</NCM>') &&
+      xml.includes('<vProd>918.00</vProd>') &&
+      xml.includes('<vFrete>26.00</vFrete>') &&
+      xml.includes('<vDesc>18.00</vDesc>') &&
+      xml.includes('<vNF>926.00</vNF>') &&
+      xml.includes('<Signature xmlns="http://www.w3.org/2000/09/xmldsig#">'),
       'XML NF-e v4.00 contém emitente, destinatário, itens, impostos, frete (26.00), desconto (18.00), total (926.00) e Signature'
     );
 
@@ -357,8 +371,8 @@ async function runTests() {
     const xmlDownloadText = await xmlDownloadRes.text();
     assert(
       xmlDownloadRes.status === 200 &&
-        xmlDownloadRes.headers.get('content-type')?.includes('application/xml') &&
-        xmlDownloadText === xml,
+      xmlDownloadRes.headers.get('content-type')?.includes('application/xml') &&
+      xmlDownloadText === xml,
       'Endpoint GET /api/fiscal/notas/:id/xml serve o XML assinado idêntico'
     );
 
@@ -371,8 +385,8 @@ async function runTests() {
     const prepIdempData = await prepIdempRes.json();
     assert(
       prepIdempRes.status === 200 &&
-        prepIdempData.ja_preparada === true &&
-        Number(prepIdempData.nota_fiscal?.numero) === Number(nf1.numero),
+      prepIdempData.ja_preparada === true &&
+      Number(prepIdempData.nota_fiscal?.numero) === Number(nf1.numero),
       'Chamada repetida no mesmo pedido retorna a NF-e já preparada sem consumir novo número'
     );
 
@@ -462,7 +476,21 @@ async function runTests() {
         if (idOperadorCriado) {
           await AppDataSource.getRepository(Usuario).delete({ id_usuario: idOperadorCriado });
         }
-        if (!emitenteExistiaAntes && tokenGestor) {
+        if (emitenteSnapshotAntes) {
+          if (instalouCertTemporario && tokenGestor) {
+            await fetch(`${BASE_URL}/fiscal/emitente/certificado`, {
+              method: 'DELETE',
+              headers: { Authorization: `Bearer ${tokenGestor}` },
+            });
+          }
+          await AppDataSource.getRepository(EmitenteFiscal).update(
+            { id_emitente: emitenteSnapshotAntes.id_emitente },
+            {
+              ambiente: emitenteSnapshotAntes.ambiente,
+              proximo_numero_nfe: emitenteSnapshotAntes.proximo_numero_nfe,
+            }
+          );
+        } else if (tokenGestor) {
           await fetch(`${BASE_URL}/fiscal/emitente/certificado`, {
             method: 'DELETE',
             headers: { Authorization: `Bearer ${tokenGestor}` },

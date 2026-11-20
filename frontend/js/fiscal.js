@@ -350,6 +350,49 @@
       }
     });
 
+    // Testar Conexão SEFAZ (Story 33d - NFeStatusServico4)
+    document.getElementById('btn-testar-sefaz')?.addEventListener('click', async () => {
+      const btn = document.getElementById('btn-testar-sefaz');
+      const box = document.getElementById('sefaz-status-resultado');
+      const errEl = document.getElementById('ambiente-form-error');
+      errEl.textContent = '';
+      if (btn) {
+        btn.disabled = true;
+        btn.textContent = 'Consultando status SEFAZ...';
+      }
+      if (box) {
+        box.style.display = 'none';
+      }
+
+      try {
+        const res = await window.RezFireAPI.fiscal.verificarStatusSefaz();
+        if (box) {
+          box.style.display = 'block';
+          box.className = 'mt-3 p-2.5 rounded-lg text-xs border bg-emerald-50 text-emerald-900 border-emerald-200';
+          box.innerHTML =
+            `<strong>✓ SEFAZ em operação (cStat ${escapeHtml(res.codigo_sefaz || '107')})</strong><br>` +
+            `<span>${escapeHtml(res.mensagem || '')}</span><br>` +
+            `<span class="text-stone-500">Modo: ${escapeHtml(res.modo_transporte)} · Ambiente: ${escapeHtml(String(res.ambiente || '').toUpperCase())} · ${res.duracao_ms || 0}ms</span>`;
+        }
+      } catch (err) {
+        if (box) {
+          const d = err.data || {};
+          box.style.display = 'block';
+          box.className = 'mt-3 p-2.5 rounded-lg text-xs border bg-red-50 text-red-900 border-red-200';
+          box.innerHTML =
+            `<strong>⚠ SEFAZ Indisponível (${escapeHtml(d.codigo_sefaz || err.status || 'Erro')})</strong><br>` +
+            `<span>${escapeHtml(d.mensagem || err.message || 'Falha na comunicação com a SEFAZ.')}</span>`;
+        } else {
+          errEl.textContent = err.message || 'Falha ao consultar serviço da SEFAZ.';
+        }
+      } finally {
+        if (btn) {
+          btn.disabled = false;
+          btn.textContent = 'Testar Conexão SEFAZ (NFeStatusServico4)';
+        }
+      }
+    });
+
     // Voltar para Homologação
     document.getElementById('btn-usar-homologacao')?.addEventListener('click', async () => {
       const errEl = document.getElementById('ambiente-form-error');

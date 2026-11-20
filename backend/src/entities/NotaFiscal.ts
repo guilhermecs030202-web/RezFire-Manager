@@ -11,6 +11,7 @@ import {
 } from 'typeorm';
 import { Pedido } from './Pedido';
 import { NotaFiscalItem } from './NotaFiscalItem';
+import { NotaFiscalTransmissao } from './NotaFiscalTransmissao';
 
 @Entity('notas_fiscais')
 @Index(['ambiente', 'serie', 'numero'], { unique: true })
@@ -86,6 +87,30 @@ export class NotaFiscal {
   @Column({ type: 'timestamp', nullable: true })
   emitida_em: Date | null;
 
+  @Column({ type: 'varchar', length: 10, nullable: true })
+  ultimo_codigo_sefaz: string | null;
+
+  @Column({ type: 'text', nullable: true })
+  ultimo_motivo_sefaz: string | null;
+
+  @Column({ type: 'text', nullable: true })
+  ultima_mensagem_amigavel: string | null;
+
+  @Column({ type: 'varchar', length: 64, nullable: true })
+  numero_recibo: string | null;
+
+  @Column({ type: 'longtext', nullable: true })
+  xml_autorizado: string | null;
+
+  @Column({ type: 'timestamp', nullable: true })
+  autorizada_em: Date | null;
+
+  @Column({ type: 'int', unsigned: true, default: 0 })
+  tentativas_envio: number;
+
+  @Column({ type: 'timestamp', nullable: true })
+  ultima_tentativa_em: Date | null;
+
   @CreateDateColumn({ type: 'timestamp' })
   created_at: Date;
 
@@ -94,5 +119,8 @@ export class NotaFiscal {
 
   @OneToMany(() => NotaFiscalItem, (item) => item.nota_fiscal, { cascade: true })
   itens: NotaFiscalItem[];
+
+  @OneToMany(() => NotaFiscalTransmissao, (transmissao) => transmissao.nota_fiscal)
+  transmissoes: NotaFiscalTransmissao[];
 }
 

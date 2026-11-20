@@ -464,6 +464,23 @@
               </select>
             </div>
 
+            <!-- Filtro de Status Fiscal (Story 33d) -->
+            <div style="display:flex;align-items:center;gap:6px">
+              <label for="filtro-status-fiscal"
+                style="font-size:0.72rem;font-weight:700;color:var(--muted);letter-spacing:0.05em;white-space:nowrap">Status Fiscal:</label>
+              <select id="filtro-status-fiscal" class="search-input" style="width:175px">
+                <option value="todos">Todos os fiscais</option>
+                <option value="sem_nota">Sem NF-e</option>
+                <option value="rascunho">Rascunho</option>
+                <option value="assinada">Assinada (Pronta)</option>
+                <option value="em_processamento">Em processamento</option>
+                <option value="autorizada">Autorizada</option>
+                <option value="rejeitada">Rejeitada</option>
+                <option value="denegada">Denegada</option>
+                <option value="cancelada">Cancelada</option>
+              </select>
+            </div>
+
             <!-- Ordenação -->
             <div style="display:flex;align-items:center;gap:6px">
               <label for="ordem-pedidos"

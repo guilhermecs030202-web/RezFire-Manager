@@ -9,6 +9,11 @@ import { Produto } from '../entities/Produto';
 import { NotaFiscal } from '../entities/NotaFiscal';
 import { NotaFiscalItem } from '../entities/NotaFiscalItem';
 import {
+  NotaFiscalTransmissao,
+  ResultadoTransmissao,
+  TipoOperacaoTransmissao,
+} from '../entities/NotaFiscalTransmissao';
+import {
   decryptBuffer,
   decryptText,
   encryptBuffer,
@@ -18,6 +23,15 @@ import {
 import { validarCertificadoA1 } from '../utils/certificadoA1Parser';
 import { montarXmlNFe400, validarDadosParaNFe } from '../utils/nfeBuilder';
 import { assinarXmlNFe } from '../utils/nfeSigner';
+import {
+  CenarioSimulacaoSefaz,
+  consultarProtocoloSefaz,
+  consultarStatusServicoSefaz,
+  enviarAutorizacaoSefaz,
+  ModoTransporteSefaz,
+  ResultadoChamadaSefaz,
+} from '../utils/sefazClient';
+import { interpretarCodigoSefaz } from '../utils/sefazCodigos';
 import {
   CFOPS_SUGERIDOS,
   CSOSN_LISTA,
@@ -74,6 +88,10 @@ export class FiscalService {
 
   private get notaFiscalRepo() {
     return AppDataSource.getRepository(NotaFiscal);
+  }
+
+  private get transmissaoRepo() {
+    return AppDataSource.getRepository(NotaFiscalTransmissao);
   }
 
   /**
@@ -623,7 +641,7 @@ export class FiscalService {
   }
 
   /**
-   * Consulta a última NF-e preparada/emitida de um pedido + diagnóstico de prontidão atual (Story 33c).
+   * Consulta a última NF-e preparada/emitida de um pedido + histórico de transmissões + prontidão atual (Stories 33c/33d).
    */
   async obterNFeDoPedido(id_pedido: number) {
     const pedido = await this.pedidoRepo.findOne({
@@ -643,8 +661,12 @@ export class FiscalService {
       order: { id_nota_fiscal: 'DESC' },
     });
 
+    const permissoesTransmissoes = await this.listarTransmissoesDoPedido(id_pedido);
+
     return {
+      status_fiscal: notaFiscal ? notaFiscal.status : 'sem_nota',
       nota_fiscal: notaFiscal || null,
+      transmissoes: permissoesTransmissoes.transmissoes,
       prontidao_atual: {
         apto: erros.length === 0,
         erros_validacao: erros,
@@ -653,10 +675,14 @@ export class FiscalService {
   }
 
   /**
-   * Story 33c: Monta o XML NF-e v4.00 a partir de um pedido, valida todos os dados obrigatórios,
+   * Story 33c/33d: Monta o XML NF-e v4.00 a partir de um pedido, valida todos os dados obrigatórios,
    * garante numeração sequencial atômica (com lock pessimista) e assina digitalmente com o A1.
+   * Quando a nota estiver rejeitada (33d), permite corrigir e regerar mantendo a numeração ou avançando número (ex: cStat 204/539).
    */
-  async prepararNFePedido(id_pedido: number, opcoes: { regerar?: boolean } = {}) {
+  async prepararNFePedido(
+    id_pedido: number,
+    opcoes: { regerar?: boolean; avancar_numero?: boolean } = {}
+  ) {
     const pedido = await this.pedidoRepo.findOne({
       where: { id_pedido },
       relations: ['itens', 'itens.produto'],
@@ -676,33 +702,31 @@ export class FiscalService {
       };
     }
 
-    const nfAutorizadaOuEmProc = await this.notaFiscalRepo.findOne({
-      where: [
-        { id_pedido, status: 'autorizada' },
-        { id_pedido, status: 'em_processamento' },
-      ],
-      order: { id_nota_fiscal: 'DESC' },
-    });
-    if (nfAutorizadaOuEmProc) {
-      throw new Error(
-        `O pedido #${pedido.codigo_pedido} já possui NF-e Nº ${nfAutorizadaOuEmProc.numero} (${nfAutorizadaOuEmProc.status}).`
-      );
-    }
-
-    const nfAssinadaExistente = await this.notaFiscalRepo.findOne({
-      where: { id_pedido, status: 'assinada' },
+    const nfMaisRecente = await this.notaFiscalRepo.findOne({
+      where: { id_pedido },
       relations: ['itens'],
       order: { id_nota_fiscal: 'DESC' },
     });
 
-    if (nfAssinadaExistente && !opcoes.regerar) {
+    if (
+      nfMaisRecente &&
+      (nfMaisRecente.status === 'autorizada' ||
+        nfMaisRecente.status === 'em_processamento' ||
+        nfMaisRecente.status === 'denegada')
+    ) {
+      throw new Error(
+        `O pedido #${pedido.codigo_pedido} já possui NF-e Nº ${nfMaisRecente.numero} (${nfMaisRecente.status}) e não pode ser substituída.`
+      );
+    }
+
+    if (nfMaisRecente && nfMaisRecente.status === 'assinada' && !opcoes.regerar) {
       return {
         sucesso: true,
         bloqueado: false,
         criada: false,
         ja_preparada: true,
-        mensagem: `NF-e Série ${nfAssinadaExistente.serie} Nº ${nfAssinadaExistente.numero} já preparada e assinada.`,
-        nota_fiscal: nfAssinadaExistente,
+        mensagem: `NF-e Série ${nfMaisRecente.serie} Nº ${nfMaisRecente.numero} já preparada e assinada.`,
+        nota_fiscal: nfMaisRecente,
       };
     }
 
@@ -731,16 +755,22 @@ export class FiscalService {
         where: [
           { id_pedido, status: 'assinada' },
           { id_pedido, status: 'rascunho' },
+          { id_pedido, status: 'rejeitada' },
         ],
         order: { id_nota_fiscal: 'DESC' },
       });
 
-      const serieAlocada = notaParaAtualizar
-        ? Number(notaParaAtualizar.serie)
-        : Number(emitenteLocked.serie_nfe);
+      const deveAvancarNumero = Boolean(
+        opcoes.avancar_numero && notaParaAtualizar && notaParaAtualizar.status === 'rejeitada'
+      );
+
+      const serieAlocada =
+        notaParaAtualizar && !deveAvancarNumero
+          ? Number(notaParaAtualizar.serie)
+          : Number(emitenteLocked.serie_nfe);
       let numeroAlocado: number;
 
-      if (notaParaAtualizar && Number(notaParaAtualizar.numero) > 0) {
+      if (notaParaAtualizar && !deveAvancarNumero && Number(notaParaAtualizar.numero) > 0) {
         numeroAlocado = Number(notaParaAtualizar.numero);
       } else {
         const maxRow = await nfRepoTx
@@ -775,9 +805,11 @@ export class FiscalService {
       );
 
       let nfEntity: NotaFiscal;
-      if (notaParaAtualizar) {
+      let reutilizandoMesmoRegistro = false;
+      if (notaParaAtualizar && !deveAvancarNumero) {
         await nfItemRepoTx.delete({ id_nota_fiscal: notaParaAtualizar.id_nota_fiscal });
         nfEntity = notaParaAtualizar;
+        reutilizandoMesmoRegistro = true;
       } else {
         nfEntity = nfRepoTx.create({ id_pedido });
       }
@@ -787,6 +819,10 @@ export class FiscalService {
       nfEntity.numero = numeroAlocado;
       nfEntity.chave_acesso = montada.chave_acesso;
       nfEntity.status = 'assinada';
+      nfEntity.protocolo_autorizacao = null;
+      nfEntity.xml_autorizado = null;
+      nfEntity.autorizada_em = null;
+      nfEntity.numero_recibo = null;
       nfEntity.emitente_snapshot = montada.emitente_snapshot;
       nfEntity.destinatario_snapshot = montada.destinatario_snapshot;
       nfEntity.totais_snapshot = montada.totais_snapshot;
@@ -831,7 +867,7 @@ export class FiscalService {
       return {
         sucesso: true,
         bloqueado: false,
-        criada: !notaParaAtualizar,
+        criada: !reutilizandoMesmoRegistro,
         ja_preparada: false,
         mensagem: `NF-e Série ${serieAlocada} Nº ${numeroAlocado} montada, validada e assinada digitalmente com sucesso!`,
         nota_fiscal: completa,
@@ -849,10 +885,580 @@ export class FiscalService {
 
   async obterXmlAssinadoPorNota(id_nota_fiscal: number) {
     const nf = await this.notaFiscalRepo.findOne({ where: { id_nota_fiscal } });
-    if (!nf || !nf.xml_assinado) {
-      throw new Error(`XML assinado da nota fiscal #${id_nota_fiscal} não encontrado.`);
+    if (!nf || (!nf.xml_autorizado && !nf.xml_assinado)) {
+      throw new Error(`XML da nota fiscal #${id_nota_fiscal} não encontrado.`);
     }
     return nf;
+  }
+
+  // ─── Story 33d: Transmissão à SEFAZ, Consulta de Protocolo e Auditoria ────────
+
+  private mapearResultadoAuditoria(chamada: ResultadoChamadaSefaz): ResultadoTransmissao {
+    if (chamada.indisponivel) return 'indisponivel';
+    return chamada.parsed.interpretacao.categoria === 'servico_ativo'
+      ? 'autorizada'
+      : (chamada.parsed.interpretacao.categoria as ResultadoTransmissao);
+  }
+
+  private async registrarTransmissao(params: {
+    id_nota_fiscal: number;
+    id_usuario?: number;
+    tipo_operacao: TipoOperacaoTransmissao;
+    tentativa_numero: number;
+    ambiente: 'homologacao' | 'producao';
+    chave_acesso: string | null;
+    chamada: ResultadoChamadaSefaz;
+  }): Promise<NotaFiscalTransmissao> {
+    const { chamada } = params;
+    const registro = this.transmissaoRepo.create({
+      id_nota_fiscal: params.id_nota_fiscal,
+      id_usuario: params.id_usuario ?? null,
+      tipo_operacao: params.tipo_operacao,
+      modo_transporte: chamada.modoTransporte,
+      ambiente: params.ambiente,
+      tentativa_numero: params.tentativa_numero,
+      sucesso_comunicacao: !chamada.indisponivel,
+      resultado: this.mapearResultadoAuditoria(chamada),
+      http_status: chamada.httpStatus,
+      codigo_sefaz: chamada.parsed.cStat,
+      motivo_sefaz: chamada.parsed.xMotivo,
+      mensagem_amigavel: chamada.parsed.interpretacao.mensagemAmigavel,
+      numero_recibo: chamada.parsed.nRec,
+      protocolo: chamada.parsed.nProt,
+      chave_acesso: chamada.parsed.chNFe || params.chave_acesso,
+      endpoint_url: chamada.endpointUrl,
+      duracao_ms: chamada.duracaoMs,
+      erro_rede: chamada.erroRede,
+      xml_requisicao: chamada.xmlRequisicao,
+      xml_resposta: chamada.xmlResposta,
+    });
+    return this.transmissaoRepo.save(registro);
+  }
+
+  private aplicarResultadoChamadaNaNota(
+    nota: NotaFiscal,
+    chamada: ResultadoChamadaSefaz,
+    isEnvio: boolean
+  ): void {
+    const parsed = chamada.parsed;
+
+    if (chamada.indisponivel) {
+      nota.ultimo_codigo_sefaz = parsed.cStat || '108';
+      nota.ultimo_motivo_sefaz = chamada.erroRede || parsed.xMotivo || 'SEFAZ indisponível';
+      nota.ultima_mensagem_amigavel =
+        'SEFAZ temporariamente indisponível. A NF-e foi preservada e pode ser consultada ou retransmitida em instantes.';
+    } else {
+      nota.ultimo_codigo_sefaz = parsed.cStat;
+      nota.ultimo_motivo_sefaz = parsed.xMotivo;
+      nota.ultima_mensagem_amigavel = parsed.interpretacao.mensagemAmigavel;
+
+      const cat = parsed.interpretacao.categoria;
+      if (cat === 'autorizada') {
+        nota.status = 'autorizada';
+        nota.protocolo_autorizacao = parsed.nProt || nota.protocolo_autorizacao;
+        if (chamada.xmlAutorizado) {
+          nota.xml_autorizado = chamada.xmlAutorizado;
+        }
+        nota.numero_recibo = parsed.nRec || nota.numero_recibo;
+        nota.autorizada_em = nota.autorizada_em || new Date();
+        nota.emitida_em = nota.emitida_em || nota.autorizada_em;
+      } else if (cat === 'em_processamento') {
+        nota.status = 'em_processamento';
+        nota.numero_recibo = parsed.nRec || nota.numero_recibo;
+      } else if (cat === 'rejeitada') {
+        nota.status = 'rejeitada';
+      } else if (cat === 'denegada') {
+        nota.status = 'denegada';
+      } else if (cat === 'consulta_vazia' && nota.status === 'em_processamento') {
+        nota.status = 'assinada';
+      }
+    }
+
+    if (isEnvio) {
+      nota.tentativas_envio = Number(nota.tentativas_envio || 0) + 1;
+      nota.ultima_tentativa_em = new Date();
+    } else {
+      nota.ultima_tentativa_em = new Date();
+    }
+  }
+
+  private serializarTransmissaoResumo(t: NotaFiscalTransmissao) {
+    return {
+      id_transmissao: t.id_transmissao,
+      id_nota_fiscal: t.id_nota_fiscal,
+      id_usuario: t.id_usuario,
+      tipo_operacao: t.tipo_operacao,
+      modo_transporte: t.modo_transporte,
+      ambiente: t.ambiente,
+      tentativa_numero: t.tentativa_numero,
+      sucesso_comunicacao: t.sucesso_comunicacao,
+      resultado: t.resultado,
+      http_status: t.http_status,
+      codigo_sefaz: t.codigo_sefaz,
+      motivo_sefaz: t.motivo_sefaz,
+      mensagem_amigavel: t.mensagem_amigavel,
+      numero_recibo: t.numero_recibo,
+      protocolo: t.protocolo,
+      chave_acesso: t.chave_acesso,
+      endpoint_url: t.endpoint_url,
+      duracao_ms: t.duracao_ms,
+      erro_rede: t.erro_rede,
+      tem_xml_requisicao: Boolean(t.xml_requisicao),
+      tem_xml_resposta: Boolean(t.xml_resposta),
+      created_at: t.created_at,
+    };
+  }
+
+  private validarGuardrailProducaoESelecionarModo(
+    ambiente: 'homologacao' | 'producao',
+    opcoes: { cenario_teste?: CenarioSimulacaoSefaz; cenario_consulta_previa?: CenarioSimulacaoSefaz; modo_transporte?: ModoTransporteSefaz }
+  ): ModoTransporteSefaz {
+    const modo: ModoTransporteSefaz =
+      opcoes.modo_transporte ||
+      (env.SEFAZ_MODO_TRANSPORTE === 'sefaz_soap' ? 'sefaz_soap' : 'simulado');
+
+    if (ambiente === 'producao') {
+      if (opcoes.cenario_teste || opcoes.cenario_consulta_previa) {
+        throw Object.assign(
+          new Error('Simulação de cenário SEFAZ é estritamente bloqueada no ambiente de produção.'),
+          { statusCode: 400 }
+        );
+      }
+      if (modo !== 'sefaz_soap') {
+        throw Object.assign(
+          new Error(
+            'Ambiente de produção exige transporte real SEFAZ (SEFAZ_MODO_TRANSPORTE=sefaz_soap). Transmissão simulada bloqueada.'
+          ),
+          { statusCode: 400 }
+        );
+      }
+    }
+
+    return modo;
+  }
+
+  async listarTransmissoesDoPedido(id_pedido: number) {
+    const pedido = await this.pedidoRepo.findOne({ where: { id_pedido } });
+    if (!pedido) {
+      throw new Error(`Pedido #${id_pedido} não encontrado.`);
+    }
+
+    const notas = await this.notaFiscalRepo.find({
+      where: { id_pedido },
+      order: { id_nota_fiscal: 'DESC' },
+    });
+
+    if (notas.length === 0) {
+      return {
+        sucesso: true,
+        nota_fiscal_atual: null,
+        transmissoes: [],
+      };
+    }
+
+    const idsNotas = notas.map((n) => n.id_nota_fiscal);
+    const transmissoes = await this.transmissaoRepo
+      .createQueryBuilder('t')
+      .where('t.id_nota_fiscal IN (:...idsNotas)', { idsNotas })
+      .orderBy('t.id_transmissao', 'DESC')
+      .take(40)
+      .getMany();
+
+    return {
+      sucesso: true,
+      nota_fiscal_atual: notas[0],
+      transmissoes: transmissoes.map((t) => this.serializarTransmissaoResumo(t)),
+    };
+  }
+
+  async transmitirNFePedido(
+    id_pedido: number,
+    opcoes: {
+      cenario_teste?: CenarioSimulacaoSefaz;
+      cenario_consulta_previa?: CenarioSimulacaoSefaz;
+      cstat_simulado?: string;
+      xmotivo_simulado?: string;
+      modo_transporte?: ModoTransporteSefaz;
+    } = {},
+    id_usuario?: number
+  ) {
+    const pedido = await this.pedidoRepo.findOne({ where: { id_pedido } });
+    if (!pedido) {
+      throw Object.assign(new Error(`Pedido #${id_pedido} não encontrado.`), { statusCode: 404 });
+    }
+
+    const emitente = await this.emitenteRepo
+      .createQueryBuilder('e')
+      .addSelect(['e.certificado_arquivo_enc', 'e.senha_certificado_enc'])
+      .getOne();
+
+    if (!emitente) {
+      throw Object.assign(new Error('Emitente fiscal não cadastrado.'), { statusCode: 400 });
+    }
+
+    const modo = this.validarGuardrailProducaoESelecionarModo(emitente.ambiente, opcoes);
+
+    const nota = await this.notaFiscalRepo.findOne({
+      where: { id_pedido },
+      relations: ['itens'],
+      order: { id_nota_fiscal: 'DESC' },
+    });
+
+    if (!nota) {
+      throw Object.assign(
+        new Error('Nenhuma NF-e preparada para este pedido. Execute "Preparar NF-e" antes de transmitir.'),
+        { statusCode: 400 }
+      );
+    }
+
+    if (nota.status === 'autorizada') {
+      throw Object.assign(
+        new Error(`A NF-e Nº ${nota.numero} já está autorizada pela SEFAZ (Protocolo ${nota.protocolo_autorizacao || '—'}).`),
+        { statusCode: 400 }
+      );
+    }
+
+    if (nota.status === 'denegada') {
+      throw Object.assign(
+        new Error(`A NF-e Nº ${nota.numero} teve Uso Denegado pela SEFAZ (${nota.ultimo_codigo_sefaz || '110'}) e não pode ser retransmitida.`),
+        { statusCode: 400 }
+      );
+    }
+
+    if (nota.status === 'cancelada') {
+      throw Object.assign(
+        new Error(`A NF-e Nº ${nota.numero} está cancelada.`),
+        { statusCode: 400 }
+      );
+    }
+
+    if (nota.status === 'rascunho' || !nota.xml_assinado || !nota.assinatura_valida || !nota.chave_acesso) {
+      throw Object.assign(
+        new Error('A NF-e precisa estar preparada e assinada digitalmente antes da transmissão à SEFAZ.'),
+        { statusCode: 400 }
+      );
+    }
+
+    if (nota.ambiente !== emitente.ambiente) {
+      throw Object.assign(
+        new Error(
+          `Esta NF-e foi assinada para o ambiente "${nota.ambiente}", mas o sistema está em "${emitente.ambiente}". Regere o XML assinado no ambiente atual.`
+        ),
+        { statusCode: 400 }
+      );
+    }
+
+    let pfxBuffer: Buffer | undefined;
+    let senha: string | undefined;
+
+    try {
+      if (modo === 'sefaz_soap') {
+        const creds = this.carregarPfxESenhaDeEmitente(emitente);
+        pfxBuffer = creds.pfxBuffer;
+        senha = creds.senha;
+      }
+
+      let consultaPreviaRealizada = false;
+
+      // Proteção anti-duplicidade (AC4): nota em processamento deve ser consultada primeiro
+      if (nota.status === 'em_processamento') {
+        consultaPreviaRealizada = true;
+        const chamadaConsulta = await consultarProtocoloSefaz({
+          uf: emitente.uf,
+          ambiente: emitente.ambiente,
+          chaveAcesso: nota.chave_acesso,
+          xmlAssinado: nota.xml_assinado,
+          digestValue: nota.digest_value,
+          pfxBuffer,
+          senha,
+          cenarioTeste: opcoes.cenario_consulta_previa ?? opcoes.cenario_teste,
+          cStatSimulado: opcoes.cstat_simulado,
+          xMotivoSimulado: opcoes.xmotivo_simulado,
+          modoTransporte: modo,
+        });
+
+        const transConsulta = await this.registrarTransmissao({
+          id_nota_fiscal: nota.id_nota_fiscal,
+          id_usuario,
+          tipo_operacao: 'consulta_protocolo',
+          tentativa_numero: Number(nota.tentativas_envio || 0) + 1,
+          ambiente: emitente.ambiente,
+          chave_acesso: nota.chave_acesso,
+          chamada: chamadaConsulta,
+        });
+
+        this.aplicarResultadoChamadaNaNota(nota, chamadaConsulta, false);
+        await this.notaFiscalRepo.save(nota);
+
+        const catConsulta = chamadaConsulta.parsed.interpretacao.categoria;
+        if (chamadaConsulta.indisponivel || catConsulta !== 'consulta_vazia') {
+          const notaAtualizada = await this.notaFiscalRepo.findOne({
+            where: { id_nota_fiscal: nota.id_nota_fiscal },
+            relations: ['itens'],
+          });
+          const hist = await this.listarTransmissoesDoPedido(id_pedido);
+
+          return {
+            sucesso: !chamadaConsulta.indisponivel,
+            indisponivel: chamadaConsulta.indisponivel,
+            pode_tentar_novamente: chamadaConsulta.indisponivel,
+            consulta_previa_realizada: true,
+            reenvio_bloqueado_por_consulta: true,
+            autorizada: notaAtualizada?.status === 'autorizada',
+            resultado_sefaz: chamadaConsulta.indisponivel ? 'indisponivel' : catConsulta,
+            mensagem: chamadaConsulta.indisponivel
+              ? 'SEFAZ indisponível durante a consulta de protocolo prévia. Nenhum reenvio duplicado foi realizado.'
+              : catConsulta === 'autorizada'
+                ? 'Consulta prévia confirmou que a NF-e já estava AUTORIZADA na SEFAZ. Duplicidade evitada!'
+                : `Consulta prévia retornou cStat ${chamadaConsulta.parsed.cStat}: ${chamadaConsulta.parsed.interpretacao.mensagemAmigavel}`,
+            interpretacao: chamadaConsulta.parsed.interpretacao,
+            nota_fiscal: notaAtualizada,
+            transmissao: this.serializarTransmissaoResumo(transConsulta),
+            transmissoes: hist.transmissoes,
+          };
+        }
+      }
+
+      const tentativaEnvioNum = Number(nota.tentativas_envio || 0) + 1;
+      const chamada = await enviarAutorizacaoSefaz({
+        uf: emitente.uf,
+        ambiente: emitente.ambiente,
+        chaveAcesso: nota.chave_acesso,
+        xmlAssinado: nota.xml_assinado,
+        digestValue: nota.digest_value,
+        pfxBuffer,
+        senha,
+        cenarioTeste: opcoes.cenario_teste,
+        cStatSimulado: opcoes.cstat_simulado,
+        xMotivoSimulado: opcoes.xmotivo_simulado,
+        modoTransporte: modo,
+      });
+
+      const transmissao = await this.registrarTransmissao({
+        id_nota_fiscal: nota.id_nota_fiscal,
+        id_usuario,
+        tipo_operacao: 'autorizacao',
+        tentativa_numero: tentativaEnvioNum,
+        ambiente: emitente.ambiente,
+        chave_acesso: nota.chave_acesso,
+        chamada,
+      });
+
+      this.aplicarResultadoChamadaNaNota(nota, chamada, true);
+      await this.notaFiscalRepo.save(nota);
+
+      const notaAtualizada = await this.notaFiscalRepo.findOne({
+        where: { id_nota_fiscal: nota.id_nota_fiscal },
+        relations: ['itens'],
+      });
+      const hist = await this.listarTransmissoesDoPedido(id_pedido);
+
+      const cat = chamada.indisponivel ? 'indisponivel' : chamada.parsed.interpretacao.categoria;
+      const mensagem = chamada.indisponivel
+        ? 'SEFAZ temporariamente indisponível. A NF-e foi preservada e você pode tentar novamente em instantes.'
+        : cat === 'autorizada'
+          ? `NF-e Série ${nota.serie} Nº ${nota.numero} AUTORIZADA pela SEFAZ! Protocolo: ${nota.protocolo_autorizacao}`
+          : cat === 'em_processamento'
+            ? `Lote recebido pela SEFAZ (cStat ${chamada.parsed.cStat}). Consulte a situação para obter o protocolo definitivo.`
+            : cat === 'denegada'
+              ? `Uso Denegado pela SEFAZ (${chamada.parsed.cStat}): ${chamada.parsed.xMotivo || chamada.parsed.interpretacao.mensagemAmigavel}`
+              : `NF-e rejeitada pela SEFAZ (${chamada.parsed.cStat}): ${chamada.parsed.interpretacao.mensagemAmigavel}`;
+
+      return {
+        sucesso: !chamada.indisponivel,
+        indisponivel: chamada.indisponivel,
+        pode_tentar_novamente: chamada.indisponivel || cat === 'rejeitada' || cat === 'em_processamento',
+        consulta_previa_realizada: consultaPreviaRealizada,
+        reenvio_bloqueado_por_consulta: false,
+        autorizada: notaAtualizada?.status === 'autorizada',
+        resultado_sefaz: cat,
+        mensagem,
+        interpretacao: chamada.parsed.interpretacao,
+        nota_fiscal: notaAtualizada,
+        transmissao: this.serializarTransmissaoResumo(transmissao),
+        transmissoes: hist.transmissoes,
+      };
+    } finally {
+      if (pfxBuffer) {
+        pfxBuffer.fill(0);
+      }
+      senha = undefined;
+    }
+  }
+
+  async consultarSituacaoNFePedido(
+    id_pedido: number,
+    opcoes: {
+      cenario_teste?: CenarioSimulacaoSefaz;
+      cstat_simulado?: string;
+      xmotivo_simulado?: string;
+      modo_transporte?: ModoTransporteSefaz;
+    } = {},
+    id_usuario?: number
+  ) {
+    const pedido = await this.pedidoRepo.findOne({ where: { id_pedido } });
+    if (!pedido) {
+      throw Object.assign(new Error(`Pedido #${id_pedido} não encontrado.`), { statusCode: 404 });
+    }
+
+    const emitente = await this.emitenteRepo
+      .createQueryBuilder('e')
+      .addSelect(['e.certificado_arquivo_enc', 'e.senha_certificado_enc'])
+      .getOne();
+
+    if (!emitente) {
+      throw Object.assign(new Error('Emitente fiscal não cadastrado.'), { statusCode: 400 });
+    }
+
+    const modo = this.validarGuardrailProducaoESelecionarModo(emitente.ambiente, opcoes);
+
+    const nota = await this.notaFiscalRepo.findOne({
+      where: { id_pedido },
+      relations: ['itens'],
+      order: { id_nota_fiscal: 'DESC' },
+    });
+
+    if (!nota || !nota.chave_acesso || nota.status === 'rascunho') {
+      throw Object.assign(
+        new Error('Este pedido não possui NF-e assinada com chave de acesso para consulta na SEFAZ.'),
+        { statusCode: 400 }
+      );
+    }
+
+    if (nota.ambiente !== emitente.ambiente) {
+      throw Object.assign(
+        new Error(
+          `Esta NF-e pertence ao ambiente "${nota.ambiente}", mas o emitente está em "${emitente.ambiente}".`
+        ),
+        { statusCode: 400 }
+      );
+    }
+
+    let pfxBuffer: Buffer | undefined;
+    let senha: string | undefined;
+
+    try {
+      if (modo === 'sefaz_soap') {
+        const creds = this.carregarPfxESenhaDeEmitente(emitente);
+        pfxBuffer = creds.pfxBuffer;
+        senha = creds.senha;
+      }
+
+      const chamada = await consultarProtocoloSefaz({
+        uf: emitente.uf,
+        ambiente: emitente.ambiente,
+        chaveAcesso: nota.chave_acesso,
+        xmlAssinado: nota.xml_assinado,
+        digestValue: nota.digest_value,
+        pfxBuffer,
+        senha,
+        cenarioTeste: opcoes.cenario_teste,
+        cStatSimulado: opcoes.cstat_simulado,
+        xMotivoSimulado: opcoes.xmotivo_simulado,
+        modoTransporte: modo,
+      });
+
+      const transmissao = await this.registrarTransmissao({
+        id_nota_fiscal: nota.id_nota_fiscal,
+        id_usuario,
+        tipo_operacao: 'consulta_protocolo',
+        tentativa_numero: Number(nota.tentativas_envio || 0),
+        ambiente: emitente.ambiente,
+        chave_acesso: nota.chave_acesso,
+        chamada,
+      });
+
+      this.aplicarResultadoChamadaNaNota(nota, chamada, false);
+      await this.notaFiscalRepo.save(nota);
+
+      const notaAtualizada = await this.notaFiscalRepo.findOne({
+        where: { id_nota_fiscal: nota.id_nota_fiscal },
+        relations: ['itens'],
+      });
+      const hist = await this.listarTransmissoesDoPedido(id_pedido);
+      const cat = chamada.indisponivel ? 'indisponivel' : chamada.parsed.interpretacao.categoria;
+
+      return {
+        sucesso: !chamada.indisponivel,
+        indisponivel: chamada.indisponivel,
+        pode_tentar_novamente: chamada.indisponivel || cat === 'em_processamento' || cat === 'consulta_vazia',
+        autorizada: nota.status === 'autorizada',
+        resultado_sefaz: cat,
+        mensagem: chamada.indisponivel
+          ? 'SEFAZ indisponível ao consultar protocolo. Tente novamente em instantes.'
+          : cat === 'autorizada'
+            ? `Consulta confirmou NF-e AUTORIZADA! Protocolo: ${nota.protocolo_autorizacao}`
+            : cat === 'consulta_vazia'
+              ? 'NF-e não consta na base da SEFAZ (cStat 217). É seguro retransmitir.'
+              : `Consulta SEFAZ (${chamada.parsed.cStat}): ${chamada.parsed.interpretacao.mensagemAmigavel}`,
+        interpretacao: chamada.parsed.interpretacao,
+        nota_fiscal: notaAtualizada,
+        transmissao: this.serializarTransmissaoResumo(transmissao),
+        transmissoes: hist.transmissoes,
+      };
+    } finally {
+      if (pfxBuffer) {
+        pfxBuffer.fill(0);
+      }
+      senha = undefined;
+    }
+  }
+
+  async verificarStatusServicoSefaz(
+    opcoes: { cenario_teste?: CenarioSimulacaoSefaz; modo_transporte?: ModoTransporteSefaz } = {}
+  ) {
+    const emitente = await this.emitenteRepo
+      .createQueryBuilder('e')
+      .addSelect(['e.certificado_arquivo_enc', 'e.senha_certificado_enc'])
+      .getOne();
+
+    if (!emitente) {
+      throw Object.assign(new Error('Emitente fiscal não cadastrado.'), { statusCode: 400 });
+    }
+
+    const modo = this.validarGuardrailProducaoESelecionarModo(emitente.ambiente, opcoes);
+
+    let pfxBuffer: Buffer | undefined;
+    let senha: string | undefined;
+
+    try {
+      if (modo === 'sefaz_soap') {
+        const creds = this.carregarPfxESenhaDeEmitente(emitente);
+        pfxBuffer = creds.pfxBuffer;
+        senha = creds.senha;
+      }
+
+      const chamada = await consultarStatusServicoSefaz({
+        uf: emitente.uf,
+        ambiente: emitente.ambiente,
+        pfxBuffer,
+        senha,
+        cenarioTeste: opcoes.cenario_teste,
+        modoTransporte: modo,
+      });
+
+      return {
+        sucesso: !chamada.indisponivel,
+        indisponivel: chamada.indisponivel,
+        ambiente: emitente.ambiente,
+        uf: emitente.uf,
+        modo_transporte: chamada.modoTransporte,
+        endpoint_url: chamada.endpointUrl,
+        http_status: chamada.httpStatus,
+        duracao_ms: chamada.duracaoMs,
+        codigo_sefaz: chamada.parsed.cStat,
+        motivo_sefaz: chamada.parsed.xMotivo,
+        mensagem: chamada.indisponivel
+          ? `SEFAZ indisponível: ${chamada.erroRede || chamada.parsed.interpretacao.mensagemAmigavel}`
+          : chamada.parsed.interpretacao.mensagemAmigavel,
+        interpretacao: chamada.parsed.interpretacao,
+      };
+    } finally {
+      if (pfxBuffer) {
+        pfxBuffer.fill(0);
+      }
+      senha = undefined;
+    }
   }
 }
 

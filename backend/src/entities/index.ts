@@ -19,4 +19,5 @@ export { LancamentoFinanceiro } from './LancamentoFinanceiro';
 export { EmitenteFiscal } from './EmitenteFiscal';
 export { NotaFiscal } from './NotaFiscal';
 export { NotaFiscalItem } from './NotaFiscalItem';
+export { NotaFiscalTransmissao } from './NotaFiscalTransmissao';
 

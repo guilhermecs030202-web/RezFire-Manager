@@ -160,6 +160,12 @@ export class PedidoService {
           'nf.serie',
           'nf.numero',
           'nf.chave_acesso',
+          'nf.protocolo_autorizacao',
+          'nf.ultimo_codigo_sefaz',
+          'nf.ultimo_motivo_sefaz',
+          'nf.ultima_mensagem_amigavel',
+          'nf.tentativas_envio',
+          'nf.autorizada_em',
           'nf.assinatura_valida',
           'nf.assinada_em',
           'nf.digest_value',
@@ -175,12 +181,20 @@ export class PedidoService {
         }
       }
 
+      return pedidos.map((p) => {
+        const nf = mapaPorPedido.get(p.id_pedido) || null;
+        return {
+          ...p,
+          status_fiscal: nf ? nf.status : 'sem_nota',
+          nota_fiscal_resumo: nf,
+        };
+      });
+    } catch {
       return pedidos.map((p) => ({
         ...p,
-        nota_fiscal_resumo: mapaPorPedido.get(p.id_pedido) || null,
+        status_fiscal: 'sem_nota',
+        nota_fiscal_resumo: null,
       }));
-    } catch {
-      return pedidos;
     }
   }
 

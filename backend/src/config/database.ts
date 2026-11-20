@@ -24,6 +24,7 @@ import {
   EmitenteFiscal,
   NotaFiscal,
   NotaFiscalItem,
+  NotaFiscalTransmissao,
 } from '../entities';
 
 export const AppDataSource = new DataSource({
@@ -57,6 +58,7 @@ export const AppDataSource = new DataSource({
     EmitenteFiscal,
     NotaFiscal,
     NotaFiscalItem,
+    NotaFiscalTransmissao,
   ],
   migrations: [path.join(__dirname, '../migrations/*{.ts,.js}')],
   subscribers: [],

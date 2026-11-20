@@ -117,24 +117,24 @@ A história, como está, **não atende ao INVEST**: é grande demais (S), difíc
 
 **Critérios de aceite**
 
-- [ ] A nota é transmitida ao ambiente de homologação por padrão; a produção só é usada após ativação explícita (33a).
-- [ ] O resultado é exibido: autorizada (com protocolo), rejeitada (com código e motivo) ou denegada.
-- [ ] Uma nota rejeitada pode ser corrigida e reenviada, seguindo a regra de numeração definida.
-- [ ] Quando o retorno não chega na hora, o sistema consulta a situação da nota antes de reenviar, evitando envio duplicado.
-- [ ] O pedido mostra o status fiscal (sem nota, em processamento, autorizada, rejeitada, cancelada).
-- [ ] Se a SEFAZ estiver indisponível, o sistema informa e permite tentar novamente depois.
-- [ ] Cada envio e retorno fica registrado.
+- [x] A nota é transmitida ao ambiente de homologação por padrão; a produção só é usada após ativação explícita (33a). *(Implementado guardrail estrito em `sefazClient.ts` e `fiscal.service.ts`: modo `simulado` e cenários de teste são bloqueados com HTTP 400 no ambiente `producao`, exigindo `SEFAZ_MODO_TRANSPORTE=sefaz_soap` via mTLS.)*
+- [x] O resultado é exibido: autorizada (com protocolo), rejeitada (com código e motivo) ou denegada. *(Persistido em `notas_fiscais` com `protocolo_autorizacao`, `xml_autorizado` `nfeProc`, `ultimo_codigo_sefaz`, `ultimo_motivo_sefaz` e `ultima_mensagem_amigavel`, exibidos no painel lateral e modal NF-e de `pedidos.html`.)*
+- [x] Uma nota rejeitada pode ser corrigida e reenviada, seguindo a regra de numeração definida. *(`prepararNFePedido` permite regerar e reassinar notas com status `rejeitada` preservando `(serie, numero)` por padrão ou avançando o número via `avancar_numero: true` em casos como cStat `204`/`539`.)*
+- [x] Quando o retorno não chega na hora, o sistema consulta a situação da nota antes de reenviar, evitando envio duplicado. *(Ao transmitir nota `em_processamento`, `transmitirNFePedido` executa `NFeConsultaProtocolo4` primeiro e só libera novo envio se a SEFAZ responder `cStat 217`.)*
+- [x] O pedido mostra o status fiscal (sem nota, em processamento, autorizada, rejeitada, cancelada). *(`pedido.service.ts` expõe `status_fiscal` e `nota_fiscal_resumo` na listagem/detalhe; tabela e filtro `#filtro-status-fiscal` em `pedidos.html` cobrem todos os 8 estados.)*
+- [x] Se a SEFAZ estiver indisponível, o sistema informa e permite tentar novamente depois. *(Falhas HTTP 5xx, timeout/rede ou cStat `108`/`109` retornam HTTP 503 preservando a NF-e assinada para retentativa segura.)*
+- [x] Cada envio e retorno fica registrado. *(Tabela de auditoria `notas_fiscais_transmissoes` registra cada envio e consulta com usuário, modo, endpoint, `http_status`, `cStat`, `xMotivo`, duração em ms e XMLs de requisição/resposta.)*
 
 **Definition of Ready (DoR): não pronto até que...**
 
-- [ ] Story 33c concluída.
-- [ ] Acesso aos serviços da SEFAZ/SP em homologação confirmado.
-- [ ] Lista das rejeições mais comuns levantada, com a mensagem amigável para cada uma.
-- [ ] Regra para reaproveitar ou descartar o número de uma nota rejeitada validada com o contador.
-- [ ] Política de nova tentativa e tempo limite de resposta definida.
-- [ ] Definido se a contingência (emissão quando a SEFAZ está fora do ar) entra no escopo ou fica para depois.
-- [ ] Checklist de liberação para produção definido.
-- [ ] Estimativa (8 SP) revisada após um teste inicial de comunicação com o ambiente de homologação (spike).
+- [x] Story 33c concluída.
+- [ ] Acesso aos serviços da SEFAZ/SP em homologação confirmado. *(Transporte SOAP 1.2 mTLS implementado para SEFAZ/SP e outras UFs + ação "Testar Conexão SEFAZ"; validação online com credenciamento real pendente em ambiente com CNPJ e A1 ICP-Brasil oficiais.)*
+- [x] Lista das rejeições mais comuns levantada, com a mensagem amigável para cada uma. *(Dicionário `backend/src/utils/sefazCodigos.ts` cobre `100`, `150`, `103`, `105`, `107`, `108`, `109`, `110`, `204`, `207`, `209`, `210`, `215`, `217`, `225`, `228`, `280`, `290`, `297`, `301`, `302`, `303`, `528`, `531`, `539`, `591`, `594`, `602`, `610`, `693`, `703`, `778`.)*
+- [ ] Regra para reaproveitar ou descartar o número de uma nota rejeitada validada com o contador. *(Padrão técnico implementado: reaproveita mesmo número em rejeições cadastrais/tributárias e avança número com preservação de histórico em duplicidade `204`/`539`; confirmar formalmente com a contabilidade antes de ir para produção.)*
+- [ ] Política de nova tentativa e tempo limite de resposta definida. *(Implementado `SEFAZ_TIMEOUT_MS` padrão de `15000`ms e retentativa manual protegida por consulta prévia `NFeConsultaProtocolo4`; confirmar SLAs com o contador/operação.)*
+- [ ] Definido se a contingência (emissão quando a SEFAZ está fora do ar) entra no escopo ou fica para depois. *(Escopo atual trata indisponibilidade com HTTP 503 e retentativa segura; SVC-AN/EPEC permanece fora de escopo para decisão futura.)*
+- [ ] Checklist de liberação para produção definido. *(Pendente definição formal de aceite antes de alternar `SEFAZ_MODO_TRANSPORTE=sefaz_soap` e ambiente `producao`.)*
+- [ ] Estimativa (8 SP) revisada após um teste inicial de comunicação com o ambiente de homologação (spike). *(Pendente spike oficial em homologação SEFAZ/SP com certificado A1 real da empresa.)*
 
 ---
 

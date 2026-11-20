@@ -143,7 +143,11 @@ export class FiscalController {
     try {
       const idPedido = Number(req.params.id);
       const regerar = Boolean(req.body?.regerar);
-      const resultado = await fiscalService.prepararNFePedido(idPedido, { regerar });
+      const avancarNumero = Boolean(req.body?.avancar_numero);
+      const resultado = await fiscalService.prepararNFePedido(idPedido, {
+        regerar,
+        avancar_numero: avancarNumero,
+      });
 
       if (resultado.bloqueado) {
         return res.status(422).json(resultado);
@@ -160,14 +164,105 @@ export class FiscalController {
     try {
       const idNota = Number(req.params.id);
       const nota = await fiscalService.obterXmlAssinadoPorNota(idNota);
+      const conteudoXml = nota.xml_autorizado || nota.xml_assinado;
+      const sufixo = nota.xml_autorizado ? '-procNFe' : '';
       res.setHeader('Content-Type', 'application/xml; charset=utf-8');
       res.setHeader(
         'Content-Disposition',
-        `attachment; filename="NFe-${nota.chave_acesso || nota.numero}.xml"`
+        `attachment; filename="NFe-${nota.chave_acesso || nota.numero}${sufixo}.xml"`
       );
-      return res.send(nota.xml_assinado);
+      return res.send(conteudoXml);
     } catch (error: any) {
       return res.status(404).json({ sucesso: false, mensagem: error.message });
+    }
+  }
+
+  async transmitirNFePedido(req: Request, res: Response) {
+    try {
+      const idPedido = Number(req.params.id);
+      const idUsuario = req.usuario?.id_usuario;
+      const resultado = await fiscalService.transmitirNFePedido(
+        idPedido,
+        {
+          cenario_teste: req.body?.cenario_teste,
+          cenario_consulta_previa: req.body?.cenario_consulta_previa,
+          cstat_simulado: req.body?.cstat_simulado,
+          xmotivo_simulado: req.body?.xmotivo_simulado,
+          modo_transporte: req.body?.modo_transporte,
+        },
+        idUsuario
+      );
+
+      if (resultado.indisponivel) {
+        return res.status(503).json(resultado);
+      }
+
+      return res.json(resultado);
+    } catch (error: any) {
+      const status = error.statusCode || 400;
+      return res.status(status).json({ sucesso: false, mensagem: error.message });
+    }
+  }
+
+  async consultarSituacaoNFePedido(req: Request, res: Response) {
+    try {
+      const idPedido = Number(req.params.id);
+      const idUsuario = req.usuario?.id_usuario;
+      const resultado = await fiscalService.consultarSituacaoNFePedido(
+        idPedido,
+        {
+          cenario_teste: req.body?.cenario_teste,
+          cstat_simulado: req.body?.cstat_simulado,
+          xmotivo_simulado: req.body?.xmotivo_simulado,
+          modo_transporte: req.body?.modo_transporte,
+        },
+        idUsuario
+      );
+
+      if (resultado.indisponivel) {
+        return res.status(503).json(resultado);
+      }
+
+      return res.json(resultado);
+    } catch (error: any) {
+      const status = error.statusCode || 400;
+      return res.status(status).json({ sucesso: false, mensagem: error.message });
+    }
+  }
+
+  async listarTransmissoesDoPedido(req: Request, res: Response) {
+    try {
+      const idPedido = Number(req.params.id);
+      const resultado = await fiscalService.listarTransmissoesDoPedido(idPedido);
+      return res.json(resultado);
+    } catch (error: any) {
+      return res.status(404).json({ sucesso: false, mensagem: error.message });
+    }
+  }
+
+  async verificarStatusServicoSefaz(req: Request, res: Response) {
+    try {
+      const cenarioTeste =
+        typeof req.query?.cenario_teste === 'string'
+          ? (req.query.cenario_teste as any)
+          : undefined;
+      const modoTransporte =
+        typeof req.query?.modo_transporte === 'string'
+          ? (req.query.modo_transporte as any)
+          : undefined;
+      const resultado = await fiscalService.verificarStatusServicoSefaz({
+        cenario_teste: cenarioTeste,
+        modo_transporte: modoTransporte,
+      });
+
+      if (resultado.indisponivel) {
+        return res.status(503).json(resultado);
+      }
+
+      return res.json(resultado);
+    } catch (error: any) {
+      const status = error.statusCode || 400;
+      return res.status(status).json({ sucesso: false, mensagem: error.message });
     }
   }
 }

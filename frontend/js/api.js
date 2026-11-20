@@ -362,6 +362,28 @@ window.RezFireAPI = {
         body: JSON.stringify(opcoes),
       });
     },
+    async transmitirNFe(idPedido, opcoes = {}) {
+      return window.RezFireAPI.request(`/fiscal/pedidos/${idPedido}/transmitir-nfe`, {
+        method: 'POST',
+        body: JSON.stringify(opcoes),
+      });
+    },
+    async consultarNFeSefaz(idPedido, opcoes = {}) {
+      return window.RezFireAPI.request(`/fiscal/pedidos/${idPedido}/consultar-nfe`, {
+        method: 'POST',
+        body: JSON.stringify(opcoes),
+      });
+    },
+    async listarTransmissoesNFe(idPedido) {
+      return window.RezFireAPI.request(`/fiscal/pedidos/${idPedido}/nfe/transmissoes`);
+    },
+    async verificarStatusSefaz(opcoes = {}) {
+      const qs = new URLSearchParams();
+      if (opcoes.cenario_teste) qs.set('cenario_teste', opcoes.cenario_teste);
+      if (opcoes.modo_transporte) qs.set('modo_transporte', opcoes.modo_transporte);
+      const suffix = qs.toString() ? `?${qs.toString()}` : '';
+      return window.RezFireAPI.request(`/fiscal/sefaz/status${suffix}`);
+    },
     urlXmlNFe(idNota) {
       const baseUrl = (typeof API_BASE_URL !== 'undefined') ? API_BASE_URL : '/api';
       return `${baseUrl}/fiscal/notas/${idNota}/xml`;

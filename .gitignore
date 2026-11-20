@@ -8,6 +8,9 @@ node_modules/
 .env.*.local
 *.pem
 *.key
+*.pfx
+*.p12
+*.enc
 
 # Build e compilação
 dist/
@@ -17,6 +20,8 @@ build/
 # Arquivos de upload e auditoria de arquivos
 uploads/
 backend/uploads/
+!backend/uploads/certificados/.gitkeep
+!backend/uploads/fiscal-vault/.gitkeep
 
 # Logs e arquivos de sistema
 *.log

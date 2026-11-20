@@ -1,0 +1,350 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Configuração Fiscal & NF-e · RezFire Manager</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            cream: "#f4efe8",
+            sidebar: "#1a1412",
+            accent: "#e85c2a",
+          },
+          fontFamily: { sans: ["Inter", "ui-sans-serif", "system-ui"] },
+        },
+      },
+    };
+  </script>
+  <link rel="stylesheet" href="css/app.css" />
+</head>
+
+<body>
+  <div class="app-shell" id="app-shell">
+    <main class="app-main">
+      <div class="page-toolbar">
+        <div>
+          <h1 class="page-title">CONFIGURAÇÃO FISCAL &amp; NF-E</h1>
+          <p class="page-subtitle">Cadastro do emitente fiscal, cofre do certificado digital A1 e ambiente SEFAZ (Story 33a).</p>
+        </div>
+        <div class="flex items-center gap-2">
+          <a href="produtos.html?fiscal=pendentes" class="btn-ghost" style="text-decoration:none;">
+            Ver Pendências nos Produtos
+          </a>
+        </div>
+      </div>
+
+      <!-- Aviso de bloqueio RBAC para Operadores -->
+      <section id="fiscal-acesso-negado" class="card p-8 text-center" style="display:none; max-width: 620px; margin: 32px auto;">
+        <div style="font-size: 2.2rem; margin-bottom: 10px;">🔒</div>
+        <h2 class="text-lg font-extrabold text-stone-900">Acesso Restrito ao Perfil Gestor</h2>
+        <p class="text-sm text-stone-600 mt-2">
+          A configuração fiscal, os dados do emitente e o certificado digital A1 contêm credenciais jurídicas da RezFire e só podem ser visualizados ou alterados pelo perfil <strong>GESTOR</strong>.
+        </p>
+        <div class="mt-5">
+          <a href="dashboard.html" class="btn-primary" style="text-decoration:none;">Voltar ao Painel</a>
+        </div>
+      </section>
+
+      <div id="fiscal-conteudo">
+        <!-- Cards de Resumo (KPIs) -->
+        <section class="kpi-grid" id="fiscal-kpis">
+          <div class="card kpi-card">
+            <p class="kpi-label">AMBIENTE SEFAZ</p>
+            <div class="kpi-value" id="kpi-ambiente-valor" style="font-size: 1.25rem;">Não configurado</div>
+            <p class="kpi-hint" id="kpi-ambiente-hint">Homologação é o padrão seguro para testes</p>
+          </div>
+          <div class="card kpi-card">
+            <p class="kpi-label">CERTIFICADO DIGITAL A1</p>
+            <div class="kpi-value" id="kpi-cert-valor" style="font-size: 1.25rem;">Pendente</div>
+            <p class="kpi-hint" id="kpi-cert-hint">Envie o arquivo .pfx ou .p12</p>
+          </div>
+          <div class="card kpi-card">
+            <p class="kpi-label">NUMERAÇÃO NF-E</p>
+            <div class="kpi-value" id="kpi-num-valor" style="font-size: 1.25rem;">Série 1 · Nº 1</div>
+            <p class="kpi-hint" id="kpi-num-hint">Sequência fiscal configurada</p>
+          </div>
+          <div class="card kpi-card">
+            <p class="kpi-label">COBERTURA FISCAL (33B)</p>
+            <div class="kpi-value" id="kpi-cobertura-valor" style="font-size: 1.25rem;">—</div>
+            <p class="kpi-hint" id="kpi-cobertura-hint">Produtos com NCM, CFOP, Origem e CSOSN</p>
+          </div>
+        </section>
+
+        <!-- Banner global de feedback -->
+        <div id="fiscal-banner" class="mt-4 p-3 rounded-xl text-sm font-medium" style="display:none;"></div>
+
+        <!-- Grid principal: Emitente (esq) + Certificado & Ambiente (dir) -->
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-4 mt-5">
+          <!-- Coluna 1-2: Formulário do Emitente -->
+          <section class="card p-6 lg:col-span-2">
+            <div class="flex items-center justify-between flex-wrap gap-2 mb-4 pb-3 border-b border-stone-200">
+              <div>
+                <h2 class="text-base font-extrabold text-stone-900">1. Dados do Emitente Fiscal (RezFire)</h2>
+                <p class="text-xs text-stone-500 mt-0.5">Identificação jurídica, inscrição estadual, regime tributário e endereço fiscal.</p>
+              </div>
+              <span id="badge-emitente-pronto" class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold bg-amber-50 text-amber-800 border border-amber-200">
+                Configuração Incompleta
+              </span>
+            </div>
+
+            <form id="form-emitente">
+              <div class="form-grid">
+                <div class="form-field span-2">
+                  <label for="emitente_razao_social">Razão Social *</label>
+                  <input id="emitente_razao_social" name="razao_social" required maxlength="255" placeholder="Ex: RezFire Comércio de Equipamentos Contra Incêndio Ltda" />
+                </div>
+
+                <div class="form-field">
+                  <label for="emitente_nome_fantasia">Nome Fantasia</label>
+                  <input id="emitente_nome_fantasia" name="nome_fantasia" maxlength="255" placeholder="Ex: RezFire" />
+                </div>
+
+                <div class="form-field">
+                  <label for="emitente_cnpj">CNPJ *</label>
+                  <input id="emitente_cnpj" name="cnpj" required maxlength="18" placeholder="00.000.000/0001-00" />
+                </div>
+
+                <div class="form-field">
+                  <label for="emitente_ie">Inscrição Estadual (IE) *</label>
+                  <input id="emitente_ie" name="inscricao_estadual" required maxlength="20" placeholder="Ex: 110042490114 ou ISENTO" />
+                </div>
+
+                <div class="form-field">
+                  <label for="emitente_regime">Regime Tributário (CRT) *</label>
+                  <select id="emitente_regime" name="regime_tributario" required>
+                    <option value="1">1 — Simples Nacional</option>
+                    <option value="2">2 — Simples Nacional (Excesso sublimite)</option>
+                    <option value="3">3 — Regime Normal (Lucro Presumido / Real)</option>
+                    <option value="4">4 — Simples Nacional — MEI</option>
+                  </select>
+                </div>
+
+                <div class="form-field">
+                  <label for="emitente_serie">Série da NF-e *</label>
+                  <input id="emitente_serie" name="serie_nfe" type="number" min="1" max="999" value="1" required />
+                </div>
+
+                <div class="form-field">
+                  <label for="emitente_proximo_numero">Próximo Número da NF-e *</label>
+                  <input id="emitente_proximo_numero" name="proximo_numero_nfe" type="number" min="1" value="1" required />
+                </div>
+
+                <div class="form-field span-2">
+                  <label for="emitente_modo_integracao">Arquitetura de Transmissão SEFAZ (DoR 33a)</label>
+                  <select id="emitente_modo_integracao" name="modo_integracao">
+                    <option value="sefaz_direto">Integração Direta com Web Services SEFAZ-SP (via Certificado A1)</option>
+                    <option value="intermediario">Serviço Intermediário / Gateway Fiscal</option>
+                  </select>
+                </div>
+
+                <div class="form-field span-2 mt-2 pt-3 border-t border-stone-200">
+                  <strong class="text-xs uppercase tracking-wider text-stone-600">Endereço Fiscal do Estabelecimento</strong>
+                </div>
+
+                <div class="form-field">
+                  <label for="emitente_cep">CEP *</label>
+                  <input id="emitente_cep" name="cep" required maxlength="9" placeholder="00000-000" />
+                </div>
+
+                <div class="form-field">
+                  <label for="emitente_uf">UF *</label>
+                  <select id="emitente_uf" name="uf" required></select>
+                </div>
+
+                <div class="form-field span-2">
+                  <label for="emitente_logradouro">Logradouro *</label>
+                  <input id="emitente_logradouro" name="logradouro" required maxlength="255" placeholder="Rua, Avenida..." />
+                </div>
+
+                <div class="form-field">
+                  <label for="emitente_numero">Número *</label>
+                  <input id="emitente_numero" name="numero" required maxlength="20" placeholder="Ex: 1200" />
+                </div>
+
+                <div class="form-field">
+                  <label for="emitente_complemento">Complemento</label>
+                  <input id="emitente_complemento" name="complemento" maxlength="100" placeholder="Galpão, Sala..." />
+                </div>
+
+                <div class="form-field">
+                  <label for="emitente_bairro">Bairro *</label>
+                  <input id="emitente_bairro" name="bairro" required maxlength="100" placeholder="Ex: Distrito Industrial" />
+                </div>
+
+                <div class="form-field">
+                  <label for="emitente_municipio">Município *</label>
+                  <input id="emitente_municipio" name="municipio" required maxlength="100" placeholder="Ex: São Paulo" />
+                </div>
+
+                <div class="form-field span-2">
+                  <label for="emitente_ibge">Código IBGE do Município (7 dígitos — opcional agora, necessário no XML)</label>
+                  <input id="emitente_ibge" name="codigo_municipio_ibge" maxlength="7" placeholder="Ex: 3550308 (São Paulo - SP)" />
+                </div>
+              </div>
+
+              <p class="form-error" id="emitente-form-error"></p>
+              <div class="modal-actions">
+                <button type="submit" class="btn-primary" id="btn-salvar-emitente">Salvar Dados do Emitente</button>
+              </div>
+            </form>
+          </section>
+
+          <!-- Coluna 3: Cofre do Certificado A1 + Ambiente SEFAZ -->
+          <div class="flex flex-col gap-4">
+            <!-- Card Certificado Digital A1 -->
+            <section class="card p-5">
+              <div class="flex items-center justify-between gap-2 mb-3 pb-2 border-b border-stone-200">
+                <h2 class="text-base font-extrabold text-stone-900">2. Certificado Digital A1</h2>
+                <span id="badge-certificado" class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold bg-stone-100 text-stone-700">
+                  Não instalado
+                </span>
+              </div>
+
+              <div class="modal-info-box" style="margin-bottom: 12px;">
+                <span style="font-size:1rem;">🛡️</span>
+                <div class="text-xs">
+                  <strong>Cofre Cifrado:</strong> O arquivo <code>.pfx/.p12</code> e a senha são validados em memória e salvos com criptografia <strong>AES-256-GCM</strong>. A senha nunca é exibida ou gravada em logs.
+                </div>
+              </div>
+
+              <!-- Metadados do Certificado Instalado -->
+              <div id="certificado-metadados" class="p-3 bg-emerald-50 border border-emerald-200 rounded-xl text-xs space-y-1.5 mb-4" style="display:none;">
+                <div class="flex items-center justify-between">
+                  <strong class="text-emerald-900">Certificado A1 Ativo</strong>
+                  <span id="cert-meta-dias" class="font-bold text-emerald-700"></span>
+                </div>
+                <div><span class="text-stone-600">Titular:</span> <strong id="cert-meta-titular" class="text-stone-900"></strong></div>
+                <div><span class="text-stone-600">Emissor:</span> <span id="cert-meta-emissor" class="text-stone-800"></span></div>
+                <div><span class="text-stone-600">CNPJ:</span> <span id="cert-meta-cnpj" class="font-mono font-semibold text-stone-900"></span></div>
+                <div><span class="text-stone-600">Validade:</span> <strong id="cert-meta-validade" class="text-stone-900"></strong></div>
+                <div class="pt-2 flex justify-end">
+                  <button type="button" id="btn-remover-certificado" class="btn-ghost text-xs text-red-700" style="padding: 4px 10px; border-color: #fecaca;">
+                    Remover Certificado
+                  </button>
+                </div>
+              </div>
+
+              <!-- Formulário de Upload do Certificado A1 -->
+              <form id="form-certificado" class="space-y-3">
+                <div class="form-field">
+                  <label for="certificado_arquivo">Arquivo PKCS#12 (.pfx ou .p12) *</label>
+                  <input id="certificado_arquivo" name="certificado" type="file" accept=".pfx,.p12" required class="text-xs" />
+                </div>
+                <div class="form-field">
+                  <label for="certificado_senha">Senha do Certificado *</label>
+                  <input id="certificado_senha" name="senha" type="password" autocomplete="new-password" required placeholder="Digite a senha do .pfx" />
+                </div>
+                <p class="form-error" id="certificado-form-error"></p>
+                <button type="submit" class="btn-primary w-full" id="btn-enviar-certificado">
+                  Validar e Instalar Certificado A1
+                </button>
+              </form>
+            </section>
+
+            <!-- Card Ambiente SEFAZ -->
+            <section class="card p-5">
+              <div class="flex items-center justify-between gap-2 mb-3 pb-2 border-b border-stone-200">
+                <h2 class="text-base font-extrabold text-stone-900">3. Ambiente SEFAZ</h2>
+                <span id="badge-ambiente" class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-amber-100 text-amber-900">
+                  HOMOLOGAÇÃO
+                </span>
+              </div>
+
+              <p class="text-xs text-stone-600 leading-relaxed mb-4" id="ambiente-descricao">
+                Por padrão, o sistema opera em <strong>Homologação</strong> (notas sem valor fiscal, voltadas a testes). A ativação de <strong>Produção</strong> exige certificado A1 válido e confirmação explícita.
+              </p>
+
+              <div class="flex flex-col gap-2">
+                <button type="button" class="btn-ghost w-full" id="btn-usar-homologacao" style="display:none;">
+                  Voltar para Homologação (Testes)
+                </button>
+                <button type="button" class="btn-primary w-full" id="btn-abrir-modal-producao" style="background: #991b1b;">
+                  Ativar Ambiente de Produção...
+                </button>
+              </div>
+              <p class="form-error" id="ambiente-form-error"></p>
+            </section>
+          </div>
+        </div>
+
+        <!-- Seção inferior: Produtos com Pendências Fiscais (atalho direto 33a -> 33b) -->
+        <section class="card table-wrap mt-5 p-5">
+          <div class="flex items-center justify-between flex-wrap gap-2 mb-3">
+            <div>
+              <h2 class="text-base font-extrabold text-stone-900">Diagnóstico Fiscal do Catálogo (Story 33b)</h2>
+              <p class="text-xs text-stone-500">Produtos sem NCM, CFOP, Origem, CST/CSOSN ou Unidade completos não podem ser emitidos em NF-e.</p>
+            </div>
+            <span id="pendencias-resumo-badge" class="text-xs font-semibold text-stone-600">Carregando...</span>
+          </div>
+          <table class="products-table">
+            <thead>
+              <tr>
+                <th>SKU</th>
+                <th>PRODUTO</th>
+                <th>NCM / CFOP</th>
+                <th>CST / CSOSN</th>
+                <th>PENDÊNCIA FISCAL</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody id="fiscal-pendencias-body"></tbody>
+          </table>
+        </section>
+      </div>
+    </main>
+  </div>
+
+  <!-- Modal de Confirmação Explícita para Produção (Critério 4 da 33a) -->
+  <div class="modal-backdrop" id="modal-confirmar-producao" role="dialog" aria-modal="true" aria-labelledby="modal-prod-title">
+    <form class="modal" id="form-confirmar-producao" style="width: min(500px, 96vw);">
+      <div class="modal-header">
+        <h2 id="modal-prod-title" style="color: #991b1b;">Ativar Ambiente de Produção SEFAZ</h2>
+      </div>
+      <div class="p-3 bg-red-50 border border-red-200 rounded-xl text-xs text-red-900 leading-relaxed mb-4">
+        <strong>Atenção — Validade Jurídica e Tributária:</strong>
+        <p class="mt-1 mb-0">
+          Em ambiente de <strong>Produção</strong>, toda NF-e transmitida passa a ter validade fiscal perante a SEFAZ e a Receita Federal. Certifique-se de que:
+        </p>
+        <ul class="list-disc pl-5 mt-1.5 space-y-0.5">
+          <li>A RezFire já está credenciada na SEFAZ/SP para emissão em produção;</li>
+          <li>Série e próximo número da NF-e estão sincronizados com a última nota já emitida pela empresa;</li>
+          <li>Os dados fiscais e tributários foram conferidos pelo contador.</li>
+        </ul>
+      </div>
+
+      <div class="space-y-3">
+        <label class="inline-flex items-start gap-2 cursor-pointer text-xs text-stone-800">
+          <input type="checkbox" id="prod_check_ciencia" required style="margin-top: 2px;" />
+          <span>Confirmo que o CNPJ está credenciado em produção e assumo responsabilidade pela emissão de notas fiscais reais.</span>
+        </label>
+
+        <div class="form-field">
+          <label for="prod_texto_confirmacao">Digite exatamente <strong>ATIVAR PRODUCAO</strong> para confirmar:</label>
+          <input id="prod_texto_confirmacao" type="text" required placeholder="ATIVAR PRODUCAO" autocomplete="off" />
+        </div>
+      </div>
+
+      <p class="form-error" id="modal-prod-error"></p>
+      <div class="modal-actions">
+        <button type="button" class="btn-ghost" id="btn-cancelar-modal-producao">Cancelar</button>
+        <button type="submit" class="btn-primary" style="background: #991b1b;">Confirmar Ativação de Produção</button>
+      </div>
+    </form>
+  </div>
+
+  <script src="js/mock-data.js"></script>
+  <script src="js/api.js"></script>
+  <script src="js/layout.js"></script>
+  <script src="js/fiscal.js"></script>
+</body>
+
+</html>
+

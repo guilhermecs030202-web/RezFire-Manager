@@ -301,6 +301,51 @@ window.RezFireAPI = {
     },
   },
 
+  // Módulo Fiscal & Emissão de NF-e (Stories 33a / 33b)
+  fiscal: {
+    async obterEmitente() {
+      return window.RezFireAPI.request('/fiscal/emitente');
+    },
+    async salvarEmitente(dados) {
+      return window.RezFireAPI.request('/fiscal/emitente', {
+        method: 'PUT',
+        body: JSON.stringify(dados),
+      });
+    },
+    async alterarAmbiente(dados) {
+      return window.RezFireAPI.request('/fiscal/emitente/ambiente', {
+        method: 'PATCH',
+        body: JSON.stringify(dados),
+      });
+    },
+    async enviarCertificado(arquivo, senha) {
+      const formData = new FormData();
+      formData.append('certificado', arquivo);
+      formData.append('senha', senha);
+      return window.RezFireAPI.request('/fiscal/emitente/certificado', {
+        method: 'POST',
+        body: formData,
+      });
+    },
+    async removerCertificado() {
+      return window.RezFireAPI.request('/fiscal/emitente/certificado', {
+        method: 'DELETE',
+      });
+    },
+    async obterReferencias() {
+      return window.RezFireAPI.request('/fiscal/referencias');
+    },
+    async obterPendenciasProdutos() {
+      return window.RezFireAPI.request('/fiscal/produtos/pendencias');
+    },
+    async validarEmissao(payload) {
+      return window.RezFireAPI.request('/fiscal/validar-emissao', {
+        method: 'POST',
+        body: JSON.stringify(payload || {}),
+      });
+    },
+  },
+
   // Módulo de Integração com o Mercado Livre
   mercadolivre: {
     async getAuthUrl(state) {

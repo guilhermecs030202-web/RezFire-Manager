@@ -16,4 +16,7 @@ export { MidiaAnuncio } from './MidiaAnuncio';
 export { Notificacao } from './Notificacao';
 export { RespostaPadrao } from './RespostaPadrao';
 export { LancamentoFinanceiro } from './LancamentoFinanceiro';
+export { EmitenteFiscal } from './EmitenteFiscal';
+export { NotaFiscal } from './NotaFiscal';
+export { NotaFiscalItem } from './NotaFiscalItem';
 

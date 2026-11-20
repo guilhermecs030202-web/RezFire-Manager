@@ -5,7 +5,37 @@ const trashIcon = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" s
 let products = [];
 let query = "";
 let filtroCertificado = "todos";
+let filtroFiscal = "todos";
 let currentComboItems = [];
+
+const ORIGENS_VALIDAS = new Set(["0", "1", "2", "3", "4", "5", "6", "7", "8"]);
+const CST_CSOSN_VALIDOS = new Set([
+  "101", "102", "103", "201", "202", "203", "300", "400", "500", "900",
+  "00", "10", "20", "30", "40", "41", "50", "51", "60", "70", "90",
+]);
+
+function avaliarFiscalLocal(dados) {
+  const faltantes = [];
+  const ncmClean = String(dados.ncm || "").replace(/[.\-\s]/g, "");
+  const cfopClean = String(dados.cfop || "").replace(/[.\-\s]/g, "");
+  const origem = String(dados.origem_mercadoria ?? "").trim();
+  const cst = String(dados.cst_csosn || "").replace(/\D/g, "");
+  const unidade = String(dados.unidade_comercial || "").trim().toUpperCase();
+
+  if (!/^\d{8}$/.test(ncmClean)) faltantes.push("NCM (8 dígitos)");
+  if (!/^[56]\d{3}$/.test(cfopClean)) faltantes.push("CFOP (4 dígitos)");
+  if (!ORIGENS_VALIDAS.has(origem)) faltantes.push("Origem da mercadoria (0 a 8)");
+  if (!CST_CSOSN_VALIDOS.has(cst)) faltantes.push("CST/CSOSN");
+  if (!/^[A-Z0-9]{1,6}$/.test(unidade)) faltantes.push("Unidade comercial (ex: UN)");
+
+  const apto = faltantes.length === 0;
+  return {
+    apto_nfe: apto,
+    campos_faltantes: faltantes,
+    alertas_fiscais: [],
+    resumo: apto ? "Apto para emissão de NF-e" : `Pendente (${faltantes.join(", ")})`,
+  };
+}
 
 function updateComboVisibility() {
   const tipo = document.getElementById("tipo").value;
@@ -57,6 +87,12 @@ function filteredProducts() {
 
     if (!matchesTerm) return false;
 
+    if (filtroFiscal !== "todos") {
+      const fiscalStatus = p.fiscal_status || avaliarFiscalLocal(p);
+      if (filtroFiscal === "aptos" && !fiscalStatus.apto_nfe) return false;
+      if (filtroFiscal === "pendentes" && fiscalStatus.apto_nfe) return false;
+    }
+
     if (filtroCertificado === "com_cert") {
       return window.RezFireCertificados ? window.RezFireCertificados.temCertificado("produto", p.id_produto) : false;
     }
@@ -73,7 +109,7 @@ function renderTable() {
   document.getElementById("produtos-count").textContent = `${products.length} SKUs cadastrados`;
 
   if (!rows.length) {
-    body.innerHTML = `<tr class="empty-row"><td colspan="9">Nenhum produto encontrado.</td></tr>`;
+    body.innerHTML = `<tr class="empty-row"><td colspan="10">Nenhum produto encontrado.</td></tr>`;
     return;
   }
 
@@ -89,6 +125,11 @@ function renderTable() {
       const certBadgeHTML = certStatus.possuiCertificado
         ? `<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-semibold bg-emerald-50 text-emerald-800 border border-emerald-200" title="${certStatus.quantidade} certificado(s) anexado(s)">🛡️ ${certStatus.quantidade} doc${certStatus.quantidade > 1 ? "s" : ""}</span>`
         : `<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-semibold bg-amber-50 text-amber-800 border border-amber-200" title="Nenhum certificado Inmetro anexado">⚠️ Sem anexo</span>`;
+
+      const fiscalStatus = p.fiscal_status || avaliarFiscalLocal(p);
+      const fiscalBadgeHTML = fiscalStatus.apto_nfe
+        ? `<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-semibold bg-emerald-50 text-emerald-800 border border-emerald-200" title="NCM ${escapeHtml(p.ncm)} · CFOP ${escapeHtml(p.cfop)} · ${escapeHtml(p.cst_csosn)}">🧾 Apto · ${escapeHtml(p.ncm)}</span>`
+        : `<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-semibold bg-red-50 text-red-800 border border-red-200" title="Falta: ${escapeHtml((fiscalStatus.campos_faltantes || []).join(", "))}">⛔ Pendente (${(fiscalStatus.campos_faltantes || []).length})</span>`;
 
       return `
         <tr>
@@ -112,6 +153,7 @@ function renderTable() {
           <td>${RezFireData.formatMoney(Number(p.custo || 0))}</td>
           <td>${RezFireData.formatMoney(Number(p.preco))}</td>
           <td>${certBadgeHTML}</td>
+          <td>${fiscalBadgeHTML}</td>
           <td><span class="status-pill ${p.ativo ? "on" : ""}">${p.ativo ? "Ativo" : "Inativo"}</span></td>
           <td>
             <div class="flex gap-2">
@@ -144,18 +186,20 @@ function switchModalTab(tabName) {
   const tabBtnGeral = document.getElementById("tab-btn-geral");
   const tabBtnDetalhes = document.getElementById("tab-btn-detalhes");
   const tabBtnCertificados = document.getElementById("tab-btn-certificados");
+  const tabBtnFiscal = document.getElementById("tab-btn-fiscal");
   const paneGeral = document.getElementById("tab-pane-geral");
   const paneDetalhes = document.getElementById("tab-pane-detalhes");
   const paneCertificados = document.getElementById("tab-pane-certificados");
+  const paneFiscal = document.getElementById("tab-pane-fiscal");
 
-  [tabBtnGeral, tabBtnDetalhes, tabBtnCertificados].forEach((btn) => {
+  [tabBtnGeral, tabBtnDetalhes, tabBtnCertificados, tabBtnFiscal].forEach((btn) => {
     if (btn) {
       btn.classList.remove("is-active");
       btn.setAttribute("aria-selected", "false");
     }
   });
 
-  [paneGeral, paneDetalhes, paneCertificados].forEach((p) => {
+  [paneGeral, paneDetalhes, paneCertificados, paneFiscal].forEach((p) => {
     if (p) p.style.display = "none";
   });
 
@@ -171,10 +215,58 @@ function switchModalTab(tabName) {
     const prodId = document.getElementById("id_produto").value;
     const regInm = document.getElementById("registro_inmetro").value;
     renderizarCertificadosModalEdicao(prodId, regInm);
+  } else if (tabName === "fiscal") {
+    tabBtnFiscal?.classList.add("is-active");
+    tabBtnFiscal?.setAttribute("aria-selected", "true");
+    if (paneFiscal) paneFiscal.style.display = "block";
+    atualizarStatusFiscalModal();
   } else {
     tabBtnGeral?.classList.add("is-active");
     tabBtnGeral?.setAttribute("aria-selected", "true");
     if (paneGeral) paneGeral.style.display = "block";
+  }
+}
+
+function atualizarStatusFiscalModal() {
+  const status = avaliarFiscalLocal({
+    ncm: document.getElementById("ncm")?.value,
+    cfop: document.getElementById("cfop")?.value,
+    origem_mercadoria: document.getElementById("origem_mercadoria")?.value,
+    cst_csosn: document.getElementById("cst_csosn")?.value,
+    unidade_comercial: document.getElementById("unidade_comercial")?.value,
+    cest: document.getElementById("cest")?.value,
+  });
+
+  const badge = document.getElementById("modal-tab-badge-fiscal");
+  if (badge) {
+    badge.textContent = status.apto_nfe ? "Apto" : `Falta ${status.campos_faltantes.length}`;
+    badge.style.background = status.apto_nfe ? "#ecfdf5" : "#fef2f2";
+    badge.style.color = status.apto_nfe ? "#065f46" : "#991b1b";
+    badge.style.borderColor = status.apto_nfe ? "#a7f3d0" : "#fecaca";
+  }
+
+  const box = document.getElementById("fiscal-produto-alerta");
+  if (box) {
+    if (status.apto_nfe) {
+      box.style.background = "#ecfdf5";
+      box.style.borderColor = "#a7f3d0";
+      box.style.color = "#065f46";
+      box.innerHTML = `
+        <span style="font-size: 1.05rem;">✅</span>
+        <div><strong>Dados fiscais completos:</strong> este produto está apto para compor notas fiscais (NF-e).</div>
+      `;
+    } else {
+      box.style.background = "#fffbeb";
+      box.style.borderColor = "#fde68a";
+      box.style.color = "#92400e";
+      box.innerHTML = `
+        <span style="font-size: 1.05rem;">⚠️</span>
+        <div>
+          <strong>Produto bloqueado para emissão de NF-e:</strong>
+          preencha os campos pendentes: <strong>${escapeHtml(status.campos_faltantes.join(", "))}</strong>.
+        </div>
+      `;
+    }
   }
 }
 
@@ -240,6 +332,15 @@ function openModal(product) {
   document.getElementById("id_lote").value = d.id_lote || "";
   document.getElementById("peso_bruto_kg").value = d.peso_bruto_kg || "";
   document.getElementById("dimensoes").value = d.dimensoes || "";
+
+  // Preenche ou limpa campos da aba Fiscal (NF-e · Story 33b)
+  document.getElementById("ncm").value = (product && product.ncm) || "";
+  document.getElementById("cfop").value = (product && product.cfop) || "";
+  document.getElementById("origem_mercadoria").value = (product && product.origem_mercadoria) || "";
+  document.getElementById("cst_csosn").value = (product && product.cst_csosn) || "";
+  document.getElementById("unidade_comercial").value = (product && product.unidade_comercial) || "";
+  document.getElementById("cest").value = (product && product.cest) || "";
+  atualizarStatusFiscalModal();
 
   // Atualiza badge de quantidade de certificados na aba
   const badgeCerts = document.getElementById("modal-tab-badge-certs");
@@ -464,6 +565,35 @@ function openViewModal(product) {
         </div>
       </div>
     ` : ""}
+    ${(() => {
+      const fs = product.fiscal_status || avaliarFiscalLocal(product);
+      const badge = fs.apto_nfe
+        ? `<span style="font-size:0.75rem;font-weight:700;color:#065f46;background:#ecfdf5;padding:2px 8px;border-radius:999px;border:1px solid #a7f3d0;">Apto p/ NF-e</span>`
+        : `<span style="font-size:0.75rem;font-weight:700;color:#991b1b;background:#fef2f2;padding:2px 8px;border-radius:999px;border:1px solid #fecaca;">Pendente</span>`;
+      return `
+        <div style="background:#fff;border:1px solid var(--line);border-radius:10px;padding:14px 16px;margin-top:14px">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+            <h4 style="font-size:0.82rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:0.06em;margin:0">
+              Dados Fiscais (NF-e · Story 33b)
+            </h4>
+            ${badge}
+          </div>
+          <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(140px, 1fr));gap:10px;font-size:0.86rem">
+            <div><span style="color:var(--muted);font-size:0.74rem;display:block">NCM</span><strong style="font-family:monospace">${escapeHtml(product.ncm || "—")}</strong></div>
+            <div><span style="color:var(--muted);font-size:0.74rem;display:block">CFOP Padrão</span><strong style="font-family:monospace">${escapeHtml(product.cfop || "—")}</strong></div>
+            <div><span style="color:var(--muted);font-size:0.74rem;display:block">Origem</span><strong>${escapeHtml(product.origem_mercadoria ?? "—")}</strong></div>
+            <div><span style="color:var(--muted);font-size:0.74rem;display:block">CST / CSOSN</span><strong style="font-family:monospace">${escapeHtml(product.cst_csosn || "—")}</strong></div>
+            <div><span style="color:var(--muted);font-size:0.74rem;display:block">Unidade</span><strong>${escapeHtml(product.unidade_comercial || "—")}</strong></div>
+            <div><span style="color:var(--muted);font-size:0.74rem;display:block">CEST</span><span style="font-family:monospace">${escapeHtml(product.cest || "—")}</span></div>
+          </div>
+          ${!fs.apto_nfe ? `
+            <p style="margin:10px 0 0;font-size:0.78rem;color:#991b1b;background:#fef2f2;padding:6px 10px;border-radius:6px;">
+              <strong>Campos faltantes:</strong> ${escapeHtml((fs.campos_faltantes || []).join(", "))}
+            </p>
+          ` : ""}
+        </div>
+      `;
+    })()}
     <div id="view-certificados-container" style="margin-top: 14px;"></div>
   `;
 
@@ -496,6 +626,19 @@ function validateForm(payload, editingId) {
     (p) => p.sku.toLowerCase() === payload.sku.toLowerCase() && p.id_produto !== editingId
   );
   if (duplicated) return "Já existe um produto com este SKU.";
+
+  if (payload.ncm && !/^\d{8}$/.test(payload.ncm)) {
+    return "NCM inválido: deve conter exatamente 8 dígitos numéricos (ex: 84241000).";
+  }
+  if (payload.cfop && !/^[56]\d{3}$/.test(payload.cfop)) {
+    return "CFOP inválido: deve conter 4 dígitos iniciados em 5 ou 6 (ex: 5102 ou 6102).";
+  }
+  if (payload.unidade_comercial && !/^[A-Z0-9]{1,6}$/.test(payload.unidade_comercial)) {
+    return "Unidade comercial inválida: informe de 1 a 6 caracteres alfanuméricos (ex: UN, PC, KIT).";
+  }
+  if (payload.cest && !/^\d{7}$/.test(payload.cest)) {
+    return "CEST inválido: deve conter exatamente 7 dígitos numéricos.";
+  }
   return "";
 }
 
@@ -515,6 +658,13 @@ function readForm() {
     dimensoes: document.getElementById("dimensoes").value.trim(),
   };
 
+  const ncmVal = document.getElementById("ncm").value.replace(/[.\-\s]/g, "").trim();
+  const cfopVal = document.getElementById("cfop").value.replace(/[.\-\s]/g, "").trim();
+  const origemVal = document.getElementById("origem_mercadoria").value.trim();
+  const cstVal = document.getElementById("cst_csosn").value.trim();
+  const unVal = document.getElementById("unidade_comercial").value.trim().toUpperCase();
+  const cestVal = document.getElementById("cest").value.replace(/[.\-\s]/g, "").trim();
+
   return {
     sku: document.getElementById("sku").value.trim(),
     nome: document.getElementById("nome").value.trim(),
@@ -526,12 +676,23 @@ function readForm() {
     ativo: document.getElementById("ativo").value === "true",
     combo_items: [...currentComboItems],
     detalhes_extintor,
+    ncm: ncmVal || null,
+    cfop: cfopVal || null,
+    origem_mercadoria: origemVal || null,
+    cst_csosn: cstVal || null,
+    unidade_comercial: unVal || null,
+    cest: cestVal || null,
   };
 }
 
 function bindEvents() {
   document.getElementById("busca").addEventListener("input", (event) => {
     query = event.target.value;
+    renderTable();
+  });
+
+  document.getElementById("filtro-fiscal")?.addEventListener("change", (event) => {
+    filtroFiscal = event.target.value;
     renderTable();
   });
 
@@ -551,9 +712,17 @@ function bindEvents() {
   const tabBtnGeral = document.getElementById("tab-btn-geral");
   const tabBtnDetalhes = document.getElementById("tab-btn-detalhes");
   const tabBtnCertificados = document.getElementById("tab-btn-certificados");
+  const tabBtnFiscal = document.getElementById("tab-btn-fiscal");
   if (tabBtnGeral) tabBtnGeral.addEventListener("click", () => switchModalTab("geral"));
   if (tabBtnDetalhes) tabBtnDetalhes.addEventListener("click", () => switchModalTab("detalhes"));
   if (tabBtnCertificados) tabBtnCertificados.addEventListener("click", () => switchModalTab("certificados"));
+  if (tabBtnFiscal) tabBtnFiscal.addEventListener("click", () => switchModalTab("fiscal"));
+
+  ["ncm", "cfop", "origem_mercadoria", "cst_csosn", "unidade_comercial", "cest"].forEach((id) => {
+    const el = document.getElementById(id);
+    el?.addEventListener("input", atualizarStatusFiscalModal);
+    el?.addEventListener("change", atualizarStatusFiscalModal);
+  });
 
   // Listener para sincronização reativa quando certificados são adicionados/removidos
   window.addEventListener("rezfire:certificados-mudaram", () => {
@@ -660,12 +829,18 @@ function bindEvents() {
     const error = validateForm(payload, editingId);
     document.getElementById("form-error").textContent = error;
     if (error) {
-      // Se houver erro em campo da aba geral, volta para a aba geral para o usuário corrigir
-      if (error.includes("SKU") || error.includes("nome") || error.includes("Custo") || error.includes("Preço") || error.includes("categoria") || error.includes("combo")) {
+      if (error.includes("NCM") || error.includes("CFOP") || error.includes("Unidade") || error.includes("CEST")) {
+        switchModalTab("fiscal");
+      } else if (error.includes("SKU") || error.includes("nome") || error.includes("Custo") || error.includes("Preço") || error.includes("categoria") || error.includes("combo")) {
         switchModalTab("geral");
       }
       return;
     }
+
+    const isNetworkError = (err) => {
+      const msg = String(err?.message || "");
+      return err instanceof TypeError || msg.includes("Failed to fetch") || msg.includes("NetworkError");
+    };
 
     try {
       if (editingId) {
@@ -678,6 +853,7 @@ function bindEvents() {
               products = products.map((p) => p.id_produto === editingId ? { ...p, ...payload, id_produto: editingId } : p);
             }
           } catch (e) {
+            if (!isNetworkError(e)) throw e;
             products = products.map((p) => p.id_produto === editingId ? { ...p, ...payload, id_produto: editingId } : p);
           }
         } else {
@@ -693,6 +869,7 @@ function bindEvents() {
               products.push({ ...payload, quantidade_atual: 0, estoque_minimo: 0, id_produto: RezFireData.nextProductId(products) });
             }
           } catch (e) {
+            if (!isNetworkError(e)) throw e;
             products.push({ ...payload, quantidade_atual: 0, estoque_minimo: 0, id_produto: RezFireData.nextProductId(products) });
           }
         } else {
@@ -704,7 +881,11 @@ function bindEvents() {
       closeModal();
       renderTable();
     } catch (err) {
-      document.getElementById("form-error").textContent = err.message || "Erro ao salvar produto.";
+      const msg = err.message || "Erro ao salvar produto.";
+      document.getElementById("form-error").textContent = msg;
+      if (msg.includes("NCM") || msg.includes("CFOP") || msg.includes("Origem") || msg.includes("CST") || msg.includes("CSOSN") || msg.includes("Unidade") || msg.includes("CEST")) {
+        switchModalTab("fiscal");
+      }
     }
   });
 }
@@ -727,7 +908,26 @@ async function init() {
     products = RezFireData.loadProducts();
   }
   bindEvents();
+
+  const urlParams = new URLSearchParams(window.location.search);
+  const fiscalParam = urlParams.get("fiscal");
+  if (fiscalParam && ["aptos", "pendentes", "todos"].includes(fiscalParam)) {
+    filtroFiscal = fiscalParam;
+    const selFiscal = document.getElementById("filtro-fiscal");
+    if (selFiscal) selFiscal.value = fiscalParam;
+  }
+
   renderTable();
+
+  const editParam = Number(urlParams.get("edit"));
+  const tabParam = urlParams.get("tab");
+  if (editParam) {
+    const target = products.find((p) => p.id_produto === editParam);
+    if (target) {
+      openModal(target);
+      if (tabParam) switchModalTab(tabParam);
+    }
+  }
 }
 
 init();

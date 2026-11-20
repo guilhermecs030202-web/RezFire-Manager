@@ -25,5 +25,7 @@ export const env = {
 
   // Armazenamento
   UPLOAD_DIR: process.env.UPLOAD_DIR || path.resolve(__dirname, '../../uploads/certificados'),
+  FISCAL_ENCRYPTION_KEY: process.env.FISCAL_ENCRYPTION_KEY || '',
+  FISCAL_VAULT_DIR: process.env.FISCAL_VAULT_DIR || path.resolve(__dirname, '../../uploads/fiscal-vault'),
 };
 

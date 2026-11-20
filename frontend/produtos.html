@@ -35,6 +35,11 @@
           <p class="page-subtitle" id="produtos-count"></p>
         </div>
         <div class="flex items-center gap-3">
+          <select id="filtro-fiscal" class="search-input" style="padding-top: 6px; padding-bottom: 6px; font-size: 0.82rem;">
+            <option value="todos">Todos (Status Fiscal)</option>
+            <option value="aptos">🧾 Aptos para NF-e</option>
+            <option value="pendentes">⛔ Fiscal Pendente (33b)</option>
+          </select>
           <select id="filtro-certificados" class="search-input" style="padding-top: 6px; padding-bottom: 6px; font-size: 0.82rem;">
             <option value="todos">Todos os Certificados</option>
             <option value="com_cert">🛡️ Com Certificado Anexado</option>
@@ -56,6 +61,7 @@
               <th>CUSTO</th>
               <th>PREÇO</th>
               <th>CERTIFICAÇÃO</th>
+              <th>FISCAL (NF-E)</th>
               <th>SITUAÇÃO</th>
               <th></th>
             </tr>
@@ -82,6 +88,9 @@
         </button>
         <button type="button" class="modal-tab-btn" id="tab-btn-certificados" data-tab="certificados" role="tab" aria-selected="false">
           Certificados <span class="modal-tab-badge" id="modal-tab-badge-certs">0</span>
+        </button>
+        <button type="button" class="modal-tab-btn" id="tab-btn-fiscal" data-tab="fiscal" role="tab" aria-selected="false">
+          Fiscal (NF-e) <span class="modal-tab-badge" id="modal-tab-badge-fiscal">Pendente</span>
         </button>
       </div>
 
@@ -233,6 +242,106 @@
         <div id="modal-certificados-container">
           <!-- Renderizado dinamicamente via RezFireCertificados -->
         </div>
+      </div>
+
+      <!-- Aba 4: Dados Fiscais para NF-e (Story 33b) -->
+      <div class="modal-tab-pane" id="tab-pane-fiscal" role="tabpanel" style="display: none;">
+        <div id="fiscal-produto-alerta" class="modal-info-box">
+          <!-- Atualizado dinamicamente em tempo real via JS -->
+        </div>
+
+        <div class="form-grid">
+          <div class="form-field">
+            <label for="ncm">NCM (8 dígitos) *</label>
+            <input id="ncm" name="ncm" maxlength="10" list="lista-ncm-sugestoes" placeholder="Ex: 84241000 (Extintores)" />
+            <datalist id="lista-ncm-sugestoes">
+              <option value="84241000">84241000 — Extintores de incêndio</option>
+              <option value="84249090">84249090 — Partes e acessórios de extintores</option>
+              <option value="83024900">83024900 — Suportes metálicos de fixação</option>
+              <option value="39269090">39269090 — Placas de sinalização em PVC</option>
+            </datalist>
+          </div>
+
+          <div class="form-field">
+            <label for="cfop">CFOP Padrão de Saída (4 dígitos) *</label>
+            <input id="cfop" name="cfop" maxlength="5" list="lista-cfop-sugestoes" placeholder="Ex: 5102 ou 5405" />
+            <datalist id="lista-cfop-sugestoes">
+              <option value="5102">5102 — Venda de mercadoria (dentro do estado)</option>
+              <option value="5405">5405 — Venda c/ ST cobrada anteriormente (dentro do estado)</option>
+              <option value="6102">6102 — Venda de mercadoria (interestadual)</option>
+              <option value="6404">6404 — Venda sujeita à ST (interestadual)</option>
+              <option value="5101">5101 — Venda de produção própria (estadual)</option>
+              <option value="6101">6101 — Venda de produção própria (interestadual)</option>
+            </datalist>
+          </div>
+
+          <div class="form-field span-2">
+            <label for="origem_mercadoria">Origem da Mercadoria (Tabela A) *</label>
+            <select id="origem_mercadoria" name="origem_mercadoria">
+              <option value="">Selecione a origem...</option>
+              <option value="0">0 — Nacional (exceto as indicadas nos códigos 3, 4, 5 e 8)</option>
+              <option value="1">1 — Estrangeira — Importação direta</option>
+              <option value="2">2 — Estrangeira — Adquirida no mercado interno</option>
+              <option value="3">3 — Nacional — Conteúdo de Importação &gt; 40% e &lt;= 70%</option>
+              <option value="4">4 — Nacional — Processos produtivos básicos</option>
+              <option value="5">5 — Nacional — Conteúdo de Importação &lt;= 40%</option>
+              <option value="6">6 — Estrangeira — Importação direta sem similar nacional</option>
+              <option value="7">7 — Estrangeira — Mercado interno sem similar nacional</option>
+              <option value="8">8 — Nacional — Conteúdo de Importação &gt; 70%</option>
+            </select>
+          </div>
+
+          <div class="form-field span-2">
+            <label for="cst_csosn">Situação Tributária (CSOSN / CST) *</label>
+            <select id="cst_csosn" name="cst_csosn">
+              <option value="">Selecione o CSOSN (Simples Nacional) ou CST (Regime Normal)...</option>
+              <optgroup label="Simples Nacional — CSOSN">
+                <option value="102">102 — Tributada pelo Simples Nacional sem permissão de crédito</option>
+                <option value="101">101 — Tributada pelo Simples Nacional com permissão de crédito</option>
+                <option value="103">103 — Isenção do ICMS no Simples Nacional (faixa de receita)</option>
+                <option value="500">500 — ICMS cobrado anteriormente por substituição tributária</option>
+                <option value="201">201 — Tributada c/ crédito e cobrança de ICMS por ST</option>
+                <option value="202">202 — Tributada s/ crédito e cobrança de ICMS por ST</option>
+                <option value="203">203 — Isenção ICMS c/ cobrança por ST</option>
+                <option value="300">300 — Imune</option>
+                <option value="400">400 — Não tributada pelo Simples Nacional</option>
+                <option value="900">900 — Outros</option>
+              </optgroup>
+              <optgroup label="Regime Normal — CST">
+                <option value="00">00 — Tributada integralmente</option>
+                <option value="10">10 — Tributada e com cobrança do ICMS por ST</option>
+                <option value="20">20 — Com redução de base de cálculo</option>
+                <option value="40">40 — Isenta</option>
+                <option value="41">41 — Não tributada</option>
+                <option value="60">60 — ICMS cobrado anteriormente por ST</option>
+                <option value="90">90 — Outras</option>
+              </optgroup>
+            </select>
+          </div>
+
+          <div class="form-field">
+            <label for="unidade_comercial">Unidade Comercial (NF-e) *</label>
+            <input id="unidade_comercial" name="unidade_comercial" maxlength="6" list="lista-unidade-sugestoes" placeholder="Ex: UN, PC, KIT" />
+            <datalist id="lista-unidade-sugestoes">
+              <option value="UN">UN — Unidade</option>
+              <option value="PC">PC — Peça</option>
+              <option value="KIT">KIT — Conjunto / Kit</option>
+              <option value="CX">CX — Caixa</option>
+              <option value="KG">KG — Quilograma</option>
+              <option value="LT">LT — Litro</option>
+              <option value="PAR">PAR — Par</option>
+            </datalist>
+          </div>
+
+          <div class="form-field">
+            <label for="cest">CEST (7 dígitos — opcional)</label>
+            <input id="cest" name="cest" maxlength="9" placeholder="Informar quando aplicável ST" />
+          </div>
+        </div>
+
+        <p style="font-size: 0.74rem; color: #78716c; margin-top: 10px;">
+          Nota de conformidade: alterações nestes campos aplicam-se somente às próximas NF-e. Notas fiscais já emitidas preservam o retrato fiscal (snapshot) da data de emissão.
+        </p>
       </div>
 
       <p class="form-error" id="form-error"></p>

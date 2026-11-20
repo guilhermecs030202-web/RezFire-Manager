@@ -27,6 +27,8 @@ export const env = {
   UPLOAD_DIR: process.env.UPLOAD_DIR || path.resolve(__dirname, '../../uploads/certificados'),
   FISCAL_ENCRYPTION_KEY: process.env.FISCAL_ENCRYPTION_KEY || '',
   FISCAL_VAULT_DIR: process.env.FISCAL_VAULT_DIR || path.resolve(__dirname, '../../uploads/fiscal-vault'),
+  FISCAL_XML_ARCHIVE_DIR:
+    process.env.FISCAL_XML_ARCHIVE_DIR || path.resolve(__dirname, '../../uploads/fiscal-xmls'),
 
   // Comunicação SEFAZ NF-e v4.00 (Story 33d)
   SEFAZ_MODO_TRANSPORTE: (process.env.SEFAZ_MODO_TRANSPORTE || 'simulado') as 'simulado' | 'sefaz_soap',

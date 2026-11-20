@@ -146,18 +146,18 @@ A história, como está, **não atende ao INVEST**: é grande demais (S), difíc
 
 **Critérios de aceite**
 
-- [ ] O XML autorizado fica armazenado e vinculado ao pedido, com opção de download.
-- [ ] O DANFE é gerado e pode ser visualizado e impresso a partir do pedido.
-- [ ] O DANFE exibe a chave de acesso e o protocolo de autorização.
-- [ ] Os documentos de uma nota continuam disponíveis depois de alterações no pedido.
+- [x] O XML autorizado fica armazenado e vinculado ao pedido, com opção de download. *(Arquivado em disco em `uploads/fiscal-xmls/{ambiente}/{YYYY}/{MM}/{chave}-procNFe.xml` com integridade SHA-256 verificada em download, retenção legal de 5 anos (`guarda_legal_ate`) e endpoints `/api/fiscal/notas/:id/xml` e `/api/fiscal/pedidos/:id/nfe/xml`.)*
+- [x] O DANFE é gerado e pode ser visualizado e impresso a partir do pedido. *(Gerador A4 HTML + `@media print` em `danfeGenerator.ts`, endpoints `/api/fiscal/notas/:id/danfe` e `/api/fiscal/pedidos/:id/nfe/danfe`, acessíveis em `pedidos.html` e no arquivo fiscal de `fiscal.html`, com permissão de impressão estendida ao `OPERADOR` de expedição.)*
+- [x] O DANFE exibe a chave de acesso e o protocolo de autorização. *(Exibe chave de 44 dígitos formatada, código de barras vetorial ISO/IEC 15417 Code-128C SVG e Protocolo de Autorização SEFAZ com data/hora, além de faixa de homologação quando aplicável.)*
+- [x] Os documentos de uma nota continuam disponíveis depois de alterações no pedido. *(DANFE e XML leem exclusivamente snapshots imutáveis da `NotaFiscal`, preservados mesmo após edição do destinatário, mudança de nome/preço no catálogo ou cancelamento comercial do pedido.)*
 
 **Definition of Ready (DoR): não pronto até que...**
 
-- [ ] Story 33d concluída.
-- [ ] Prazo legal de guarda do XML e forma de armazenamento definidos.
-- [ ] Modelo do DANFE (padrão oficial) aceito pelo cliente.
-- [ ] Definido se XML e DANFE serão enviados ao comprador e como a nota chega ao Mercado Livre (a verificar).
-- [ ] Estimativa (3 SP) acordada pelo time.
+- [x] Story 33d concluída.
+- [ ] Prazo legal de guarda do XML e forma de armazenamento definidos. *(Implementado arquivamento local em disco com `SHA-256` e `guarda_legal_ate` de 5 anos completos; validar política de backup externo/cloud com a empresa e contabilidade.)*
+- [ ] Modelo do DANFE (padrão oficial) aceito pelo cliente. *(Layout retrato A4 oficial MOC v7.0 implementado e pronto para validação visual pela RezFire.)*
+- [ ] Definido se XML e DANFE serão enviados ao comprador e como a nota chega ao Mercado Livre (a verificar). *(Externo — envio automático de XML/DANFE via API do Mercado Livre depende de credenciais/homologação de produção e definição de fluxo no módulo ML.)*
+- [x] Estimativa (3 SP) acordada pelo time.
 
 ---
 

@@ -23,6 +23,7 @@ import {
 import { validarCertificadoA1 } from '../utils/certificadoA1Parser';
 import { montarXmlNFe400, validarDadosParaNFe } from '../utils/nfeBuilder';
 import { assinarXmlNFe } from '../utils/nfeSigner';
+import { gerarHtmlDanfe } from '../utils/danfeGenerator';
 import {
   CenarioSimulacaoSefaz,
   consultarProtocoloSefaz,
@@ -823,6 +824,12 @@ export class FiscalService {
       nfEntity.xml_autorizado = null;
       nfEntity.autorizada_em = null;
       nfEntity.numero_recibo = null;
+      nfEntity.codigo_pedido_snapshot = pedido.codigo_pedido;
+      nfEntity.xml_autorizado_path = null;
+      nfEntity.xml_autorizado_sha256 = null;
+      nfEntity.xml_arquivado_em = null;
+      nfEntity.guarda_legal_ate = null;
+      nfEntity.danfe_gerado_em = null;
       nfEntity.emitente_snapshot = montada.emitente_snapshot;
       nfEntity.destinatario_snapshot = montada.destinatario_snapshot;
       nfEntity.totais_snapshot = montada.totais_snapshot;
@@ -980,6 +987,20 @@ export class FiscalService {
     } else {
       nota.ultima_tentativa_em = new Date();
     }
+  }
+
+  private async persistirRetornoSefazNaNota(
+    nota: NotaFiscal,
+    chamada: ResultadoChamadaSefaz,
+    codigoPedido: string,
+    isEnvio: boolean
+  ): Promise<void> {
+    this.aplicarResultadoChamadaNaNota(nota, chamada, isEnvio);
+    if ((nota.status as NotaFiscal['status']) === 'autorizada' && nota.xml_autorizado) {
+      nota.codigo_pedido_snapshot = nota.codigo_pedido_snapshot || codigoPedido;
+      this.arquivarXmlAutorizadoEmDisco(nota);
+    }
+    await this.notaFiscalRepo.save(nota);
   }
 
   private serializarTransmissaoResumo(t: NotaFiscalTransmissao) {
@@ -1187,8 +1208,7 @@ export class FiscalService {
           chamada: chamadaConsulta,
         });
 
-        this.aplicarResultadoChamadaNaNota(nota, chamadaConsulta, false);
-        await this.notaFiscalRepo.save(nota);
+        await this.persistirRetornoSefazNaNota(nota, chamadaConsulta, pedido.codigo_pedido, false);
 
         const catConsulta = chamadaConsulta.parsed.interpretacao.categoria;
         if (chamadaConsulta.indisponivel || catConsulta !== 'consulta_vazia') {
@@ -1244,8 +1264,7 @@ export class FiscalService {
         chamada,
       });
 
-      this.aplicarResultadoChamadaNaNota(nota, chamada, true);
-      await this.notaFiscalRepo.save(nota);
+      await this.persistirRetornoSefazNaNota(nota, chamada, pedido.codigo_pedido, true);
 
       const notaAtualizada = await this.notaFiscalRepo.findOne({
         where: { id_nota_fiscal: nota.id_nota_fiscal },
@@ -1368,8 +1387,7 @@ export class FiscalService {
         chamada,
       });
 
-      this.aplicarResultadoChamadaNaNota(nota, chamada, false);
-      await this.notaFiscalRepo.save(nota);
+      await this.persistirRetornoSefazNaNota(nota, chamada, pedido.codigo_pedido, false);
 
       const notaAtualizada = await this.notaFiscalRepo.findOne({
         where: { id_nota_fiscal: nota.id_nota_fiscal },
@@ -1459,6 +1477,276 @@ export class FiscalService {
       }
       senha = undefined;
     }
+  }
+
+  // ─── Story 33e: Arquivo XML Autorizado em Disco (Guarda Legal) e DANFE ────────
+
+  private calcularDataGuardaLegal(dataRef: Date): string {
+    return `${dataRef.getUTCFullYear() + 5}-12-31`;
+  }
+
+  private resolverCaminhoAbsolutoArquivoXml(relPath: string): string {
+    const raiz = path.resolve(env.FISCAL_XML_ARCHIVE_DIR);
+    const destino = path.resolve(raiz, relPath);
+    if (!destino.startsWith(`${raiz}${path.sep}`) && destino !== raiz) {
+      throw Object.assign(new Error('Caminho inválido para o arquivo XML fiscal.'), { statusCode: 400 });
+    }
+    return destino;
+  }
+
+  private arquivarXmlAutorizadoEmDisco(nota: NotaFiscal): void {
+    if (!nota.xml_autorizado || !nota.chave_acesso) {
+      return;
+    }
+
+    const buf = Buffer.from(nota.xml_autorizado, 'utf8');
+    const hash = sha256Hex(buf);
+    const dataRef = nota.autorizada_em || nota.emitida_em || new Date();
+    const yyyy = String(dataRef.getUTCFullYear());
+    const mm = String(dataRef.getUTCMonth() + 1).padStart(2, '0');
+    const relPath = nota.xml_autorizado_path || `${nota.ambiente}/${yyyy}/${mm}/${nota.chave_acesso}-procNFe.xml`;
+    const absPath = this.resolverCaminhoAbsolutoArquivoXml(relPath);
+
+    fs.mkdirSync(path.dirname(absPath), { recursive: true });
+
+    if (fs.existsSync(absPath)) {
+      const diskHash = sha256Hex(fs.readFileSync(absPath));
+      if (nota.xml_autorizado_sha256 && diskHash !== nota.xml_autorizado_sha256) {
+        throw Object.assign(
+          new Error('Divergência de integridade (SHA-256) no XML autorizado armazenado em disco.'),
+          { statusCode: 500 }
+        );
+      }
+      if (diskHash !== hash) {
+        throw Object.assign(
+          new Error('O arquivo XML autorizado em disco difere do conteúdo registrado no banco de dados.'),
+          { statusCode: 500 }
+        );
+      }
+    } else {
+      fs.writeFileSync(absPath, buf, { mode: 0o600 });
+    }
+
+    nota.xml_autorizado_path = relPath;
+    nota.xml_autorizado_sha256 = hash;
+    nota.xml_arquivado_em = nota.xml_arquivado_em || new Date();
+    nota.guarda_legal_ate = nota.guarda_legal_ate || this.calcularDataGuardaLegal(dataRef);
+  }
+
+  async obterXmlParaDownload(id_nota_fiscal: number): Promise<{
+    nota: NotaFiscal;
+    conteudoXml: string;
+    nomeArquivo: string;
+    sha256: string;
+    autorizado: boolean;
+  }> {
+    const nf = await this.notaFiscalRepo.findOne({ where: { id_nota_fiscal } });
+    if (!nf || (!nf.xml_autorizado && !nf.xml_assinado)) {
+      throw Object.assign(new Error(`XML da nota fiscal #${id_nota_fiscal} não encontrado.`), {
+        statusCode: 404,
+      });
+    }
+
+    if ((nf.status === 'autorizada' || nf.status === 'cancelada') && nf.xml_autorizado) {
+      if (!nf.xml_autorizado_path || !nf.xml_autorizado_sha256) {
+        this.arquivarXmlAutorizadoEmDisco(nf);
+        await this.notaFiscalRepo.save(nf);
+      }
+
+      const absPath = this.resolverCaminhoAbsolutoArquivoXml(nf.xml_autorizado_path!);
+      if (!fs.existsSync(absPath)) {
+        this.arquivarXmlAutorizadoEmDisco(nf);
+      }
+
+      const bytes = fs.readFileSync(absPath);
+      const diskHash = sha256Hex(bytes);
+      if (nf.xml_autorizado_sha256 && diskHash !== nf.xml_autorizado_sha256) {
+        throw Object.assign(
+          new Error('Falha de integridade SHA-256 ao ler XML autorizado do arquivo fiscal.'),
+          { statusCode: 500 }
+        );
+      }
+
+      return {
+        nota: nf,
+        conteudoXml: bytes.toString('utf8'),
+        nomeArquivo: `NFe-${nf.chave_acesso || nf.numero}-procNFe.xml`,
+        sha256: diskHash,
+        autorizado: true,
+      };
+    }
+
+    const xmlAssinado = nf.xml_assinado || nf.xml_autorizado!;
+    return {
+      nota: nf,
+      conteudoXml: xmlAssinado,
+      nomeArquivo: `NFe-${nf.chave_acesso || nf.numero}.xml`,
+      sha256: sha256Hex(Buffer.from(xmlAssinado, 'utf8')),
+      autorizado: false,
+    };
+  }
+
+  async obterXmlParaDownloadPorPedido(id_pedido: number) {
+    const notas = await this.notaFiscalRepo.find({
+      where: { id_pedido },
+      order: { id_nota_fiscal: 'DESC' },
+    });
+    const alvo =
+      notas.find((n) => (n.status === 'autorizada' || n.status === 'cancelada') && Boolean(n.xml_autorizado)) ||
+      notas.find((n) => Boolean(n.xml_autorizado || n.xml_assinado));
+
+    if (!alvo) {
+      throw Object.assign(new Error(`Nenhum XML fiscal disponível para o pedido #${id_pedido}.`), {
+        statusCode: 404,
+      });
+    }
+
+    return this.obterXmlParaDownload(alvo.id_nota_fiscal);
+  }
+
+  async gerarDanfePorNota(id_nota_fiscal: number): Promise<{ nota: NotaFiscal; html: string }> {
+    const nf = await this.notaFiscalRepo.findOne({
+      where: { id_nota_fiscal },
+      relations: ['itens'],
+    });
+
+    if (!nf) {
+      throw Object.assign(new Error(`Nota fiscal #${id_nota_fiscal} não encontrada.`), {
+        statusCode: 404,
+      });
+    }
+
+    if (nf.status !== 'autorizada' && nf.status !== 'cancelada') {
+      throw Object.assign(
+        new Error(
+          `DANFE só pode ser gerado após autorização na SEFAZ (status atual: "${nf.status}").`
+        ),
+        { statusCode: 400 }
+      );
+    }
+
+    if (!nf.protocolo_autorizacao || !nf.chave_acesso) {
+      throw Object.assign(
+        new Error('NF-e sem protocolo de autorização ou chave de acesso para geração do DANFE.'),
+        { statusCode: 400 }
+      );
+    }
+
+    if (nf.xml_autorizado && !nf.xml_autorizado_path) {
+      this.arquivarXmlAutorizadoEmDisco(nf);
+      await this.notaFiscalRepo.update(
+        { id_nota_fiscal: nf.id_nota_fiscal },
+        {
+          xml_autorizado_path: nf.xml_autorizado_path,
+          xml_autorizado_sha256: nf.xml_autorizado_sha256,
+          xml_arquivado_em: nf.xml_arquivado_em,
+          guarda_legal_ate: nf.guarda_legal_ate,
+        }
+      );
+    }
+
+    const html = gerarHtmlDanfe(nf);
+    const agora = new Date();
+    await this.notaFiscalRepo.update({ id_nota_fiscal: nf.id_nota_fiscal }, { danfe_gerado_em: agora });
+    nf.danfe_gerado_em = agora;
+
+    return { nota: nf, html };
+  }
+
+  async gerarDanfePorPedido(id_pedido: number): Promise<{ nota: NotaFiscal; html: string }> {
+    const notas = await this.notaFiscalRepo.find({
+      where: { id_pedido },
+      order: { id_nota_fiscal: 'DESC' },
+    });
+
+    if (!notas || notas.length === 0) {
+      throw Object.assign(new Error(`Nenhuma NF-e encontrada para o pedido #${id_pedido}.`), {
+        statusCode: 404,
+      });
+    }
+
+    const alvo =
+      notas.find((n) => n.status === 'autorizada' || n.status === 'cancelada') || notas[0];
+    return this.gerarDanfePorNota(alvo.id_nota_fiscal);
+  }
+
+  async listarNotasFiscais(filtros: { status?: string; ambiente?: string; busca?: string } = {}) {
+    const qb = this.notaFiscalRepo
+      .createQueryBuilder('nf')
+      .select([
+        'nf.id_nota_fiscal',
+        'nf.id_pedido',
+        'nf.codigo_pedido_snapshot',
+        'nf.ambiente',
+        'nf.serie',
+        'nf.numero',
+        'nf.chave_acesso',
+        'nf.status',
+        'nf.protocolo_autorizacao',
+        'nf.valor_total',
+        'nf.emitida_em',
+        'nf.autorizada_em',
+        'nf.xml_autorizado_path',
+        'nf.xml_autorizado_sha256',
+        'nf.xml_arquivado_em',
+        'nf.guarda_legal_ate',
+        'nf.danfe_gerado_em',
+        'nf.destinatario_snapshot',
+        'nf.created_at',
+      ])
+      .orderBy('nf.id_nota_fiscal', 'DESC')
+      .take(200);
+
+    if (filtros.status && filtros.status !== 'todos') {
+      qb.andWhere('nf.status = :status', { status: filtros.status });
+    }
+    if (filtros.ambiente && filtros.ambiente !== 'todos') {
+      qb.andWhere('nf.ambiente = :ambiente', { ambiente: filtros.ambiente });
+    }
+
+    const lista = await qb.getMany();
+    const buscaNorm = String(filtros.busca || '').trim().toLowerCase();
+
+    const filtrada = buscaNorm
+      ? lista.filter((nf) => {
+          const destNome = String(nf.destinatario_snapshot?.nome || '').toLowerCase();
+          const destDoc = String(nf.destinatario_snapshot?.documento || '').toLowerCase();
+          return (
+            String(nf.numero).includes(buscaNorm) ||
+            String(nf.chave_acesso || '').toLowerCase().includes(buscaNorm) ||
+            String(nf.protocolo_autorizacao || '').toLowerCase().includes(buscaNorm) ||
+            String(nf.codigo_pedido_snapshot || '').toLowerCase().includes(buscaNorm) ||
+            destNome.includes(buscaNorm) ||
+            destDoc.includes(buscaNorm)
+          );
+        })
+      : lista;
+
+    return filtrada.map((nf) => ({
+      id_nota_fiscal: nf.id_nota_fiscal,
+      id_pedido: nf.id_pedido,
+      codigo_pedido_snapshot: nf.codigo_pedido_snapshot,
+      ambiente: nf.ambiente,
+      serie: nf.serie,
+      numero: nf.numero,
+      chave_acesso: nf.chave_acesso,
+      status: nf.status,
+      protocolo_autorizacao: nf.protocolo_autorizacao,
+      valor_total: Number(nf.valor_total || 0),
+      emitida_em: nf.emitida_em,
+      autorizada_em: nf.autorizada_em,
+      xml_autorizado_path: nf.xml_autorizado_path,
+      xml_autorizado_sha256: nf.xml_autorizado_sha256,
+      xml_arquivado_em: nf.xml_arquivado_em,
+      guarda_legal_ate: nf.guarda_legal_ate,
+      danfe_gerado_em: nf.danfe_gerado_em,
+      destinatario_nome: nf.destinatario_snapshot?.nome || null,
+      destinatario_documento: nf.destinatario_snapshot?.documento || null,
+      tem_xml_autorizado: Boolean(nf.xml_autorizado_path || nf.status === 'autorizada' || nf.status === 'cancelada'),
+      pode_gerar_danfe:
+        (nf.status === 'autorizada' || nf.status === 'cancelada') && Boolean(nf.protocolo_autorizacao),
+      created_at: nf.created_at,
+    }));
   }
 }
 

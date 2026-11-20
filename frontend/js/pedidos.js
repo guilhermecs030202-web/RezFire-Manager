@@ -50,6 +50,11 @@ function formatDate(iso) {
 
 function formatDateOnly(iso) {
   if (!iso) return "—";
+  const str = String(iso).trim();
+  if (/^\d{4}-\d{2}-\d{2}$/.test(str)) {
+    const [yyyy, mm, dd] = str.split("-");
+    return `${dd}/${mm}/${yyyy}`;
+  }
   return new Date(iso).toLocaleDateString("pt-BR", {
     day: "2-digit", month: "2-digit", year: "numeric",
   });
@@ -787,7 +792,7 @@ function openDetalhePanel(pedidoId) {
         `}
       </section>
 
-      <!-- Destinatário & NF-e (Stories 33c / 33d) -->
+      <!-- Destinatário & NF-e (Stories 33c / 33d / 33e) -->
       <section class="detalhe-section" style="background:#fff;border:1px solid var(--line);border-radius:10px;padding:14px;">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;gap:8px;flex-wrap:wrap">
           <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
@@ -799,11 +804,21 @@ function openDetalhePanel(pedidoId) {
               <button type="button" class="btn-ghost" id="btn-drawer-destinatario" style="padding:5px 10px;font-size:0.78rem">
                 Editar Destinatário
               </button>
+            ` : ""}
+            ${(pedido.nota_fiscal_resumo && (pedido.nota_fiscal_resumo.status === "autorizada" || pedido.nota_fiscal_resumo.status === "cancelada")) ? `
+              <button type="button" class="btn-primary" id="btn-drawer-danfe" style="padding:5px 12px;font-size:0.78rem;background:#0f766e">
+                🖨️ Imprimir DANFE
+              </button>
               ${isGestorUsuario() ? `
-                <button type="button" class="btn-primary" id="btn-drawer-preparar-nfe" style="padding:5px 12px;font-size:0.78rem">
-                  🧾 ${pedido.nota_fiscal_resumo ? "Gerenciar / Transmitir NF-e" : "Preparar NF-e"}
+                <button type="button" class="btn-ghost" id="btn-drawer-xml" style="padding:5px 10px;font-size:0.78rem">
+                  ⬇ Baixar XML
                 </button>
               ` : ""}
+            ` : ""}
+            ${(isGestorUsuario() && (pedido.status !== "Cancelado" || pedido.nota_fiscal_resumo)) ? `
+              <button type="button" class="${(pedido.nota_fiscal_resumo && (pedido.nota_fiscal_resumo.status === 'autorizada' || pedido.nota_fiscal_resumo.status === 'cancelada')) ? 'btn-ghost' : 'btn-primary'}" id="btn-drawer-preparar-nfe" style="padding:5px 12px;font-size:0.78rem">
+                🧾 ${pedido.nota_fiscal_resumo ? "Gerenciar / Ver NF-e" : "Preparar NF-e"}
+              </button>
             ` : ""}
           </div>
         </div>
@@ -819,6 +834,7 @@ function openDetalhePanel(pedidoId) {
           <div style="margin-top:10px;padding:10px 12px;border-radius:8px;background:#f8fafc;border:1px solid #cbd5e1;font-size:0.78rem;color:var(--ink)">
             <div><strong>NF-e Série ${pedido.nota_fiscal_resumo.serie} Nº ${pedido.nota_fiscal_resumo.numero}</strong> · Ambiente: <strong>${escapeHtml(pedido.nota_fiscal_resumo.ambiente).toUpperCase()}</strong> · Situação: <strong>${escapeHtml(pedido.nota_fiscal_resumo.status)}</strong></div>
             ${pedido.nota_fiscal_resumo.protocolo_autorizacao ? `<div style="margin-top:3px;color:#065f46"><strong>Protocolo SEFAZ:</strong> <span class="font-mono">${escapeHtml(pedido.nota_fiscal_resumo.protocolo_autorizacao)}</span></div>` : ""}
+            ${pedido.nota_fiscal_resumo.guarda_legal_ate ? `<div style="margin-top:2px;color:#334155"><strong>Arquivo Fiscal:</strong> XML arquivado com guarda legal até ${formatDateOnly(pedido.nota_fiscal_resumo.guarda_legal_ate)}</div>` : ""}
             ${pedido.nota_fiscal_resumo.ultimo_codigo_sefaz ? `<div style="margin-top:3px;color:${pedido.nota_fiscal_resumo.status === 'rejeitada' || pedido.nota_fiscal_resumo.status === 'denegada' ? '#b91c1c' : 'var(--muted)'}"><strong>Último retorno (${escapeHtml(pedido.nota_fiscal_resumo.ultimo_codigo_sefaz)}):</strong> ${escapeHtml(pedido.nota_fiscal_resumo.ultima_mensagem_amigavel || pedido.nota_fiscal_resumo.ultimo_motivo_sefaz || "")}</div>` : ""}
             <div style="font-family:monospace;font-size:0.72rem;margin-top:3px;word-break:break-all;color:var(--muted)">Chave: ${escapeHtml(pedido.nota_fiscal_resumo.chave_acesso || "")}</div>
           </div>
@@ -916,6 +932,28 @@ function openDetalhePanel(pedidoId) {
   });
   document.getElementById("btn-drawer-preparar-nfe")?.addEventListener("click", () => {
     abrirModalPrepararNFe(pedido);
+  });
+  document.getElementById("btn-drawer-danfe")?.addEventListener("click", async () => {
+    const idNota = pedido.nota_fiscal_resumo?.id_nota_fiscal;
+    if (!idNota) return;
+    try {
+      await window.RezFireAPI.fiscal.abrirDanfeNotaNovaAba(idNota);
+    } catch (err) {
+      showToast(err.message || "Erro ao gerar visualização do DANFE.", "erro");
+    }
+  });
+  document.getElementById("btn-drawer-xml")?.addEventListener("click", async () => {
+    const nfRes = pedido.nota_fiscal_resumo;
+    if (!nfRes?.id_nota_fiscal) return;
+    try {
+      await window.RezFireAPI.fiscal.baixarXmlNotaArquivo(
+        nfRes.id_nota_fiscal,
+        `NFe-${nfRes.chave_acesso || nfRes.numero}-procNFe.xml`
+      );
+      showToast("XML autorizado baixado com sucesso!", "sucesso");
+    } catch (err) {
+      showToast(err.message || "Erro ao baixar XML autorizado.", "erro");
+    }
   });
 
   // Eventos de Apuração de Lucro Real (#18abc)
@@ -2321,6 +2359,12 @@ function sincronizarEstadoNotaPedido(pedido, nf) {
     ultima_mensagem_amigavel: nf.ultima_mensagem_amigavel || null,
     tentativas_envio: nf.tentativas_envio || 0,
     autorizada_em: nf.autorizada_em || null,
+    codigo_pedido_snapshot: nf.codigo_pedido_snapshot || pedido.codigo_pedido || null,
+    xml_autorizado_path: nf.xml_autorizado_path || null,
+    xml_autorizado_sha256: nf.xml_autorizado_sha256 || null,
+    xml_arquivado_em: nf.xml_arquivado_em || null,
+    guarda_legal_ate: nf.guarda_legal_ate || null,
+    danfe_gerado_em: nf.danfe_gerado_em || null,
     assinatura_valida: nf.assinatura_valida,
   };
   if (idx !== -1) {
@@ -2468,9 +2512,11 @@ function renderNotaFiscalAssinada(pedido, nf, transmissoes = []) {
   const itens = nf.itens || [];
   const xmlExibido = nf.xml_autorizado || nf.xml_assinado || "";
   const isAutorizada = nf.status === "autorizada";
+  const isCancelada = nf.status === "cancelada";
   const isRejeitada = nf.status === "rejeitada";
   const isDenegada = nf.status === "denegada";
   const isEmProc = nf.status === "em_processamento";
+  const podeDanfe = (isAutorizada || isCancelada) && Boolean(nf.protocolo_autorizacao);
   const sugereAvancar = isRejeitada && (nf.ultimo_codigo_sefaz === "204" || nf.ultimo_codigo_sefaz === "539");
 
   body.innerHTML = `
@@ -2480,6 +2526,12 @@ function renderNotaFiscalAssinada(pedido, nf, transmissoes = []) {
     <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:10px 12px;margin-bottom:14px;font-size:0.78rem">
       <div><strong>Chave de Acesso (44 dígitos):</strong> <span style="font-family:monospace;font-weight:700;word-break:break-all">${escapeHtml(nf.chave_acesso)}</span></div>
       <div style="margin-top:3px;color:var(--muted)"><strong>DigestValue (SHA-1):</strong> <span style="font-family:monospace">${escapeHtml(nf.digest_value || "")}</span> · <strong>Certificado Serial:</strong> <span style="font-family:monospace">${escapeHtml(nf.assinada_por_certificado_serial || "")}</span> · <strong>Tentativas envio:</strong> ${nf.tentativas_envio || 0}</div>
+      ${(nf.xml_autorizado_path || nf.guarda_legal_ate) ? `
+        <div style="margin-top:4px;color:#065f46;font-size:0.74rem">
+          <strong>Guarda Legal XML (5 anos):</strong> até ${nf.guarda_legal_ate ? escapeHtml(formatDateOnly(nf.guarda_legal_ate)) : "—"}
+          ${nf.xml_autorizado_sha256 ? ` · SHA-256: <span class="font-mono">${escapeHtml(nf.xml_autorizado_sha256.slice(0, 16))}...</span>` : ""}
+        </div>
+      ` : ""}
     </div>
 
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px">
@@ -2565,6 +2617,7 @@ function renderNotaFiscalAssinada(pedido, nf, transmissoes = []) {
       </button>
     ` : ""}
     <button type="button" class="btn-ghost" id="btn-nfe-copiar-xml">${nf.xml_autorizado ? "Copiar nfeProc" : "Copiar XML"}</button>
+    ${podeDanfe ? `<button type="button" class="btn-primary" id="btn-nfe-danfe" style="background:#0f766e">🖨️ Visualizar / Imprimir DANFE</button>` : ""}
     <button type="button" class="btn-primary" id="btn-nfe-baixar-xml">${nf.xml_autorizado ? "Baixar XML Autorizado" : "Baixar XML Assinado"}</button>
     <button type="button" class="btn-ghost" id="btn-nfe-modal-fechar" style="margin-left:auto">Fechar</button>
   `;
@@ -2638,6 +2691,13 @@ function renderNotaFiscalAssinada(pedido, nf, transmissoes = []) {
   document.getElementById("btn-nfe-regerar-avancar")?.addEventListener("click", () => {
     abrirModalPrepararNFe(pedido, { regerar: true, avancar_numero: true });
   });
+  document.getElementById("btn-nfe-danfe")?.addEventListener("click", async () => {
+    try {
+      await window.RezFireAPI.fiscal.abrirDanfeNotaNovaAba(nf.id_nota_fiscal);
+    } catch (err) {
+      showToast(err.message || "Erro ao gerar DANFE.", "erro");
+    }
+  });
   document.getElementById("btn-nfe-copiar-xml")?.addEventListener("click", async () => {
     try {
       await navigator.clipboard.writeText(xmlExibido);
@@ -2649,21 +2709,11 @@ function renderNotaFiscalAssinada(pedido, nf, transmissoes = []) {
   });
   document.getElementById("btn-nfe-baixar-xml")?.addEventListener("click", async () => {
     try {
-      const token = localStorage.getItem("rezfire_auth_token");
-      const resp = await fetch(window.RezFireAPI.fiscal.urlXmlNFe(nf.id_nota_fiscal), {
-        credentials: "include",
-        headers: token ? { Authorization: `Bearer ${token}` } : {},
-      });
-      if (!resp.ok) throw new Error("Falha ao baixar arquivo XML.");
-      const blob = await resp.blob();
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = `NFe-${nf.chave_acesso || nf.numero}${nf.xml_autorizado ? "-procNFe" : ""}.xml`;
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      URL.revokeObjectURL(url);
+      await window.RezFireAPI.fiscal.baixarXmlNotaArquivo(
+        nf.id_nota_fiscal,
+        `NFe-${nf.chave_acesso || nf.numero}${nf.xml_autorizado ? "-procNFe" : ""}.xml`
+      );
+      showToast("XML baixado com sucesso!", "sucesso");
     } catch (err) {
       showToast(err.message || "Erro ao baixar XML.", "erro");
     }

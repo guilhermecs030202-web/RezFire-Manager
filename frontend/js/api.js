@@ -384,9 +384,86 @@ window.RezFireAPI = {
       const suffix = qs.toString() ? `?${qs.toString()}` : '';
       return window.RezFireAPI.request(`/fiscal/sefaz/status${suffix}`);
     },
+    async listarNotas(filtros = {}) {
+      const qs = new URLSearchParams();
+      if (filtros.status && filtros.status !== 'todos') qs.set('status', filtros.status);
+      if (filtros.ambiente && filtros.ambiente !== 'todos') qs.set('ambiente', filtros.ambiente);
+      if (filtros.busca) qs.set('busca', filtros.busca);
+      const suffix = qs.toString() ? `?${qs.toString()}` : '';
+      return window.RezFireAPI.request(`/fiscal/notas${suffix}`);
+    },
     urlXmlNFe(idNota) {
       const baseUrl = (typeof API_BASE_URL !== 'undefined') ? API_BASE_URL : '/api';
       return `${baseUrl}/fiscal/notas/${idNota}/xml`;
+    },
+    urlXmlPedido(idPedido) {
+      const baseUrl = (typeof API_BASE_URL !== 'undefined') ? API_BASE_URL : '/api';
+      return `${baseUrl}/fiscal/pedidos/${idPedido}/nfe/xml`;
+    },
+    urlDanfeNota(idNota) {
+      const baseUrl = (typeof API_BASE_URL !== 'undefined') ? API_BASE_URL : '/api';
+      return `${baseUrl}/fiscal/notas/${idNota}/danfe`;
+    },
+    urlDanfePedido(idPedido) {
+      const baseUrl = (typeof API_BASE_URL !== 'undefined') ? API_BASE_URL : '/api';
+      return `${baseUrl}/fiscal/pedidos/${idPedido}/nfe/danfe`;
+    },
+    async obterHtmlDanfeNota(idNota) {
+      const token = localStorage.getItem('rezfire_auth_token');
+      const resp = await fetch(this.urlDanfeNota(idNota), {
+        credentials: 'include',
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      });
+      if (resp.status === 401) {
+        localStorage.removeItem('rezfire_auth_token');
+        localStorage.removeItem('rezfire_user');
+        if (!window.location.pathname.endsWith('login.html')) {
+          window.location.href = 'login.html';
+        }
+        throw new Error('Sessão expirada.');
+      }
+      if (!resp.ok) {
+        const errData = await resp.json().catch(() => ({}));
+        const err = new Error(errData.mensagem || 'Não foi possível gerar o DANFE desta NF-e.');
+        err.status = resp.status;
+        throw err;
+      }
+      return resp.text();
+    },
+    async abrirDanfeNotaNovaAba(idNota) {
+      const html = await this.obterHtmlDanfeNota(idNota);
+      const blob = new Blob([html], { type: 'text/html;charset=utf-8' });
+      const blobUrl = URL.createObjectURL(blob);
+      const win = window.open(blobUrl, '_blank');
+      if (!win) {
+        URL.revokeObjectURL(blobUrl);
+        throw new Error('Pop-up bloqueado pelo navegador. Autorize pop-ups para visualizar/imprimir o DANFE.');
+      }
+      setTimeout(() => URL.revokeObjectURL(blobUrl), 60000);
+    },
+    async baixarXmlNotaArquivo(idNota, filenameFallback = 'NFe.xml') {
+      const token = localStorage.getItem('rezfire_auth_token');
+      const resp = await fetch(this.urlXmlNFe(idNota), {
+        credentials: 'include',
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      });
+      if (!resp.ok) {
+        const errData = await resp.json().catch(() => ({}));
+        throw new Error(errData.mensagem || 'Falha ao baixar arquivo XML.');
+      }
+      const disp = resp.headers.get('content-disposition') || '';
+      const m = /filename="?([^"]+)"?/i.exec(disp);
+      const filename = m && m[1] ? m[1] : filenameFallback;
+      const blob = await resp.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+      return resp.headers.get('x-nfe-sha256') || null;
     },
   },
 

@@ -14,12 +14,16 @@ router.get('/produtos/pendencias', controller.listarPendenciasProdutos);
 router.post('/validar-emissao', controller.validarEmissao);
 router.get('/pedidos/:id/nfe', controller.obterNFeDoPedido);
 
-// Preparação, assinatura, transmissão SEFAZ e download de XML — transmissão/preparação restritas ao GESTOR
+// Preparação, assinatura, transmissão SEFAZ e guarda/download de XML e DANFE
 router.post('/pedidos/:id/preparar-nfe', requerPerfil(['GESTOR']), controller.prepararNFePedido);
 router.post('/pedidos/:id/transmitir-nfe', requerPerfil(['GESTOR']), controller.transmitirNFePedido);
 router.post('/pedidos/:id/consultar-nfe', requerPerfil(['GESTOR']), controller.consultarSituacaoNFePedido);
 router.get('/pedidos/:id/nfe/transmissoes', controller.listarTransmissoesDoPedido);
+router.get('/pedidos/:id/nfe/xml', requerPerfil(['GESTOR']), controller.baixarXmlPorPedido);
+router.get('/pedidos/:id/nfe/danfe', controller.visualizarDanfePorPedido);
+router.get('/notas', requerPerfil(['GESTOR']), controller.listarNotasFiscais);
 router.get('/notas/:id/xml', requerPerfil(['GESTOR']), controller.baixarXmlNota);
+router.get('/notas/:id/danfe', controller.visualizarDanfePorNota);
 router.get('/sefaz/status', requerPerfil(['GESTOR']), controller.verificarStatusServicoSefaz);
 
 // Configuração do emitente, certificado A1 e ambiente SEFAZ — estritamente restrita ao GESTOR (DoR 33a + #20)

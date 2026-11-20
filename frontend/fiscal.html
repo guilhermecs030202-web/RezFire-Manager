@@ -302,6 +302,43 @@
             <tbody id="fiscal-pendencias-body"></tbody>
           </table>
         </section>
+
+        <!-- Arquivo Fiscal de NF-e Emitidas (XML Autorizado & DANFE - Story 33e) -->
+        <section class="card table-wrap mt-5 p-5">
+          <div class="flex items-center justify-between flex-wrap gap-3 mb-3">
+            <div>
+              <h2 class="text-base font-extrabold text-stone-900">Arquivo de Notas Fiscais (XML Autorizado &amp; DANFE — Story 33e)</h2>
+              <p class="text-xs text-stone-500">Consulta permanente dos documentos fiscais emitidos, hash SHA-256 de integridade, guarda legal de 5 anos e reimpressão de DANFE.</p>
+            </div>
+            <div class="flex items-center gap-2 flex-wrap">
+              <input type="text" id="busca-notas-fiscais" class="search-input" placeholder="Buscar Nº, pedido, cliente ou chave..." style="width: 270px; padding: 6px 10px; font-size: 0.78rem;" />
+              <select id="filtro-notas-status" class="search-input" style="width: 155px; padding: 6px 8px; font-size: 0.78rem;">
+                <option value="todos">Todos os status</option>
+                <option value="autorizada">Autorizada</option>
+                <option value="assinada">Assinada</option>
+                <option value="em_processamento">Em processamento</option>
+                <option value="rejeitada">Rejeitada</option>
+                <option value="denegada">Denegada</option>
+                <option value="cancelada">Cancelada</option>
+              </select>
+              <span id="notas-resumo-badge" class="text-xs font-semibold text-stone-600">Carregando...</span>
+            </div>
+          </div>
+          <table class="products-table">
+            <thead>
+              <tr>
+                <th>SÉRIE / Nº</th>
+                <th>PEDIDO</th>
+                <th>DESTINATÁRIO</th>
+                <th>AMBIENTE / STATUS</th>
+                <th>PROTOCOLO &amp; GUARDA LEGAL</th>
+                <th style="text-align:right">VALOR</th>
+                <th style="text-align:right">DOCUMENTOS</th>
+              </tr>
+            </thead>
+            <tbody id="fiscal-notas-body"></tbody>
+          </table>
+        </section>
       </div>
     </main>
   </div>

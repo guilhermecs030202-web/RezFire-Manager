@@ -240,14 +240,121 @@
       .join('');
   }
 
+  function renderNotasFiscais(notas = []) {
+    const tbody = document.getElementById('fiscal-notas-body');
+    const resumoBadge = document.getElementById('notas-resumo-badge');
+    if (!tbody) return;
+
+    if (resumoBadge) {
+      const qtdAut = notas.filter((n) => n.status === 'autorizada').length;
+      resumoBadge.textContent = `${notas.length} nota(s) · ${qtdAut} autorizada(s)`;
+    }
+
+    if (notas.length === 0) {
+      tbody.innerHTML = `<tr class="empty-row"><td colspan="7">Nenhuma Nota Fiscal registrada para os filtros selecionados.</td></tr>`;
+      return;
+    }
+
+    const badges = {
+      autorizada: 'bg-emerald-50 text-emerald-800 border-emerald-200',
+      assinada: 'bg-blue-50 text-blue-800 border-blue-200',
+      em_processamento: 'bg-orange-50 text-orange-800 border-orange-200',
+      rejeitada: 'bg-red-50 text-red-800 border-red-200',
+      denegada: 'bg-red-900 text-white border-red-950',
+      cancelada: 'bg-stone-100 text-stone-700 border-stone-300',
+      rascunho: 'bg-amber-50 text-amber-800 border-amber-200',
+    };
+
+    tbody.innerHTML = notas
+      .map((nf) => {
+        const badgeCls = badges[nf.status] || badges.rascunho;
+        const valFmt = Number(nf.valor_total || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+        const guardaFmt = nf.guarda_legal_ate ? formatarData(nf.guarda_legal_ate) : '—';
+        return `
+          <tr>
+            <td>
+              <strong>Série ${escapeHtml(nf.serie)} · Nº ${escapeHtml(nf.numero)}</strong>
+              <div class="font-mono text-[11px] text-stone-500">${escapeHtml(String(nf.chave_acesso || '—').slice(0, 22))}${nf.chave_acesso ? '...' : ''}</div>
+            </td>
+            <td class="font-mono text-xs">${escapeHtml(nf.codigo_pedido_snapshot || (nf.id_pedido ? `#${nf.id_pedido}` : '—'))}</td>
+            <td>
+              <div class="font-semibold text-xs text-stone-900">${escapeHtml(nf.destinatario_nome || '—')}</div>
+              <div class="font-mono text-[11px] text-stone-500">${escapeHtml(nf.destinatario_documento || '')}</div>
+            </td>
+            <td>
+              <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-bold border ${badgeCls}">${escapeHtml(String(nf.status || '').toUpperCase())}</span>
+              <div class="text-[11px] text-stone-500 mt-0.5">${escapeHtml(String(nf.ambiente || '').toUpperCase())}</div>
+            </td>
+            <td>
+              <div class="font-mono text-xs">${escapeHtml(nf.protocolo_autorizacao || '—')}</div>
+              <div class="text-[11px] text-stone-500">Guarda até ${escapeHtml(guardaFmt)}</div>
+            </td>
+            <td style="text-align:right;font-weight:700">${valFmt}</td>
+            <td style="text-align:right;white-space:nowrap">
+              ${nf.pode_gerar_danfe ? `
+                <button type="button" class="btn-primary btn-nota-danfe" data-id="${nf.id_nota_fiscal}" style="padding:4px 10px;font-size:0.74rem;background:#0f766e;">
+                  DANFE
+                </button>
+              ` : ''}
+              ${(nf.chave_acesso || nf.tem_xml_autorizado) ? `
+                <button type="button" class="btn-ghost btn-nota-xml" data-id="${nf.id_nota_fiscal}" data-chave="${escapeHtml(nf.chave_acesso || nf.numero)}" style="padding:4px 10px;font-size:0.74rem;margin-left:4px;">
+                  XML
+                </button>
+              ` : ''}
+            </td>
+          </tr>
+        `;
+      })
+      .join('');
+
+    tbody.querySelectorAll('.btn-nota-danfe').forEach((btn) => {
+      btn.addEventListener('click', async () => {
+        const id = Number(btn.getAttribute('data-id'));
+        try {
+          await window.RezFireAPI.fiscal.abrirDanfeNotaNovaAba(id);
+        } catch (err) {
+          showBanner('erro', err.message || 'Erro ao abrir DANFE.');
+        }
+      });
+    });
+
+    tbody.querySelectorAll('.btn-nota-xml').forEach((btn) => {
+      btn.addEventListener('click', async () => {
+        const id = Number(btn.getAttribute('data-id'));
+        const chave = btn.getAttribute('data-chave') || id;
+        try {
+          await window.RezFireAPI.fiscal.baixarXmlNotaArquivo(id, `NFe-${chave}.xml`);
+        } catch (err) {
+          showBanner('erro', err.message || 'Erro ao baixar XML.');
+        }
+      });
+    });
+  }
+
+  async function carregarNotasFiscais() {
+    const status = document.getElementById('filtro-notas-status')?.value || 'todos';
+    const busca = document.getElementById('busca-notas-fiscais')?.value?.trim() || '';
+    try {
+      const res = await window.RezFireAPI.fiscal.listarNotas({ status, busca });
+      renderNotasFiscais(res.notas || []);
+    } catch (err) {
+      const tbody = document.getElementById('fiscal-notas-body');
+      if (tbody) {
+        tbody.innerHTML = `<tr class="empty-row"><td colspan="7">${escapeHtml(err.message || 'Falha ao carregar notas fiscais.')}</td></tr>`;
+      }
+    }
+  }
+
   async function carregarTudo() {
     try {
-      const [resEmitente, resPendencias] = await Promise.all([
+      const [resEmitente, resPendencias, resNotas] = await Promise.all([
         window.RezFireAPI.fiscal.obterEmitente(),
         window.RezFireAPI.fiscal.obterPendenciasProdutos(),
+        window.RezFireAPI.fiscal.listarNotas({}),
       ]);
       renderEmitente(resEmitente.emitente || null);
       renderPendenciasProdutos(resPendencias);
+      renderNotasFiscais(resNotas.notas || []);
     } catch (err) {
       if (String(err.message || '').includes('Acesso negado')) {
         document.getElementById('fiscal-conteudo').style.display = 'none';
@@ -259,6 +366,12 @@
   }
 
   function bindEvents() {
+    document.getElementById('filtro-notas-status')?.addEventListener('change', carregarNotasFiscais);
+    let buscaTimer = null;
+    document.getElementById('busca-notas-fiscais')?.addEventListener('input', () => {
+      clearTimeout(buscaTimer);
+      buscaTimer = setTimeout(carregarNotasFiscais, 250);
+    });
     const cnpjInput = document.getElementById('emitente_cnpj');
     cnpjInput?.addEventListener('input', (e) => {
       e.target.value = formatarCnpj(e.target.value);

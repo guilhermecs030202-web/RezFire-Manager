@@ -163,17 +163,69 @@ export class FiscalController {
   async baixarXmlNota(req: Request, res: Response) {
     try {
       const idNota = Number(req.params.id);
-      const nota = await fiscalService.obterXmlAssinadoPorNota(idNota);
-      const conteudoXml = nota.xml_autorizado || nota.xml_assinado;
-      const sufixo = nota.xml_autorizado ? '-procNFe' : '';
+      const { conteudoXml, nomeArquivo, sha256 } = await fiscalService.obterXmlParaDownload(idNota);
       res.setHeader('Content-Type', 'application/xml; charset=utf-8');
-      res.setHeader(
-        'Content-Disposition',
-        `attachment; filename="NFe-${nota.chave_acesso || nota.numero}${sufixo}.xml"`
-      );
+      res.setHeader('Content-Disposition', `attachment; filename="${nomeArquivo}"`);
+      if (sha256) {
+        res.setHeader('X-NFe-SHA256', sha256);
+      }
       return res.send(conteudoXml);
     } catch (error: any) {
-      return res.status(404).json({ sucesso: false, mensagem: error.message });
+      const status = error.statusCode || 404;
+      return res.status(status).json({ sucesso: false, mensagem: error.message });
+    }
+  }
+
+  async baixarXmlPorPedido(req: Request, res: Response) {
+    try {
+      const idPedido = Number(req.params.id);
+      const { conteudoXml, nomeArquivo, sha256 } =
+        await fiscalService.obterXmlParaDownloadPorPedido(idPedido);
+      res.setHeader('Content-Type', 'application/xml; charset=utf-8');
+      res.setHeader('Content-Disposition', `attachment; filename="${nomeArquivo}"`);
+      if (sha256) {
+        res.setHeader('X-NFe-SHA256', sha256);
+      }
+      return res.send(conteudoXml);
+    } catch (error: any) {
+      const status = error.statusCode || 404;
+      return res.status(status).json({ sucesso: false, mensagem: error.message });
+    }
+  }
+
+  async visualizarDanfePorNota(req: Request, res: Response) {
+    try {
+      const idNota = Number(req.params.id);
+      const { html } = await fiscalService.gerarDanfePorNota(idNota);
+      res.setHeader('Content-Type', 'text/html; charset=utf-8');
+      return res.send(html);
+    } catch (error: any) {
+      const status = error.statusCode || 400;
+      return res.status(status).json({ sucesso: false, mensagem: error.message });
+    }
+  }
+
+  async visualizarDanfePorPedido(req: Request, res: Response) {
+    try {
+      const idPedido = Number(req.params.id);
+      const { html } = await fiscalService.gerarDanfePorPedido(idPedido);
+      res.setHeader('Content-Type', 'text/html; charset=utf-8');
+      return res.send(html);
+    } catch (error: any) {
+      const status = error.statusCode || 400;
+      return res.status(status).json({ sucesso: false, mensagem: error.message });
+    }
+  }
+
+  async listarNotasFiscais(req: Request, res: Response) {
+    try {
+      const status = typeof req.query?.status === 'string' ? req.query.status : undefined;
+      const ambiente = typeof req.query?.ambiente === 'string' ? req.query.ambiente : undefined;
+      const busca = typeof req.query?.busca === 'string' ? req.query.busca : undefined;
+      const notas = await fiscalService.listarNotasFiscais({ status, ambiente, busca });
+      return res.json({ sucesso: true, total: notas.length, notas });
+    } catch (error: any) {
+      return res.status(500).json({ sucesso: false, mensagem: error.message });
     }
   }
 

@@ -111,6 +111,24 @@ export class NotaFiscal {
   @Column({ type: 'timestamp', nullable: true })
   ultima_tentativa_em: Date | null;
 
+  @Column({ type: 'varchar', length: 100, nullable: true })
+  codigo_pedido_snapshot: string | null;
+
+  @Column({ type: 'varchar', length: 255, nullable: true })
+  xml_autorizado_path: string | null;
+
+  @Column({ type: 'varchar', length: 64, nullable: true })
+  xml_autorizado_sha256: string | null;
+
+  @Column({ type: 'timestamp', nullable: true })
+  xml_arquivado_em: Date | null;
+
+  @Column({ type: 'date', nullable: true })
+  guarda_legal_ate: string | null;
+
+  @Column({ type: 'timestamp', nullable: true })
+  danfe_gerado_em: Date | null;
+
   @CreateDateColumn({ type: 'timestamp' })
   created_at: Date;
 

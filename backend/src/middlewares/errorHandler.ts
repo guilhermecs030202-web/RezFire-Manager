@@ -6,7 +6,7 @@ export function errorHandler(
   res: Response,
   next: NextFunction
 ) {
-  console.error('[ERRO INTERNO]:', err);
+  console.error(`[ERRO INTERNO]: ${err?.name || 'Error'} - ${err?.message || 'Erro desconhecido'}`);
 
   const statusCode = err.statusCode || 500;
   const message = err.message || 'Erro interno no servidor RezFire.';

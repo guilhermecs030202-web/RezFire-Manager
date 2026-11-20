@@ -6,10 +6,14 @@ const pedidoService = new PedidoService();
 export class PedidoController {
   async listar(req: Request, res: Response) {
     try {
-      const { status, status_entrega, exibir_na_entrega, busca, limite } = req.query;
+      const { status, status_entrega, origem_dado, exibir_na_entrega, busca, limite } = req.query;
       const pedidos = await pedidoService.listar({
         status: status ? (String(status) as any) : undefined,
         status_entrega: status_entrega ? (String(status_entrega) as any) : undefined,
+        origem_dado:
+          origem_dado === 'manual' || origem_dado === 'mercado_livre'
+            ? origem_dado
+            : undefined,
         exibir_na_entrega: exibir_na_entrega !== undefined ? exibir_na_entrega === 'true' : undefined,
         busca: busca ? String(busca) : undefined,
         limite: limite ? Number(limite) : 100,
@@ -33,7 +37,30 @@ export class PedidoController {
 
   async criar(req: Request, res: Response) {
     try {
-      const { codigo_pedido, cliente_nome, origem, itens, exibir_na_entrega } = req.body;
+      const {
+        codigo_pedido,
+        cliente_nome,
+        origem,
+        origem_dado,
+        codigo_externo_ml,
+        baixar_estoque_agora,
+        prazo_despacho,
+        itens,
+        exibir_na_entrega,
+        modalidade_envio,
+        destinatario_documento,
+        destinatario_ie,
+        destinatario_cep,
+        destinatario_logradouro,
+        destinatario_numero,
+        destinatario_complemento,
+        destinatario_bairro,
+        destinatario_municipio,
+        destinatario_codigo_municipio_ibge,
+        destinatario_uf,
+        destinatario_email,
+        valor_desconto,
+      } = req.body;
       const id_usuario = req.usuario?.id_usuario;
 
       if (!cliente_nome || !itens || !Array.isArray(itens) || itens.length === 0) {
@@ -48,16 +75,50 @@ export class PedidoController {
           codigo_pedido,
           cliente_nome,
           origem,
+          origem_dado: origem_dado === 'mercado_livre' ? 'mercado_livre' : 'manual',
+          codigo_externo_ml,
+          baixar_estoque_agora,
+          prazo_despacho,
           itens,
           exibir_na_entrega,
+          modalidade_envio,
+          destinatario_documento,
+          destinatario_ie,
+          destinatario_cep,
+          destinatario_logradouro,
+          destinatario_numero,
+          destinatario_complemento,
+          destinatario_bairro,
+          destinatario_municipio,
+          destinatario_codigo_municipio_ibge,
+          destinatario_uf,
+          destinatario_email,
+          valor_desconto,
         },
         id_usuario
       );
 
       return res.status(201).json({
         sucesso: true,
-        mensagem: 'Pedido aprovado e baixado no estoque com sucesso.',
+        mensagem:
+          novoPedido.baixa_estoque_realizada === false
+            ? 'Pedido manual registrado com sucesso (aguardando baixa manual de estoque).'
+            : 'Pedido aprovado e baixado no estoque com sucesso.',
         pedido: novoPedido,
+      });
+    } catch (error: any) {
+      return res.status(400).json({ sucesso: false, mensagem: error.message });
+    }
+  }
+
+  async atualizarDestinatario(req: Request, res: Response) {
+    try {
+      const id = Number(req.params.id);
+      const pedido = await pedidoService.atualizarDestinatario(id, req.body || {});
+      return res.json({
+        sucesso: true,
+        mensagem: 'Dados fiscais do destinatário atualizados no pedido.',
+        pedido,
       });
     } catch (error: any) {
       return res.status(400).json({ sucesso: false, mensagem: error.message });
@@ -229,6 +290,37 @@ export class PedidoController {
       });
     } catch (error: any) {
       return res.status(400).json({ sucesso: false, mensagem: error.message });
+    }
+  }
+
+  async atualizarPedidoManual(req: Request, res: Response) {
+    try {
+      const id = Number(req.params.id);
+      const id_usuario = req.usuario?.id_usuario;
+      const pedido = await pedidoService.atualizarPedidoManual(id, req.body || {}, id_usuario);
+      return res.json({
+        sucesso: true,
+        mensagem: 'Pedido atualizado com sucesso em modo manual.',
+        pedido,
+      });
+    } catch (error: any) {
+      return res.status(400).json({ sucesso: false, mensagem: error.message });
+    }
+  }
+
+  async executarBaixaManual(req: Request, res: Response) {
+    try {
+      const id = Number(req.params.id);
+      const id_usuario = req.usuario?.id_usuario;
+      const pedido = await pedidoService.executarBaixaManualPedido(id, id_usuario);
+      return res.json({
+        sucesso: true,
+        mensagem: 'Baixa manual de estoque do pedido realizada com sucesso.',
+        pedido,
+      });
+    } catch (error: any) {
+      const status = error.statusCode || 400;
+      return res.status(status).json({ sucesso: false, mensagem: error.message });
     }
   }
 }

@@ -31,6 +31,19 @@ export class Pedido {
   @Column({ type: 'varchar', length: 50, default: 'Mercado Livre' })
   origem: string;
 
+  @Column({
+    type: 'enum',
+    enum: ['manual', 'mercado_livre'],
+    default: 'manual',
+  })
+  origem_dado: 'manual' | 'mercado_livre';
+
+  @Column({ type: 'varchar', length: 64, nullable: true })
+  codigo_externo_ml: string | null;
+
+  @Column({ type: 'boolean', default: true })
+  baixa_estoque_realizada: boolean;
+
   @Column({ type: 'timestamp' })
   data_pedido: Date;
 
@@ -120,6 +133,43 @@ export class Pedido {
 
   @Column({ type: 'decimal', precision: 5, scale: 2, default: 0 })
   margem_liquida_percentual: number;
+
+  // ── Dados Fiscais do Destinatário & Desconto Comercial (Story 33c) ──
+  @Column({ type: 'varchar', length: 14, nullable: true })
+  destinatario_documento: string | null;
+
+  @Column({ type: 'varchar', length: 20, nullable: true })
+  destinatario_ie: string | null;
+
+  @Column({ type: 'varchar', length: 8, nullable: true })
+  destinatario_cep: string | null;
+
+  @Column({ type: 'varchar', length: 255, nullable: true })
+  destinatario_logradouro: string | null;
+
+  @Column({ type: 'varchar', length: 20, nullable: true })
+  destinatario_numero: string | null;
+
+  @Column({ type: 'varchar', length: 100, nullable: true })
+  destinatario_complemento: string | null;
+
+  @Column({ type: 'varchar', length: 100, nullable: true })
+  destinatario_bairro: string | null;
+
+  @Column({ type: 'varchar', length: 100, nullable: true })
+  destinatario_municipio: string | null;
+
+  @Column({ type: 'varchar', length: 7, nullable: true })
+  destinatario_codigo_municipio_ibge: string | null;
+
+  @Column({ type: 'varchar', length: 2, nullable: true })
+  destinatario_uf: string | null;
+
+  @Column({ type: 'varchar', length: 150, nullable: true })
+  destinatario_email: string | null;
+
+  @Column({ type: 'decimal', precision: 10, scale: 2, default: 0 })
+  valor_desconto: number;
 
   @CreateDateColumn({ type: 'timestamp' })
   created_at: Date;

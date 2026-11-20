@@ -9,10 +9,13 @@ router.use(authMiddleware);
 
 // Rotas fixas antes das rotas dinâmicas :id
 router.get('/', controller.listar);
+router.post('/', controller.criarManual);
 router.get('/relatorios/recriados', controller.listarRecriados);
 
 // Rotas dinâmicas por ID do anúncio
 router.get('/:id', controller.buscarPorId);
+router.put('/:id', controller.atualizarManual);
+router.patch('/:id/status', controller.atualizarStatusManual);
 router.get('/:id/historico', controller.listarHistorico);
 router.post('/:id/historico', controller.adicionarOcorrencia);
 router.post('/:id/marcar-recriado', controller.marcarRecriado);

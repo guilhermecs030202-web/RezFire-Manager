@@ -19,6 +19,7 @@ let state = {
   filtroMotivo: "todos",    // "todos" ou motivo padronizado (SCRUM-22)
   filtroCanal: "todos",
   filtroPeriodo: "todos",   // "7" | "30" | "90" | "todos"
+  filtroStatusFiscal: "todos",
   ordem: "data_desc",       // "data_desc" | "data_asc" | "valor_desc" | "valor_asc" | "codigo_desc"
   busca: "",
   pagina: 1,
@@ -49,6 +50,11 @@ function formatDate(iso) {
 
 function formatDateOnly(iso) {
   if (!iso) return "—";
+  const str = String(iso).trim();
+  if (/^\d{4}-\d{2}-\d{2}$/.test(str)) {
+    const [yyyy, mm, dd] = str.split("-");
+    return `${dd}/${mm}/${yyyy}`;
+  }
   return new Date(iso).toLocaleDateString("pt-BR", {
     day: "2-digit", month: "2-digit", year: "numeric",
   });
@@ -60,6 +66,43 @@ function escapeHtml(val) {
     .replaceAll("<", "&lt;")
     .replaceAll(">", "&gt;")
     .replaceAll('"', "&quot;");
+}
+
+function isGestorUsuario() {
+  try {
+    const raw = localStorage.getItem("rezfire_user");
+    if (!raw) return true;
+    const u = JSON.parse(raw);
+    return !u.perfil || String(u.perfil).toUpperCase() === "GESTOR";
+  } catch {
+    return true;
+  }
+}
+
+function formatarDocFiscal(doc) {
+  const d = String(doc || "").replace(/\D/g, "");
+  if (d.length === 11) return d.replace(/^(\d{3})(\d{3})(\d{3})(\d{2})$/, "$1.$2.$3-$4");
+  if (d.length === 14) return d.replace(/^(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})$/, "$1.$2.$3/$4-$5");
+  return doc || "—";
+}
+
+function formatarCepFiscal(cep) {
+  const d = String(cep || "").replace(/\D/g, "").slice(0, 8);
+  if (!d) return "";
+  if (d.length <= 5) return d;
+  return `${d.slice(0, 5)}-${d.slice(5)}`;
+}
+
+function aplicarMascaraDocFiscal(val) {
+  const d = String(val || "").replace(/\D/g, "").slice(0, 14);
+  if (d.length <= 11) {
+    if (d.length <= 3) return d;
+    if (d.length <= 6) return `${d.slice(0, 3)}.${d.slice(3)}`;
+    if (d.length <= 9) return `${d.slice(0, 3)}.${d.slice(3, 6)}.${d.slice(6)}`;
+    return `${d.slice(0, 3)}.${d.slice(3, 6)}.${d.slice(6, 9)}-${d.slice(9)}`;
+  }
+  if (d.length <= 12) return `${d.slice(0, 2)}.${d.slice(2, 5)}.${d.slice(5, 8)}/${d.slice(8)}`;
+  return `${d.slice(0, 2)}.${d.slice(2, 5)}.${d.slice(5, 8)}/${d.slice(8, 12)}-${d.slice(12)}`;
 }
 
 // ─── Normalização de Dados da Entidade Pedido (API & MySQL) ───────────────────
@@ -86,6 +129,9 @@ function normalizarPedido(p) {
     cliente_nome: p.cliente_nome || p.cliente || "Cliente",
     canal: p.origem || p.canal || "Venda Direta",
     origem: p.origem || p.canal || "Venda Direta",
+    origem_dado: p.origem_dado || (String(p.codigo_pedido || "").startsWith("MLB-") && p.origem === "Mercado Livre" ? "mercado_livre" : "manual"),
+    codigo_externo_ml: p.codigo_externo_ml || null,
+    baixa_estoque_realizada: p.baixa_estoque_realizada !== undefined ? Boolean(p.baixa_estoque_realizada) : true,
     uf: p.uf || "SP",
     status: statusMapeado,
     status_entrega: p.status_entrega || "A separar",
@@ -119,7 +165,50 @@ function normalizarPedido(p) {
     modalidade_envio: p.modalidade_envio || (p.origem === "Mercado Livre" ? "Coleta" : "Logística Própria"),
     prazo_dias_estimado: Number(p.prazo_dias_estimado !== undefined ? p.prazo_dias_estimado : 3),
     data_entrega_efetiva: p.data_entrega_efetiva || null,
+    // Destinatário Fiscal e NF-e (Story 33c)
+    destinatario_documento: p.destinatario_documento || "",
+    destinatario_ie: p.destinatario_ie || "",
+    destinatario_cep: p.destinatario_cep || "",
+    destinatario_logradouro: p.destinatario_logradouro || "",
+    destinatario_numero: p.destinatario_numero || "",
+    destinatario_complemento: p.destinatario_complemento || "",
+    destinatario_bairro: p.destinatario_bairro || "",
+    destinatario_municipio: p.destinatario_municipio || "",
+    destinatario_codigo_municipio_ibge: p.destinatario_codigo_municipio_ibge || "",
+    destinatario_uf: p.destinatario_uf || p.uf || "",
+    destinatario_email: p.destinatario_email || "",
+    valor_desconto: Number(p.valor_desconto ?? p.desconto ?? 0),
+    desconto: Number(p.valor_desconto ?? p.desconto ?? 0),
+    status_fiscal: p.status_fiscal || (p.nota_fiscal_resumo ? p.nota_fiscal_resumo.status : "sem_nota"),
+    nota_fiscal_resumo: p.nota_fiscal_resumo || null,
   };
+}
+
+// ─── Badge de Status Fiscal (Stories 33c / 33d) ───────────────────────────────
+function getBadgeStatusFiscal(pedido) {
+  const nf = pedido?.nota_fiscal_resumo || null;
+  const st = pedido?.status_fiscal || (nf ? nf.status : "sem_nota") || "sem_nota";
+  const estilos = {
+    sem_nota:         { bg: "#f1f5f9", color: "#475569", border: "#cbd5e1", label: "Sem NF-e" },
+    rascunho:         { bg: "#fefce8", color: "#854d0e", border: "#fde047", label: "NF-e Rascunho" },
+    assinada:         { bg: "#eff6ff", color: "#1d4ed8", border: "#bfdbfe", label: "NF-e Assinada" },
+    em_processamento: { bg: "#fff7ed", color: "#c2410c", border: "#fdba74", label: "Processando SEFAZ" },
+    autorizada:       { bg: "#ecfdf5", color: "#065f46", border: "#86efac", label: "NF-e Autorizada" },
+    rejeitada:        { bg: "#fef2f2", color: "#b91c1c", border: "#fca5a5", label: "NF-e Rejeitada" },
+    denegada:         { bg: "#450a0a", color: "#fef2f2", border: "#991b1b", label: "NF-e Denegada" },
+    cancelada:        { bg: "#f3f4f6", color: "#6b7280", border: "#d1d5db", label: "NF-e Cancelada" },
+  };
+  const cfg = estilos[st] || estilos.sem_nota;
+  const sufixoNum = nf && nf.numero ? ` #${nf.numero}` : "";
+  const extraCod = nf && nf.ultimo_codigo_sefaz && (st === "rejeitada" || st === "denegada")
+    ? ` (${nf.ultimo_codigo_sefaz})`
+    : "";
+  const titleParts = [];
+  if (nf?.chave_acesso) titleParts.push(`Chave: ${nf.chave_acesso}`);
+  if (nf?.protocolo_autorizacao) titleParts.push(`Protocolo: ${nf.protocolo_autorizacao}`);
+  if (nf?.ultima_mensagem_amigavel) titleParts.push(nf.ultima_mensagem_amigavel);
+
+  return `<span style="display:inline-block;margin-top:4px;padding:2px 7px;border-radius:6px;font-size:0.68rem;font-weight:700;background:${cfg.bg};color:${cfg.color};border:1px solid ${cfg.border};" title="${escapeHtml(titleParts.join(' | '))}">🧾 ${escapeHtml(cfg.label + sufixoNum + extraCod)}</span>`;
 }
 
 // ─── Badges de Modalidade de Envio (#24) ──────────────────────────────────────
@@ -306,6 +395,12 @@ function getFilteredAndSortedPedidos() {
       if (t < limite) return false;
     }
 
+    // 5. Filtro de Status Fiscal (Story 33d)
+    if (state.filtroStatusFiscal && state.filtroStatusFiscal !== "todos") {
+      const sf = p.status_fiscal || (p.nota_fiscal_resumo ? p.nota_fiscal_resumo.status : "sem_nota");
+      if (sf !== state.filtroStatusFiscal) return false;
+    }
+
     return true;
   });
 
@@ -356,7 +451,7 @@ function renderTable() {
   if (pagAtual) pagAtual.textContent = `${state.pagina} / ${totalPages}`;
 
   // Botão Limpar Filtros
-  const temFiltroAtivo = state.busca || state.filtroStatus !== "todos" || state.filtroCanal !== "todos" || state.filtroPeriodo !== "todos";
+  const temFiltroAtivo = state.busca || state.filtroStatus !== "todos" || state.filtroCanal !== "todos" || state.filtroPeriodo !== "todos" || state.filtroStatusFiscal !== "todos";
   if (btnLimpar) btnLimpar.style.display = temFiltroAtivo ? "inline-block" : "none";
 
   if (pageItems.length === 0) {
@@ -397,7 +492,9 @@ function renderTable() {
               ? `<span style="width:8px;height:8px;border-radius:50%;background:#eab308"></span> Mercado Livre` 
               : `<span style="width:8px;height:8px;border-radius:50%;background:#3b82f6"></span> Venda Direta`}
           </span>
-          <span style="display:block;font-size:0.72rem;color:var(--muted)">${escapeHtml(p.tipo_envio || "Padrão")}</span>
+          <span style="display:block;font-size:0.68rem;font-weight:700;color:${p.origem_dado === 'mercado_livre' ? '#b45309' : '#475569'}">
+            Origem: ${p.origem_dado === 'mercado_livre' ? 'API Mercado Livre' : 'Cadastro Manual'}
+          </span>
           <div>${getBadgeModalidadeEnvio(p.modalidade_envio)}</div>
         </td>
         <td style="text-align:center">
@@ -409,7 +506,7 @@ function renderTable() {
             ${money(p.valor_total)}
           </strong>
           ${p.lucro_liquido !== undefined && p.status !== "Cancelado" ? `
-            <span style="display:block;font-size:0.71rem;font-weight:700;color:${p.lucro_liquido >= 0 ? '#15803d' : 'var(--down)'}" title="Lucro Líquido Real (#18abc)">
+            <span style="display:block;font-size:0.71rem;font-weight:700;color:${p.lucro_liquido >= 0 ? '#15803d' : 'var(--down)'}" title="Lucro Líquido Real">
               Lucro: ${money(p.lucro_liquido)} (${Number(p.margem_liquida_percentual || 0).toFixed(1)}%)
             </span>
           ` : ""}
@@ -423,8 +520,9 @@ function renderTable() {
             </span>
           ` : ""}
           <div>${getLogisticsBadgeForPedido(p)}</div>
+          <div>${getBadgeStatusFiscal(p)}</div>
         </td>
-        <td style="text-align:right" onclick="event.stopPropagation()">
+        <td class="actions-cell" style="text-align:right">
           <div style="display:inline-flex;gap:4px">
             <button class="icon-btn" data-action="view" data-id="${p.id_pedido}" title="Visualizar Detalhes">
               <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>
@@ -524,7 +622,7 @@ function openDetalhePanel(pedidoId) {
           ` : ""}
           <div class="detalhe-field span-2" style="background:#f8fafc;padding:10px;border-radius:8px;border:1px solid #e2e8f0;margin-top:6px">
             <span class="detalhe-label" style="display:flex;align-items:center;gap:4px">
-              <span>🚚</span> Modalidade de Envio (#24)
+              <span>🚚</span> Modalidade de Envio
             </span>
             <div style="display:flex;align-items:center;gap:8px;margin-top:4px;flex-wrap:wrap">
               <select id="select-detalhe-modalidade" style="padding:4px 8px;border-radius:6px;border:1px solid var(--line);font-size:0.82rem;font-weight:700">
@@ -594,12 +692,12 @@ function openDetalhePanel(pedidoId) {
         </div>
       </section>
 
-      <!-- Apuração do Lucro Real por Venda (SCRUM-23 / #18abc) -->
+      <!-- Apuração do Lucro Real por Venda -->
       <section class="detalhe-section" style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;padding:14px;margin-bottom:14px">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
           <div style="display:flex;align-items:center;gap:6px">
             <span style="font-size:1rem">💰</span>
-            <h3 style="margin:0;font-size:0.92rem;font-weight:800;color:#166534">Lucro Real da Venda (#18abc)</h3>
+            <h3 style="margin:0;font-size:0.92rem;font-weight:800;color:#166534">Lucro Real da Venda</h3>
           </div>
           <span class="entrega-badge" style="background:#dcfce7;color:#15803d;border:1px solid #86efac;font-size:0.75rem;font-weight:700">
             ${escapeHtml(pedido.tipo_anuncio || (pedido.origem === 'Mercado Livre' ? 'Clássico' : 'Venda Direta'))}
@@ -608,13 +706,13 @@ function openDetalhePanel(pedidoId) {
 
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;font-size:0.82rem;margin-bottom:12px">
           <div style="background:#fff;border:1px solid #dcfce7;border-radius:6px;padding:8px">
-            <div style="font-size:0.72rem;color:var(--muted);font-weight:700;text-transform:uppercase">Custos Fixos (#18a)</div>
+            <div style="font-size:0.72rem;color:var(--muted);font-weight:700;text-transform:uppercase">Custos Fixos</div>
             <div style="font-weight:700;color:var(--down);font-size:0.95rem;margin:2px 0">- ${money(pedido.total_custos_fixos || 0)}</div>
             <div style="font-size:0.72rem;color:var(--muted)">CMV: ${money(pedido.custo_produtos || 0)} · Impostos (${pedido.aliquota_imposto_percentual || 6}%): ${money(pedido.custo_impostos || 0)} · Embalagem: ${money(pedido.custo_embalagem || 5)}</div>
           </div>
 
           <div style="background:#fff;border:1px solid #dcfce7;border-radius:6px;padding:8px">
-            <div style="font-size:0.72rem;color:var(--muted);font-weight:700;text-transform:uppercase">Tarifas ML & Frete (#18b)</div>
+            <div style="font-size:0.72rem;color:var(--muted);font-weight:700;text-transform:uppercase">Tarifas ML & Frete</div>
             <div style="font-weight:700;color:var(--down);font-size:0.95rem;margin:2px 0">- ${money(pedido.total_tarifas_plataforma || 0)}</div>
             <div style="font-size:0.72rem;color:var(--muted)">Comissão (${pedido.tarifa_ml_percentual || 12}%): ${money(pedido.tarifa_ml_comissao || 0)} · Frete: ${money(pedido.custo_frete || 0)}</div>
           </div>
@@ -622,7 +720,7 @@ function openDetalhePanel(pedidoId) {
 
         <div style="background:#fff;border:1px solid #86efac;border-radius:6px;padding:10px;display:flex;justify-content:space-between;align-items:center">
           <div>
-            <div style="font-size:0.72rem;color:var(--muted);font-weight:700;text-transform:uppercase">Lucro Líquido Real (#18c)</div>
+            <div style="font-size:0.72rem;color:var(--muted);font-weight:700;text-transform:uppercase">Lucro Líquido Real</div>
             <div style="font-size:1.15rem;font-weight:800;color:${(pedido.lucro_liquido || 0) >= 0 ? '#15803d' : 'var(--down)'}">
               ${money(pedido.lucro_liquido || 0)}
             </div>
@@ -697,6 +795,57 @@ function openDetalhePanel(pedidoId) {
             ℹ Nenhuma remessa logística em andamento para este pedido. A separação física é gerada após confirmação comercial.
           </div>
         `}
+      </section>
+
+      <!-- Destinatário & NF-e (Stories 33c / 33d / 33e) -->
+      <section class="detalhe-section" style="background:#fff;border:1px solid var(--line);border-radius:10px;padding:14px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;gap:8px;flex-wrap:wrap">
+          <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+            <h3 class="detalhe-section-title" style="margin:0">Destinatário &amp; NF-e</h3>
+            ${getBadgeStatusFiscal(pedido)}
+          </div>
+          <div style="display:flex;gap:6px;flex-wrap:wrap">
+            ${pedido.status !== "Cancelado" ? `
+              <button type="button" class="btn-ghost" id="btn-drawer-destinatario" style="padding:5px 10px;font-size:0.78rem">
+                Editar Destinatário
+              </button>
+            ` : ""}
+            ${(pedido.nota_fiscal_resumo && (pedido.nota_fiscal_resumo.status === "autorizada" || pedido.nota_fiscal_resumo.status === "cancelada")) ? `
+              <button type="button" class="btn-primary" id="btn-drawer-danfe" style="padding:5px 12px;font-size:0.78rem;background:#0f766e">
+                🖨️ Imprimir DANFE
+              </button>
+              ${isGestorUsuario() ? `
+                <button type="button" class="btn-ghost" id="btn-drawer-xml" style="padding:5px 10px;font-size:0.78rem">
+                  ⬇ Baixar XML
+                </button>
+              ` : ""}
+            ` : ""}
+            ${(isGestorUsuario() && (pedido.status !== "Cancelado" || pedido.nota_fiscal_resumo)) ? `
+              <button type="button" class="${(pedido.nota_fiscal_resumo && (pedido.nota_fiscal_resumo.status === 'autorizada' || pedido.nota_fiscal_resumo.status === 'cancelada')) ? 'btn-ghost' : 'btn-primary'}" id="btn-drawer-preparar-nfe" style="padding:5px 12px;font-size:0.78rem">
+                🧾 ${pedido.nota_fiscal_resumo ? "Gerenciar / Ver NF-e" : "Preparar NF-e"}
+              </button>
+            ` : ""}
+          </div>
+        </div>
+        <div style="font-size:0.82rem;color:var(--ink);line-height:1.45;">
+          <div><strong>CPF/CNPJ:</strong> <span class="font-mono">${formatarDocFiscal(pedido.destinatario_documento)}</span> ${pedido.destinatario_ie ? `· IE: ${escapeHtml(pedido.destinatario_ie)}` : ""}</div>
+          <div style="color:var(--muted);margin-top:2px">
+            ${pedido.destinatario_logradouro
+              ? `${escapeHtml(pedido.destinatario_logradouro)}, ${escapeHtml(pedido.destinatario_numero || "S/N")} — ${escapeHtml(pedido.destinatario_bairro || "")}, ${escapeHtml(pedido.destinatario_municipio || "")}/${escapeHtml(pedido.destinatario_uf || "")} · CEP ${escapeHtml(formatarCepFiscal(pedido.destinatario_cep) || "—")}`
+              : "Endereço completo do destinatário ainda não informado para emissão fiscal."}
+          </div>
+        </div>
+        ${pedido.nota_fiscal_resumo ? `
+          <div style="margin-top:10px;padding:10px 12px;border-radius:8px;background:#f8fafc;border:1px solid #cbd5e1;font-size:0.78rem;color:var(--ink)">
+            <div><strong>NF-e Série ${pedido.nota_fiscal_resumo.serie} Nº ${pedido.nota_fiscal_resumo.numero}</strong> · Ambiente: <strong>${escapeHtml(pedido.nota_fiscal_resumo.ambiente).toUpperCase()}</strong> · Situação: <strong>${escapeHtml(pedido.nota_fiscal_resumo.status)}</strong></div>
+            ${pedido.nota_fiscal_resumo.protocolo_autorizacao ? `<div style="margin-top:3px;color:#065f46"><strong>Protocolo SEFAZ:</strong> <span class="font-mono">${escapeHtml(pedido.nota_fiscal_resumo.protocolo_autorizacao)}</span></div>` : ""}
+            ${pedido.nota_fiscal_resumo.protocolo_cancelamento ? `<div style="margin-top:3px;color:#991b1b"><strong>Protocolo Cancelamento:</strong> <span class="font-mono">${escapeHtml(pedido.nota_fiscal_resumo.protocolo_cancelamento)}</span></div>` : ""}
+            ${Number(pedido.nota_fiscal_resumo.total_cartas_correcao || 0) > 0 ? `<div style="margin-top:2px;color:#1d4ed8"><strong>Cartas de Correção:</strong> ${Number(pedido.nota_fiscal_resumo.total_cartas_correcao)} registrada(s)</div>` : ""}
+            ${pedido.nota_fiscal_resumo.guarda_legal_ate ? `<div style="margin-top:2px;color:#334155"><strong>Arquivo Fiscal:</strong> XML arquivado com guarda legal até ${formatDateOnly(pedido.nota_fiscal_resumo.guarda_legal_ate)}</div>` : ""}
+            ${pedido.nota_fiscal_resumo.ultimo_codigo_sefaz ? `<div style="margin-top:3px;color:${pedido.nota_fiscal_resumo.status === 'rejeitada' || pedido.nota_fiscal_resumo.status === 'denegada' ? '#b91c1c' : 'var(--muted)'}"><strong>Último retorno (${escapeHtml(pedido.nota_fiscal_resumo.ultimo_codigo_sefaz)}):</strong> ${escapeHtml(pedido.nota_fiscal_resumo.ultima_mensagem_amigavel || pedido.nota_fiscal_resumo.ultimo_motivo_sefaz || "")}</div>` : ""}
+            <div style="font-family:monospace;font-size:0.72rem;margin-top:3px;word-break:break-all;color:var(--muted)">Chave: ${escapeHtml(pedido.nota_fiscal_resumo.chave_acesso || "")}</div>
+          </div>
+        ` : ""}
       </section>
 
       <!-- Auditoria de Devolução / Mediação (SCRUM-22) -->
@@ -784,6 +933,34 @@ function openDetalhePanel(pedidoId) {
   document.getElementById("btn-drawer-cancelar")?.addEventListener("click", () => {
     closeDetalhePanel();
     openModalCancelamento(pedido);
+  });
+  document.getElementById("btn-drawer-destinatario")?.addEventListener("click", () => {
+    abrirModalDestinatarioNFe(pedido, false);
+  });
+  document.getElementById("btn-drawer-preparar-nfe")?.addEventListener("click", () => {
+    abrirModalPrepararNFe(pedido);
+  });
+  document.getElementById("btn-drawer-danfe")?.addEventListener("click", async () => {
+    const idNota = pedido.nota_fiscal_resumo?.id_nota_fiscal;
+    if (!idNota) return;
+    try {
+      await window.RezFireAPI.fiscal.abrirDanfeNotaNovaAba(idNota);
+    } catch (err) {
+      showToast(err.message || "Erro ao gerar visualização do DANFE.", "erro");
+    }
+  });
+  document.getElementById("btn-drawer-xml")?.addEventListener("click", async () => {
+    const nfRes = pedido.nota_fiscal_resumo;
+    if (!nfRes?.id_nota_fiscal) return;
+    try {
+      await window.RezFireAPI.fiscal.baixarXmlNotaArquivo(
+        nfRes.id_nota_fiscal,
+        `NFe-${nfRes.chave_acesso || nfRes.numero}-procNFe.xml`
+      );
+      showToast("XML autorizado baixado com sucesso!", "sucesso");
+    } catch (err) {
+      showToast(err.message || "Erro ao baixar XML autorizado.", "erro");
+    }
   });
 
   // Eventos de Apuração de Lucro Real (#18abc)
@@ -903,6 +1080,16 @@ function openFormModal(pedidoParaEditar = null) {
     document.getElementById("pedido-frete").value = Number(pedidoParaEditar.frete || 0).toFixed(2);
     document.getElementById("pedido-observacoes").value = pedidoParaEditar.observacoes || "";
     document.getElementById("pedido-codigo-externo").value = pedidoParaEditar.codigo_externo_ml || "";
+    document.getElementById("pedido-dest-documento").value = aplicarMascaraDocFiscal(pedidoParaEditar.destinatario_documento || "");
+    document.getElementById("pedido-dest-ie").value = pedidoParaEditar.destinatario_ie || "";
+    document.getElementById("pedido-dest-cep").value = formatarCepFiscal(pedidoParaEditar.destinatario_cep || "");
+    document.getElementById("pedido-dest-email").value = pedidoParaEditar.destinatario_email || "";
+    document.getElementById("pedido-dest-logradouro").value = pedidoParaEditar.destinatario_logradouro || "";
+    document.getElementById("pedido-dest-numero").value = pedidoParaEditar.destinatario_numero || "";
+    document.getElementById("pedido-dest-complemento").value = pedidoParaEditar.destinatario_complemento || "";
+    document.getElementById("pedido-dest-bairro").value = pedidoParaEditar.destinatario_bairro || "";
+    document.getElementById("pedido-dest-municipio").value = pedidoParaEditar.destinatario_municipio || "";
+    document.getElementById("pedido-dest-ibge").value = pedidoParaEditar.destinatario_codigo_municipio_ibge || "";
 
     // Copia itens
     formItens = (pedidoParaEditar.itens || []).map((i) => ({
@@ -936,6 +1123,16 @@ function openFormModal(pedidoParaEditar = null) {
     document.getElementById("pedido-frete").value = "0.00";
     document.getElementById("pedido-observacoes").value = "";
     document.getElementById("pedido-codigo-externo").value = "";
+    document.getElementById("pedido-dest-documento").value = "";
+    document.getElementById("pedido-dest-ie").value = "";
+    document.getElementById("pedido-dest-cep").value = "";
+    document.getElementById("pedido-dest-email").value = "";
+    document.getElementById("pedido-dest-logradouro").value = "";
+    document.getElementById("pedido-dest-numero").value = "";
+    document.getElementById("pedido-dest-complemento").value = "";
+    document.getElementById("pedido-dest-bairro").value = "";
+    document.getElementById("pedido-dest-municipio").value = "";
+    document.getElementById("pedido-dest-ibge").value = "";
 
     formItens = [];
   }
@@ -1119,7 +1316,7 @@ async function executarCancelamento() {
   const detalhe = document.getElementById("cancel-detalhe-obs")?.value?.trim() || null;
 
   if (!motivo) {
-    alert("Por favor, selecione um motivo padronizado da lista (Taxonomia SCRUM-22).");
+    alert("Por favor, selecione um motivo padronizado da lista.");
     return;
   }
   if (motivo === "Outro" && (!detalhe || detalhe.length < 5)) {
@@ -1554,6 +1751,7 @@ window.limparTodosFiltros = function () {
   state.filtroMotivo = "todos";
   state.filtroCanal = "todos";
   state.filtroPeriodo = "todos";
+  state.filtroStatusFiscal = "todos";
   state.pagina = 1;
 
   const b = document.getElementById("busca-pedidos");
@@ -1561,12 +1759,14 @@ window.limparTodosFiltros = function () {
   const m = document.getElementById("filtro-motivo");
   const c = document.getElementById("filtro-canal");
   const p = document.getElementById("filtro-periodo");
+  const f = document.getElementById("filtro-status-fiscal");
 
   if (b) b.value = "";
   if (s) s.value = "todos";
   if (m) m.value = "todos";
   if (c) c.value = "todos";
   if (p) p.value = "todos";
+  if (f) f.value = "todos";
 
   renderTable();
 };
@@ -1601,6 +1801,12 @@ function bindEvents() {
 
   document.getElementById("filtro-periodo")?.addEventListener("change", (e) => {
     state.filtroPeriodo = e.target.value;
+    state.pagina = 1;
+    renderTable();
+  });
+
+  document.getElementById("filtro-status-fiscal")?.addEventListener("change", (e) => {
+    state.filtroStatusFiscal = e.target.value;
     state.pagina = 1;
     renderTable();
   });
@@ -1814,6 +2020,20 @@ function bindEvents() {
     const modalidade_envio = document.getElementById("pedido-modalidade")?.value || "Coleta";
     const observacoes = document.getElementById("pedido-observacoes")?.value.trim();
     const codigo_externo_ml = canal === "Mercado Livre" ? document.getElementById("pedido-codigo-externo")?.value.trim() : null;
+    const dadosDestinatarioForm = {
+      cliente_nome: cliente,
+      destinatario_documento: document.getElementById("pedido-dest-documento")?.value.trim() || null,
+      destinatario_ie: document.getElementById("pedido-dest-ie")?.value.trim() || null,
+      destinatario_cep: document.getElementById("pedido-dest-cep")?.value.trim() || null,
+      destinatario_email: document.getElementById("pedido-dest-email")?.value.trim() || null,
+      destinatario_logradouro: document.getElementById("pedido-dest-logradouro")?.value.trim() || null,
+      destinatario_numero: document.getElementById("pedido-dest-numero")?.value.trim() || null,
+      destinatario_complemento: document.getElementById("pedido-dest-complemento")?.value.trim() || null,
+      destinatario_bairro: document.getElementById("pedido-dest-bairro")?.value.trim() || null,
+      destinatario_municipio: document.getElementById("pedido-dest-municipio")?.value.trim() || null,
+      destinatario_codigo_municipio_ibge: document.getElementById("pedido-dest-ibge")?.value.trim() || null,
+      destinatario_uf: uf || null,
+    };
 
     // 9. Validações
     if (!cliente) {
@@ -1855,8 +2075,20 @@ function bindEvents() {
         ped.itens = [...formItens];
         ped.subtotal_itens = subtotal;
         ped.desconto = desconto;
+        ped.valor_desconto = desconto;
         ped.frete = frete;
         ped.valor_total = total;
+        Object.assign(ped, dadosDestinatarioForm);
+
+        if (window.RezFireAPI?.pedidos?.atualizarDestinatario && editingId) {
+          const destRes = await window.RezFireAPI.pedidos.atualizarDestinatario(editingId, {
+            ...dadosDestinatarioForm,
+            valor_desconto: desconto,
+          });
+          if (destRes && destRes.sucesso && destRes.pedido) {
+            state.pedidos[idx] = normalizarPedido(destRes.pedido);
+          }
+        }
 
         ped.historico = ped.historico || [];
         ped.historico.push({
@@ -1896,6 +2128,8 @@ function bindEvents() {
           origem: canal,
           modalidade_envio: modalidade_envio,
           exibir_na_entrega: true,
+          valor_desconto: desconto,
+          ...dadosDestinatarioForm,
           itens: formItens.map((it) => ({
             id_produto: Number(it.id_produto),
             quantidade: Number(it.quantidade),
@@ -1981,6 +2215,10 @@ function bindEvents() {
       return;
     }
 
+    if (e.target.closest("td.actions-cell")) {
+      return;
+    }
+
     // Clique na linha
     const row = e.target.closest("tr[data-row-id]");
     if (row) {
@@ -2012,6 +2250,769 @@ function bindEvents() {
 
   // Fechar overlay
   document.getElementById("detalhe-overlay")?.addEventListener("click", closeDetalhePanel);
+
+  // Modais de Destinatário & Preparação da NF-e (Story 33c)
+  bindNFeModalsEvents();
+}
+
+// ─── Modais de Destinatário Fiscal e Preparar NF-e (Story 33c) ───────────────
+let retornarParaPrepararNFePedidoId = null;
+
+function fecharModalDestinatarioNFe() {
+  document.getElementById("modal-destinatario-nfe")?.classList.remove("is-open");
+  retornarParaPrepararNFePedidoId = null;
+}
+
+function fecharModalPrepararNFe() {
+  document.getElementById("modal-preparar-nfe")?.classList.remove("is-open");
+}
+
+function abrirModalDestinatarioNFe(pedido, aoSalvarChamarPreparar = false) {
+  const modal = document.getElementById("modal-destinatario-nfe");
+  if (!modal || !pedido) return;
+
+  retornarParaPrepararNFePedidoId = aoSalvarChamarPreparar ? pedido.id_pedido : null;
+  document.getElementById("form-dest-nfe-error").textContent = "";
+  document.getElementById("dest-nfe-pedido-id").value = pedido.id_pedido;
+  document.getElementById("dest-nfe-nome").value = pedido.cliente_nome || pedido.cliente || "";
+  document.getElementById("dest-nfe-documento").value = aplicarMascaraDocFiscal(pedido.destinatario_documento || "");
+  document.getElementById("dest-nfe-ie").value = pedido.destinatario_ie || "";
+  document.getElementById("dest-nfe-cep").value = formatarCepFiscal(pedido.destinatario_cep || "");
+  document.getElementById("dest-nfe-uf").value = pedido.destinatario_uf || pedido.uf || "SP";
+  document.getElementById("dest-nfe-logradouro").value = pedido.destinatario_logradouro || "";
+  document.getElementById("dest-nfe-numero").value = pedido.destinatario_numero || "";
+  document.getElementById("dest-nfe-complemento").value = pedido.destinatario_complemento || "";
+  document.getElementById("dest-nfe-bairro").value = pedido.destinatario_bairro || "";
+  document.getElementById("dest-nfe-municipio").value = pedido.destinatario_municipio || "";
+  document.getElementById("dest-nfe-ibge").value = pedido.destinatario_codigo_municipio_ibge || "";
+  document.getElementById("dest-nfe-email").value = pedido.destinatario_email || "";
+
+  modal.classList.add("is-open");
+}
+
+function renderBloqueioValidacaoNFe(pedido, erros, mensagem) {
+  const body = document.getElementById("modal-nfe-body");
+  const actions = document.getElementById("modal-nfe-actions");
+  const sub = document.getElementById("modal-nfe-subtitulo");
+
+  if (sub) sub.textContent = `Pedido ${pedido.codigo_pedido} · Pendências fiscais impeditivas`;
+
+  const temErroDest = erros.some((e) => e.secao === "destinatario");
+  const temErroEmitente = erros.some((e) => e.secao === "emitente" || e.secao === "certificado");
+  const temErroItem = erros.some((e) => e.secao === "item");
+
+  const labelSecao = {
+    emitente: "Emitente",
+    certificado: "Certificado A1",
+    pedido: "Pedido",
+    destinatario: "Destinatário",
+    item: "Produto / Item",
+  };
+
+  body.innerHTML = `
+    <div style="background:#fef2f2;border:1px solid #fca5a5;border-radius:10px;padding:14px;color:#991b1b;margin-bottom:14px">
+      <strong style="display:block;font-size:0.95rem">⛔ Emissão bloqueada antes da assinatura</strong>
+      <p style="margin:4px 0 0;font-size:0.82rem">${escapeHtml(mensagem || "Corrija os campos indicados abaixo para assinar a NF-e.")}</p>
+    </div>
+    <div style="border:1px solid var(--line);border-radius:10px;overflow:hidden">
+      <table class="products-table" style="margin:0">
+        <thead>
+          <tr>
+            <th>SEÇÃO</th>
+            <th>CAMPO</th>
+            <th>MOTIVO DO BLOQUEIO</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${erros.map((e) => `
+            <tr>
+              <td><span style="font-size:0.74rem;font-weight:700;padding:2px 8px;border-radius:999px;background:#fef3c7;color:#92400e">${escapeHtml(labelSecao[e.secao] || e.secao)}</span></td>
+              <td><strong>${escapeHtml(e.label)}</strong><div style="font-family:monospace;font-size:0.72rem;color:var(--muted)">${escapeHtml(e.campo)}</div></td>
+              <td style="color:#991b1b">${escapeHtml(e.motivo)}</td>
+            </tr>
+          `).join("")}
+        </tbody>
+      </table>
+    </div>
+  `;
+
+  actions.innerHTML = `
+    ${temErroDest ? `<button type="button" class="btn-primary" id="btn-nfe-corrigir-dest">Preencher Destinatário Agora</button>` : ""}
+    ${temErroEmitente ? `<a href="fiscal.html" class="btn-ghost" style="text-decoration:none">Configurar Emitente / Certificado A1</a>` : ""}
+    ${temErroItem ? `<a href="produtos.html?fiscal=pendentes" class="btn-ghost" style="text-decoration:none">Corrigir Dados Fiscais dos Produtos</a>` : ""}
+    <button type="button" class="btn-ghost" id="btn-nfe-modal-fechar" style="margin-left:auto">Fechar</button>
+  `;
+
+  document.getElementById("btn-nfe-modal-fechar")?.addEventListener("click", fecharModalPrepararNFe);
+  document.getElementById("btn-nfe-corrigir-dest")?.addEventListener("click", () => {
+    fecharModalPrepararNFe();
+    abrirModalDestinatarioNFe(pedido, true);
+  });
+}
+
+function sincronizarEstadoNotaPedido(pedido, nf) {
+  if (!pedido || !nf) return;
+  const idx = state.pedidos.findIndex((p) => p.id_pedido === pedido.id_pedido);
+  const resumo = {
+    id_nota_fiscal: nf.id_nota_fiscal,
+    status: nf.status,
+    ambiente: nf.ambiente,
+    serie: nf.serie,
+    numero: nf.numero,
+    chave_acesso: nf.chave_acesso,
+    protocolo_autorizacao: nf.protocolo_autorizacao || null,
+    ultimo_codigo_sefaz: nf.ultimo_codigo_sefaz || null,
+    ultimo_motivo_sefaz: nf.ultimo_motivo_sefaz || null,
+    ultima_mensagem_amigavel: nf.ultima_mensagem_amigavel || null,
+    tentativas_envio: nf.tentativas_envio || 0,
+    autorizada_em: nf.autorizada_em || null,
+    codigo_pedido_snapshot: nf.codigo_pedido_snapshot || pedido.codigo_pedido || null,
+    xml_autorizado_path: nf.xml_autorizado_path || null,
+    xml_autorizado_sha256: nf.xml_autorizado_sha256 || null,
+    xml_arquivado_em: nf.xml_arquivado_em || null,
+    guarda_legal_ate: nf.guarda_legal_ate || null,
+    danfe_gerado_em: nf.danfe_gerado_em || null,
+    cancelada_em: nf.cancelada_em || null,
+    protocolo_cancelamento: nf.protocolo_cancelamento || null,
+    justificativa_cancelamento: nf.justificativa_cancelamento || null,
+    total_cartas_correcao: Number(nf.total_cartas_correcao || 0),
+    ultima_carta_correcao_em: nf.ultima_carta_correcao_em || null,
+    assinatura_valida: nf.assinatura_valida,
+  };
+  if (idx !== -1) {
+    state.pedidos[idx].status_fiscal = nf.status;
+    state.pedidos[idx].nota_fiscal_resumo = resumo;
+  }
+  pedido.status_fiscal = nf.status;
+  pedido.nota_fiscal_resumo = resumo;
+  renderTable();
+  if (state.detalheId === pedido.id_pedido) {
+    openDetalhePanel(pedido.id_pedido);
+  }
+}
+
+function renderBannerStatusSefaz(nf) {
+  const st = nf.status || "assinada";
+  if (st === "autorizada") {
+    return `
+      <div style="background:#ecfdf5;border:1px solid #86efac;border-radius:10px;padding:14px;color:#065f46;margin-bottom:14px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
+        <div>
+          <strong style="font-size:0.95rem">✓ NF-e Autorizada pela SEFAZ (cStat ${escapeHtml(nf.ultimo_codigo_sefaz || "100")})</strong>
+          <div style="font-size:0.8rem;margin-top:2px">
+            Série <strong>${nf.serie}</strong> · Número <strong>${nf.numero}</strong> · Ambiente: <strong>${escapeHtml(nf.ambiente).toUpperCase()}</strong>
+          </div>
+          <div style="font-size:0.8rem;margin-top:4px">
+            <strong>Protocolo de Autorização:</strong> <span class="font-mono" style="font-weight:800">${escapeHtml(nf.protocolo_autorizacao || "—")}</span>
+            ${nf.autorizada_em ? ` · em ${formatDate(nf.autorizada_em)}` : ""}
+            ${Number(nf.total_cartas_correcao || 0) > 0 ? ` · <strong style="color:#1d4ed8">${Number(nf.total_cartas_correcao)} Carta(s) de Correção</strong>` : ""}
+          </div>
+        </div>
+        <span style="font-size:0.75rem;font-weight:800;padding:4px 10px;border-radius:999px;background:#fff;border:1px solid #86efac">
+          AUTORIZADA
+        </span>
+      </div>
+    `;
+  }
+
+  if (st === "cancelada") {
+    return `
+      <div style="background:#fef2f2;border:1px solid #dc2626;border-radius:10px;padding:14px;color:#7f1d1d;margin-bottom:14px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap">
+          <strong style="font-size:0.95rem">⛔ NF-e Cancelada na SEFAZ (cStat ${escapeHtml(nf.ultimo_codigo_sefaz || "135")})</strong>
+          <span style="font-size:0.72rem;font-weight:800;padding:3px 9px;border-radius:999px;background:#991b1b;color:#fff">CANCELADA</span>
+        </div>
+        <div style="font-size:0.8rem;margin-top:4px">
+          Série <strong>${nf.serie}</strong> · Número <strong>${nf.numero}</strong> · <strong>Protocolo Cancelamento:</strong> <span class="font-mono">${escapeHtml(nf.protocolo_cancelamento || "—")}</span>
+          ${nf.cancelada_em ? ` · em ${formatDate(nf.cancelada_em)}` : ""}
+        </div>
+        ${nf.justificativa_cancelamento ? `<div style="font-size:0.76rem;margin-top:4px"><strong>Justificativa:</strong> ${escapeHtml(nf.justificativa_cancelamento)}</div>` : ""}
+      </div>
+    `;
+  }
+
+  if (st === "em_processamento") {
+    return `
+      <div style="background:#fff7ed;border:1px solid #fdba74;border-radius:10px;padding:14px;color:#9a3412;margin-bottom:14px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap">
+          <strong style="font-size:0.95rem">⏳ NF-e em Processamento na SEFAZ (cStat ${escapeHtml(nf.ultimo_codigo_sefaz || "105")})</strong>
+          <span style="font-size:0.72rem;font-weight:800;padding:3px 9px;border-radius:999px;background:#fff;border:1px solid #fdba74">EM PROCESSAMENTO</span>
+        </div>
+        <div style="font-size:0.8rem;margin-top:4px">
+          ${nf.numero_recibo ? `<strong>Recibo Lote:</strong> <span class="font-mono">${escapeHtml(nf.numero_recibo)}</span> · ` : ""}
+          ${escapeHtml(nf.ultima_mensagem_amigavel || "Consulte o protocolo na SEFAZ antes de retransmitir para evitar duplicidade.")}
+        </div>
+      </div>
+    `;
+  }
+
+  if (st === "rejeitada") {
+    return `
+      <div style="background:#fef2f2;border:1px solid #fca5a5;border-radius:10px;padding:14px;color:#991b1b;margin-bottom:14px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap">
+          <strong style="font-size:0.95rem">✕ NF-e Rejeitada pela SEFAZ (cStat ${escapeHtml(nf.ultimo_codigo_sefaz || "—")})</strong>
+          <span style="font-size:0.72rem;font-weight:800;padding:3px 9px;border-radius:999px;background:#fff;border:1px solid #fca5a5">REJEITADA</span>
+        </div>
+        <div style="font-size:0.82rem;margin-top:6px;font-weight:600">${escapeHtml(nf.ultima_mensagem_amigavel || "")}</div>
+        ${nf.ultimo_motivo_sefaz ? `<div style="font-size:0.75rem;margin-top:4px;color:#7f1d1d"><strong>Motivo oficial SEFAZ:</strong> ${escapeHtml(nf.ultimo_motivo_sefaz)}</div>` : ""}
+      </div>
+    `;
+  }
+
+  if (st === "denegada") {
+    return `
+      <div style="background:#450a0a;border:1px solid #991b1b;border-radius:10px;padding:14px;color:#fef2f2;margin-bottom:14px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap">
+          <strong style="font-size:0.95rem">⛔ Uso Denegado pela SEFAZ (cStat ${escapeHtml(nf.ultimo_codigo_sefaz || "110")})</strong>
+          <span style="font-size:0.72rem;font-weight:800;padding:3px 9px;border-radius:999px;background:#7f1d1d;color:#fff">DENEGADA</span>
+        </div>
+        <div style="font-size:0.8rem;margin-top:6px">${escapeHtml(nf.ultima_mensagem_amigavel || nf.ultimo_motivo_sefaz || "Numeração consumida por denegação fiscal.")}</div>
+      </div>
+    `;
+  }
+
+  return `
+    <div style="background:#ecfdf5;border:1px solid #a7f3d0;border-radius:10px;padding:14px;color:#065f46;margin-bottom:14px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
+      <div>
+        <strong style="font-size:0.95rem">✓ NF-e Validada e Assinada Digitalmente (XMLDSig A1)</strong>
+        <div style="font-size:0.8rem;margin-top:2px">
+          Série <strong>${nf.serie}</strong> · Número <strong>${nf.numero}</strong> · Ambiente: <strong>${escapeHtml(nf.ambiente).toUpperCase()}</strong>
+        </div>
+      </div>
+      <span style="font-size:0.75rem;font-weight:800;padding:4px 10px;border-radius:999px;background:#fff;border:1px solid #86efac">
+        ASSINADA (PRONTA P/ ENVIO)
+      </span>
+    </div>
+    ${nf.ultima_mensagem_amigavel ? `
+      <div style="background:#fffbeb;border:1px solid #fcd34d;border-radius:8px;padding:10px 12px;margin-bottom:12px;font-size:0.78rem;color:#92400e">
+        <strong>Último retorno registrado (${escapeHtml(nf.ultimo_codigo_sefaz || "—")}):</strong> ${escapeHtml(nf.ultima_mensagem_amigavel)}
+      </div>
+    ` : ""}
+  `;
+}
+
+function renderTabelaTransmissoesSefaz(transmissoes = []) {
+  if (!transmissoes || transmissoes.length === 0) {
+    return `<div style="font-size:0.78rem;color:var(--muted);padding:10px 12px;border:1px dashed var(--line);border-radius:8px">Nenhuma tentativa de envio ou consulta à SEFAZ registrada até o momento.</div>`;
+  }
+  return `
+    <div class="table-wrap" style="border:1px solid var(--line);border-radius:8px;overflow:hidden;max-height:200px;overflow-y:auto">
+      <table class="products-table" style="margin:0;font-size:0.75rem">
+        <thead>
+          <tr>
+            <th>DATA/HORA</th>
+            <th>OPERAÇÃO</th>
+            <th>MODO</th>
+            <th>RESULTADO</th>
+            <th>cStat</th>
+            <th>PROTOCOLO / RECIBO</th>
+            <th>MS</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${transmissoes.map((t) => `
+            <tr>
+              <td>${formatDate(t.created_at)}</td>
+              <td>${escapeHtml(t.tipo_operacao === "consulta_protocolo" ? "Consulta" : "Autorização")}</td>
+              <td><span class="font-mono">${escapeHtml(t.modo_transporte)}</span></td>
+              <td><strong>${escapeHtml(t.resultado)}</strong>${t.erro_rede ? `<div style="color:#b91c1c;font-size:0.68rem">${escapeHtml(t.erro_rede)}</div>` : ""}</td>
+              <td class="font-mono">${escapeHtml(t.codigo_sefaz || "—")}</td>
+              <td class="font-mono">${escapeHtml(t.protocolo || t.numero_recibo || "—")}</td>
+              <td>${t.duracao_ms != null ? `${t.duracao_ms}ms` : "—"}</td>
+            </tr>
+          `).join("")}
+        </tbody>
+      </table>
+    </div>
+  `;
+}
+
+function renderTabelaEventosSefaz(eventos = []) {
+  if (!eventos || eventos.length === 0) {
+    return `<div style="font-size:0.78rem;color:var(--muted);padding:10px 12px;border:1px dashed var(--line);border-radius:8px">Nenhum evento fiscal (Cancelamento ou Carta de Correção) registrado nesta NF-e.</div>`;
+  }
+  return `
+    <div class="table-wrap" style="border:1px solid var(--line);border-radius:8px;overflow:hidden;max-height:200px;overflow-y:auto">
+      <table class="products-table" style="margin:0;font-size:0.75rem">
+        <thead>
+          <tr>
+            <th>DATA/HORA</th>
+            <th>EVENTO / SEQ</th>
+            <th>STATUS</th>
+            <th>cStat</th>
+            <th>PROTOCOLO</th>
+            <th>DESCRIÇÃO / JUSTIFICATIVA</th>
+            <th style="text-align:right">XML</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${eventos.map((e) => `
+            <tr>
+              <td>${formatDate(e.data_evento || e.created_at)}</td>
+              <td><strong>${e.tipo_evento === "cancelamento" ? "Cancelamento" : "Carta Correção"}</strong> · #${e.sequencia}</td>
+              <td><strong>${escapeHtml(e.status)}</strong></td>
+              <td class="font-mono">${escapeHtml(e.codigo_sefaz || "—")}</td>
+              <td class="font-mono">${escapeHtml(e.protocolo_evento || "—")}</td>
+              <td style="max-width:240px;word-break:break-word">${escapeHtml(e.descricao_evento || "")}</td>
+              <td style="text-align:right">
+                ${e.tem_xml_evento ? `<button type="button" class="btn-ghost btn-nfe-xml-evento" data-id="${e.id_evento}" style="padding:2px 8px;font-size:0.7rem">XML</button>` : "—"}
+              </td>
+            </tr>
+          `).join("")}
+        </tbody>
+      </table>
+    </div>
+  `;
+}
+
+function renderNotaFiscalAssinada(pedido, nf, transmissoes = [], eventos = []) {
+  const body = document.getElementById("modal-nfe-body");
+  const actions = document.getElementById("modal-nfe-actions");
+  const sub = document.getElementById("modal-nfe-subtitulo");
+
+  if (sub) {
+    sub.textContent = `Pedido ${pedido.codigo_pedido} · Layout NF-e ${nf.versao_layout || "4.00"}`;
+  }
+
+  const emit = nf.emitente_snapshot || {};
+  const dest = nf.destinatario_snapshot || {};
+  const tot = nf.totais_snapshot || {};
+  const itens = nf.itens || [];
+  const xmlExibido = nf.xml_autorizado || nf.xml_assinado || "";
+  const isAutorizada = nf.status === "autorizada";
+  const isCancelada = nf.status === "cancelada";
+  const isRejeitada = nf.status === "rejeitada";
+  const isDenegada = nf.status === "denegada";
+  const isEmProc = nf.status === "em_processamento";
+  const podeDanfe = (isAutorizada || isCancelada) && Boolean(nf.protocolo_autorizacao);
+  const sugereAvancar = isRejeitada && (nf.ultimo_codigo_sefaz === "204" || nf.ultimo_codigo_sefaz === "539");
+
+  body.innerHTML = `
+    ${renderBannerStatusSefaz(nf)}
+    <div id="nfe-sefaz-feedback" style="display:none;margin-bottom:12px;padding:12px;border-radius:8px;font-size:0.82rem"></div>
+
+    <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:10px 12px;margin-bottom:14px;font-size:0.78rem">
+      <div><strong>Chave de Acesso (44 dígitos):</strong> <span style="font-family:monospace;font-weight:700;word-break:break-all">${escapeHtml(nf.chave_acesso)}</span></div>
+      <div style="margin-top:3px;color:var(--muted)"><strong>DigestValue (SHA-1):</strong> <span style="font-family:monospace">${escapeHtml(nf.digest_value || "")}</span> · <strong>Certificado Serial:</strong> <span style="font-family:monospace">${escapeHtml(nf.assinada_por_certificado_serial || "")}</span> · <strong>Tentativas envio:</strong> ${nf.tentativas_envio || 0}</div>
+      ${(nf.xml_autorizado_path || nf.guarda_legal_ate) ? `
+        <div style="margin-top:4px;color:#065f46;font-size:0.74rem">
+          <strong>Guarda Legal XML (5 anos):</strong> até ${nf.guarda_legal_ate ? escapeHtml(formatDateOnly(nf.guarda_legal_ate)) : "—"}
+          ${nf.xml_autorizado_sha256 ? ` · SHA-256: <span class="font-mono">${escapeHtml(nf.xml_autorizado_sha256.slice(0, 16))}...</span>` : ""}
+        </div>
+      ` : ""}
+    </div>
+
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px">
+      <div style="border:1px solid var(--line);border-radius:8px;padding:10px;font-size:0.8rem">
+        <div style="font-size:0.7rem;font-weight:800;color:var(--muted);text-transform:uppercase;margin-bottom:4px">Emitente</div>
+        <strong>${escapeHtml(emit.razao_social)}</strong>
+        <div>CNPJ: <span class="font-mono">${formatarDocFiscal(emit.cnpj)}</span> · IE: ${escapeHtml(emit.inscricao_estadual)}</div>
+        <div style="color:var(--muted)">${escapeHtml(emit.municipio || "")}/${escapeHtml(emit.uf || "")}</div>
+      </div>
+      <div style="border:1px solid var(--line);border-radius:8px;padding:10px;font-size:0.8rem">
+        <div style="font-size:0.7rem;font-weight:800;color:var(--muted);text-transform:uppercase;margin-bottom:4px">Destinatário</div>
+        <strong>${escapeHtml(dest.nome)}</strong>
+        <div>${escapeHtml(dest.tipo_documento || "Doc")}: <span class="font-mono">${formatarDocFiscal(dest.documento)}</span></div>
+        <div style="color:var(--muted)">${escapeHtml(dest.logradouro || "")}, ${escapeHtml(dest.numero || "")} — ${escapeHtml(dest.municipio || "")}/${escapeHtml(dest.uf || "")}</div>
+      </div>
+    </div>
+
+    <div class="table-wrap" style="border:1px solid var(--line);border-radius:8px;overflow:hidden;margin-bottom:14px">
+      <table class="products-table" style="margin:0">
+        <thead>
+          <tr>
+            <th>PRODUTO</th>
+            <th>NCM</th>
+            <th>CFOP</th>
+            <th>CST/CSOSN</th>
+            <th style="text-align:center">QTD</th>
+            <th style="text-align:right">TOTAL</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${itens.map((it) => `
+            <tr>
+              <td><strong>${escapeHtml(it.nome_snapshot)}</strong><div style="font-size:0.72rem;color:var(--muted)">${escapeHtml(it.sku_snapshot)} · ${escapeHtml(it.unidade_snapshot)}</div></td>
+              <td class="font-mono">${escapeHtml(it.ncm_snapshot)}</td>
+              <td class="font-mono">${escapeHtml(it.cfop_snapshot)}</td>
+              <td class="font-mono">${escapeHtml(it.origem_snapshot)}-${escapeHtml(it.cst_csosn_snapshot)}</td>
+              <td style="text-align:center">${it.quantidade}</td>
+              <td style="text-align:right;font-weight:700">${money(it.valor_total)}</td>
+            </tr>
+          `).join("")}
+        </tbody>
+      </table>
+    </div>
+
+    <div class="finance-summary-box" style="margin-top:0;margin-bottom:14px">
+      <div class="finance-item"><span>Produtos (vProd)</span><strong>${money(tot.vProd)}</strong></div>
+      <div class="finance-item"><span>Frete (vFrete)</span><strong>${money(tot.vFrete)}</strong></div>
+      <div class="finance-item"><span>Desconto (vDesc)</span><strong>${money(tot.vDesc)}</strong></div>
+      <div class="finance-item"><span>Tributos Aprox.</span><strong>${money(tot.vTotTrib)}</strong></div>
+      <div class="finance-item highlight"><span>Total NF-e (vNF)</span><strong>${money(tot.vNF)}</strong></div>
+    </div>
+
+    <div style="margin-bottom:14px">
+      <label style="font-size:0.75rem;font-weight:700;color:var(--muted);display:block;margin-bottom:4px">
+        ${nf.xml_autorizado ? "XML NF-e v4.00 Autorizado (&lt;nfeProc&gt; com Protocolo SEFAZ)" : "XML NF-e v4.00 Assinado (&lt;Signature&gt; XMLDSig)"}
+      </label>
+      <textarea id="nfe-xml-preview" readonly rows="5" style="width:100%;font-family:monospace;font-size:0.72rem;border:1px solid var(--line);border-radius:8px;padding:8px;background:#faf7f3">${escapeHtml(xmlExibido)}</textarea>
+    </div>
+
+    <div style="margin-bottom:14px">
+      <label style="font-size:0.75rem;font-weight:700;color:var(--muted);display:block;margin-bottom:6px">
+        Auditoria de Transmissões e Consultas SEFAZ (${transmissoes.length})
+      </label>
+      <div id="nfe-transmissoes-wrap">${renderTabelaTransmissoesSefaz(transmissoes)}</div>
+    </div>
+
+    <div style="margin-bottom:14px">
+      <label style="font-size:0.75rem;font-weight:700;color:var(--muted);display:block;margin-bottom:6px">
+        Eventos Fiscais (Cancelamento e Carta de Correção — ${eventos.length})
+      </label>
+      <div id="nfe-eventos-wrap">${renderTabelaEventosSefaz(eventos)}</div>
+    </div>
+
+    ${isAutorizada ? `
+      <div id="nfe-box-cancelar" style="display:none;background:#fef2f2;border:1px solid #fca5a5;border-radius:10px;padding:12px;margin-bottom:12px">
+        <div style="font-size:0.84rem;font-weight:800;color:#991b1b;margin-bottom:4px">Cancelar NF-e por Evento (tpEvento 110111)</div>
+        <p style="font-size:0.74rem;color:#7f1d1d;margin:0 0 8px">Permitido até 24h após autorização e antes do despacho/entrega física. Não estorna estoque automaticamente.</p>
+        <textarea id="nfe-cancel-justificativa" rows="2" maxlength="255" placeholder="Informe a justificativa do cancelamento (15 a 255 caracteres)..." style="width:100%;font-size:0.8rem;border:1px solid #fca5a5;border-radius:6px;padding:6px;background:#fff"></textarea>
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-top:6px">
+          <span id="nfe-cancel-count" style="font-size:0.72rem;color:#7f1d1d">0/255 caracteres</span>
+          <button type="button" class="btn-primary" id="btn-confirmar-cancelar-nfe" style="background:#b91c1c;padding:5px 12px;font-size:0.78rem">Confirmar Cancelamento SEFAZ</button>
+        </div>
+      </div>
+
+      <div id="nfe-box-cce" style="display:none;background:#eff6ff;border:1px solid #bfdbfe;border-radius:10px;padding:12px;margin-bottom:12px">
+        <div style="font-size:0.84rem;font-weight:800;color:#1e40af;margin-bottom:4px">Registrar Carta de Correção Eletrônica — CC-e (tpEvento 110110)</div>
+        <p style="font-size:0.74rem;color:#1e3a8a;margin:0 0 8px">Permitido até 30 dias após emissão (máx. 20 eventos). Vedada alteração de valores, impostos, quantidades, remetente/destinatário ou datas.</p>
+        <select id="nfe-cce-tipo" class="search-input" style="width:100%;margin-bottom:8px;font-size:0.78rem">
+          <option value="endereco_observacao">Dados complementares, observações ou complemento de endereço (Permitido)</option>
+          <option value="transporte">Dados de transportadora / volume / peso (Permitido)</option>
+          <option value="natureza_cfop_complementar">Código fiscal/descrição complementar sem mudar imposto (Permitido)</option>
+        </select>
+        <textarea id="nfe-cce-texto" rows="3" maxlength="1000" placeholder="Descreva objetivamente a correção (15 a 1000 caracteres)..." style="width:100%;font-size:0.8rem;border:1px solid #93c5fd;border-radius:6px;padding:6px;background:#fff"></textarea>
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-top:6px">
+          <span id="nfe-cce-count" style="font-size:0.72rem;color:#1e3a8a">0/1000 caracteres</span>
+          <button type="button" class="btn-primary" id="btn-confirmar-cce-nfe" style="background:#1d4ed8;padding:5px 12px;font-size:0.78rem">Enviar Carta de Correção</button>
+        </div>
+      </div>
+    ` : ""}
+  `;
+
+  actions.innerHTML = `
+    ${!isAutorizada && !isDenegada && !isCancelada ? `
+      <button type="button" class="btn-primary" id="btn-nfe-transmitir" style="background:#0f766e">
+        ${isEmProc ? "⚡ Verificar e Transmitir (Anti-Duplicidade)" : isRejeitada ? "Reenviar à SEFAZ" : "🚀 Transmitir à SEFAZ"}
+      </button>
+    ` : ""}
+    <button type="button" class="btn-ghost" id="btn-nfe-consultar">🔎 Consultar Situação SEFAZ</button>
+    ${(!isAutorizada && !isEmProc && !isDenegada && !isCancelada) ? `
+      <button type="button" class="btn-ghost" id="btn-nfe-regerar" title="Regera e reassina XML com os dados atuais mantendo a mesma numeração">
+        ${isRejeitada ? "Corrigir / Regerar XML" : "Regerar Assinatura"}
+      </button>
+    ` : ""}
+    ${sugereAvancar ? `
+      <button type="button" class="btn-ghost" id="btn-nfe-regerar-avancar" style="border-color:#fca5a5;color:#b91c1c" title="Avança para o próximo número NF-e em casos de duplicidade 204/539">
+        Avançar Nº NF-e
+      </button>
+    ` : ""}
+    ${isAutorizada ? `
+      <button type="button" class="btn-ghost" id="btn-nfe-toggle-cce" style="border-color:#93c5fd;color:#1d4ed8">📝 Carta de Correção</button>
+      <button type="button" class="btn-ghost" id="btn-nfe-toggle-cancelar" style="border-color:#fca5a5;color:#b91c1c">⛔ Cancelar NF-e</button>
+    ` : ""}
+    <button type="button" class="btn-ghost" id="btn-nfe-copiar-xml">${nf.xml_autorizado ? "Copiar nfeProc" : "Copiar XML"}</button>
+    ${podeDanfe ? `<button type="button" class="btn-primary" id="btn-nfe-danfe" style="background:#0f766e">🖨️ Visualizar / Imprimir DANFE</button>` : ""}
+    <button type="button" class="btn-primary" id="btn-nfe-baixar-xml">${nf.xml_autorizado ? "Baixar XML Autorizado" : "Baixar XML Assinado"}</button>
+    <button type="button" class="btn-ghost" id="btn-nfe-modal-fechar" style="margin-left:auto">Fechar</button>
+  `;
+
+  const setFeedbackSefaz = (tipo, msg) => {
+    const fb = document.getElementById("nfe-sefaz-feedback");
+    if (!fb) return;
+    fb.style.display = "block";
+    fb.style.background = tipo === "erro" ? "#fee2e2" : "#fffbeb";
+    fb.style.border = tipo === "erro" ? "1px solid #fca5a5" : "1px solid #fcd34d";
+    fb.style.color = tipo === "erro" ? "#991b1b" : "#92400e";
+    fb.textContent = msg;
+  };
+
+  const executarAcaoSefaz = async (acaoFn, btnEl, textoCarregando, textoOriginal) => {
+    if (btnEl) {
+      btnEl.disabled = true;
+      btnEl.textContent = textoCarregando;
+    }
+    try {
+      const res = await acaoFn();
+      if (res?.nota_fiscal) {
+        sincronizarEstadoNotaPedido(pedido, res.nota_fiscal);
+        renderNotaFiscalAssinada(
+          pedido,
+          res.nota_fiscal,
+          res.transmissoes || transmissoes,
+          res.eventos || eventos
+        );
+      }
+      showToast(
+        res?.mensagem || "Retorno SEFAZ processado!",
+        res?.autorizada || res?.registrado
+          ? "sucesso"
+          : res?.nota_fiscal?.status === "rejeitada" || res?.nota_fiscal?.status === "denegada"
+            ? "erro"
+            : "info"
+      );
+    } catch (err) {
+      if (btnEl) {
+        btnEl.disabled = false;
+        btnEl.textContent = textoOriginal;
+      }
+      if (err.status === 503 && err.data) {
+        if (err.data.nota_fiscal) {
+          sincronizarEstadoNotaPedido(pedido, err.data.nota_fiscal);
+          renderNotaFiscalAssinada(
+            pedido,
+            err.data.nota_fiscal,
+            err.data.transmissoes || transmissoes,
+            err.data.eventos || eventos
+          );
+        }
+        setFeedbackSefaz(
+          "aviso",
+          `${err.data.mensagem || err.message} (HTTP 503). Os dados e a assinatura foram preservados para nova tentativa.`
+        );
+        showToast("SEFAZ temporariamente indisponível. Tente novamente em instantes.", "aviso");
+      } else {
+        setFeedbackSefaz("erro", err.message || "Falha ao comunicar com a SEFAZ.");
+        showToast(err.message || "Erro na comunicação com a SEFAZ.", "erro");
+      }
+    }
+  };
+
+  document.getElementById("btn-nfe-modal-fechar")?.addEventListener("click", fecharModalPrepararNFe);
+  document.getElementById("btn-nfe-transmitir")?.addEventListener("click", (e) => {
+    const btn = e.currentTarget;
+    executarAcaoSefaz(
+      () => window.RezFireAPI.fiscal.transmitirNFe(pedido.id_pedido, {}),
+      btn,
+      "Comunicando SEFAZ...",
+      btn.textContent
+    );
+  });
+  document.getElementById("btn-nfe-consultar")?.addEventListener("click", (e) => {
+    const btn = e.currentTarget;
+    executarAcaoSefaz(
+      () => window.RezFireAPI.fiscal.consultarNFeSefaz(pedido.id_pedido, {}),
+      btn,
+      "Consultando SEFAZ...",
+      btn.textContent
+    );
+  });
+  document.getElementById("btn-nfe-regerar")?.addEventListener("click", () => {
+    abrirModalPrepararNFe(pedido, { regerar: true });
+  });
+  document.getElementById("btn-nfe-regerar-avancar")?.addEventListener("click", () => {
+    abrirModalPrepararNFe(pedido, { regerar: true, avancar_numero: true });
+  });
+  document.getElementById("btn-nfe-toggle-cancelar")?.addEventListener("click", () => {
+    const boxCancel = document.getElementById("nfe-box-cancelar");
+    const boxCce = document.getElementById("nfe-box-cce");
+    if (boxCce) boxCce.style.display = "none";
+    if (boxCancel) boxCancel.style.display = boxCancel.style.display === "none" ? "block" : "none";
+  });
+  document.getElementById("btn-nfe-toggle-cce")?.addEventListener("click", () => {
+    const boxCce = document.getElementById("nfe-box-cce");
+    const boxCancel = document.getElementById("nfe-box-cancelar");
+    if (boxCancel) boxCancel.style.display = "none";
+    if (boxCce) boxCce.style.display = boxCce.style.display === "none" ? "block" : "none";
+  });
+  document.getElementById("nfe-cancel-justificativa")?.addEventListener("input", (e) => {
+    const c = document.getElementById("nfe-cancel-count");
+    if (c) c.textContent = `${e.target.value.trim().length}/255 caracteres`;
+  });
+  document.getElementById("nfe-cce-texto")?.addEventListener("input", (e) => {
+    const c = document.getElementById("nfe-cce-count");
+    if (c) c.textContent = `${e.target.value.trim().length}/1000 caracteres`;
+  });
+  document.getElementById("btn-confirmar-cancelar-nfe")?.addEventListener("click", (e) => {
+    const btn = e.currentTarget;
+    const just = document.getElementById("nfe-cancel-justificativa")?.value?.trim() || "";
+    executarAcaoSefaz(
+      () => window.RezFireAPI.fiscal.cancelarNFe(pedido.id_pedido, { justificativa: just }),
+      btn,
+      "Enviando cancelamento...",
+      btn.textContent
+    );
+  });
+  document.getElementById("btn-confirmar-cce-nfe")?.addEventListener("click", (e) => {
+    const btn = e.currentTarget;
+    const tipo = document.getElementById("nfe-cce-tipo")?.value || "endereco_observacao";
+    const texto = document.getElementById("nfe-cce-texto")?.value?.trim() || "";
+    executarAcaoSefaz(
+      () =>
+        window.RezFireAPI.fiscal.registrarCartaCorrecao(pedido.id_pedido, {
+          tipo_correcao: tipo,
+          texto_correcao: texto,
+        }),
+      btn,
+      "Enviando CC-e...",
+      btn.textContent
+    );
+  });
+  document.querySelectorAll(".btn-nfe-xml-evento").forEach((btn) => {
+    btn.addEventListener("click", async () => {
+      const idEvt = Number(btn.getAttribute("data-id"));
+      try {
+        await window.RezFireAPI.fiscal.baixarXmlEventoArquivo(idEvt);
+      } catch (err) {
+        showToast(err.message || "Erro ao baixar XML do evento.", "erro");
+      }
+    });
+  });
+  document.getElementById("btn-nfe-danfe")?.addEventListener("click", async () => {
+    try {
+      await window.RezFireAPI.fiscal.abrirDanfeNotaNovaAba(nf.id_nota_fiscal);
+    } catch (err) {
+      showToast(err.message || "Erro ao gerar DANFE.", "erro");
+    }
+  });
+  document.getElementById("btn-nfe-copiar-xml")?.addEventListener("click", async () => {
+    try {
+      await navigator.clipboard.writeText(xmlExibido);
+      showToast("XML copiado para a área de transferência!", "sucesso");
+    } catch {
+      document.getElementById("nfe-xml-preview")?.select();
+      showToast("Selecione e copie o XML exibido na caixa de texto.", "info");
+    }
+  });
+  document.getElementById("btn-nfe-baixar-xml")?.addEventListener("click", async () => {
+    try {
+      await window.RezFireAPI.fiscal.baixarXmlNotaArquivo(
+        nf.id_nota_fiscal,
+        `NFe-${nf.chave_acesso || nf.numero}${nf.xml_autorizado ? "-procNFe" : ""}.xml`
+      );
+      showToast("XML baixado com sucesso!", "sucesso");
+    } catch (err) {
+      showToast(err.message || "Erro ao baixar XML.", "erro");
+    }
+  });
+}
+
+async function abrirModalPrepararNFe(pedido, opcoes = {}) {
+  const modal = document.getElementById("modal-preparar-nfe");
+  const body = document.getElementById("modal-nfe-body");
+  const actions = document.getElementById("modal-nfe-actions");
+  if (!modal || !pedido) return;
+
+  body.innerHTML = `<div style="padding:24px;text-align:center;color:var(--muted)">Carregando dados fiscais e preparando NF-e...</div>`;
+  actions.innerHTML = `<button type="button" class="btn-ghost" id="btn-nfe-modal-fechar">Fechar</button>`;
+  document.getElementById("btn-nfe-modal-fechar")?.addEventListener("click", fecharModalPrepararNFe);
+  modal.classList.add("is-open");
+
+  try {
+    if (!opcoes.regerar) {
+      const atual = await window.RezFireAPI.fiscal.obterNFePedido(pedido.id_pedido);
+      if (atual?.nota_fiscal && atual.nota_fiscal.status !== "rascunho") {
+        sincronizarEstadoNotaPedido(pedido, atual.nota_fiscal);
+        renderNotaFiscalAssinada(
+          pedido,
+          atual.nota_fiscal,
+          atual.transmissoes || [],
+          atual.eventos || []
+        );
+        return;
+      }
+    }
+
+    const res = await window.RezFireAPI.fiscal.prepararNFe(pedido.id_pedido, opcoes);
+    if (res && res.nota_fiscal) {
+      const [hist, histEvt] = await Promise.all([
+        window.RezFireAPI.fiscal.listarTransmissoesNFe(pedido.id_pedido).catch(() => null),
+        window.RezFireAPI.fiscal.listarEventosNFe(pedido.id_pedido).catch(() => null),
+      ]);
+      sincronizarEstadoNotaPedido(pedido, res.nota_fiscal);
+      renderNotaFiscalAssinada(
+        pedido,
+        res.nota_fiscal,
+        hist?.transmissoes || [],
+        histEvt?.eventos || []
+      );
+      showToast(res.mensagem || "NF-e assinada com sucesso!", "sucesso");
+    }
+  } catch (err) {
+    if (err.status === 422 && err.data?.bloqueado && Array.isArray(err.data.erros_validacao)) {
+      renderBloqueioValidacaoNFe(pedido, err.data.erros_validacao, err.data.mensagem);
+    } else {
+      body.innerHTML = `<div style="background:#fee2e2;color:#991b1b;padding:14px;border-radius:8px">${escapeHtml(err.message || "Erro ao preparar NF-e.")}</div>`;
+    }
+  }
+}
+
+function bindNFeModalsEvents() {
+  ["dest-nfe-documento", "pedido-dest-documento"].forEach((id) => {
+    document.getElementById(id)?.addEventListener("input", (e) => {
+      e.target.value = aplicarMascaraDocFiscal(e.target.value);
+    });
+  });
+
+  ["dest-nfe-cep", "pedido-dest-cep"].forEach((id) => {
+    document.getElementById(id)?.addEventListener("input", (e) => {
+      e.target.value = formatarCepFiscal(e.target.value);
+    });
+  });
+
+  document.getElementById("btn-fechar-modal-nfe")?.addEventListener("click", fecharModalPrepararNFe);
+  document.getElementById("modal-preparar-nfe")?.addEventListener("click", (e) => {
+    if (e.target.id === "modal-preparar-nfe") fecharModalPrepararNFe();
+  });
+
+  document.getElementById("btn-fechar-modal-dest-nfe")?.addEventListener("click", fecharModalDestinatarioNFe);
+  document.getElementById("btn-cancelar-dest-nfe")?.addEventListener("click", fecharModalDestinatarioNFe);
+  document.getElementById("modal-destinatario-nfe")?.addEventListener("click", (e) => {
+    if (e.target.id === "modal-destinatario-nfe") fecharModalDestinatarioNFe();
+  });
+
+  document.getElementById("form-destinatario-nfe")?.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const errEl = document.getElementById("form-dest-nfe-error");
+    errEl.textContent = "";
+    const idPedido = Number(document.getElementById("dest-nfe-pedido-id").value);
+    const reabrirPreparar = retornarParaPrepararNFePedidoId === idPedido;
+
+    const payload = {
+      cliente_nome: document.getElementById("dest-nfe-nome").value.trim(),
+      destinatario_documento: document.getElementById("dest-nfe-documento").value.trim(),
+      destinatario_ie: document.getElementById("dest-nfe-ie").value.trim() || null,
+      destinatario_cep: document.getElementById("dest-nfe-cep").value.trim(),
+      destinatario_uf: document.getElementById("dest-nfe-uf").value,
+      destinatario_logradouro: document.getElementById("dest-nfe-logradouro").value.trim(),
+      destinatario_numero: document.getElementById("dest-nfe-numero").value.trim(),
+      destinatario_complemento: document.getElementById("dest-nfe-complemento").value.trim() || null,
+      destinatario_bairro: document.getElementById("dest-nfe-bairro").value.trim(),
+      destinatario_municipio: document.getElementById("dest-nfe-municipio").value.trim(),
+      destinatario_codigo_municipio_ibge: document.getElementById("dest-nfe-ibge").value.trim() || null,
+      destinatario_email: document.getElementById("dest-nfe-email").value.trim() || null,
+    };
+
+    try {
+      const res = await window.RezFireAPI.pedidos.atualizarDestinatario(idPedido, payload);
+      if (res && res.sucesso && res.pedido) {
+        const norm = normalizarPedido(res.pedido);
+        const idx = state.pedidos.findIndex((p) => p.id_pedido === idPedido);
+        if (idx !== -1) state.pedidos[idx] = norm;
+        fecharModalDestinatarioNFe();
+        renderTable();
+        if (state.detalheId === idPedido) {
+          openDetalhePanel(idPedido);
+        }
+        showToast("Destinatário fiscal atualizado no pedido!", "sucesso");
+        if (reabrirPreparar && idx !== -1) {
+          abrirModalPrepararNFe(state.pedidos[idx]);
+        }
+      }
+    } catch (err) {
+      errEl.textContent = err.message || "Erro ao salvar destinatário.";
+    }
+  });
 }
 
 // ─── Inicialização da Página ──────────────────────────────────────────────────

@@ -48,7 +48,10 @@ window.RezFireAPI = {
       const data = await response.json();
 
       if (!response.ok) {
-        throw new Error(data.mensagem || `Erro HTTP ${response.status}`);
+        const err = new Error(data.mensagem || `Erro HTTP ${response.status}`);
+        err.status = response.status;
+        err.data = data;
+        throw err;
       }
 
       return data;
@@ -167,6 +170,17 @@ window.RezFireAPI = {
         body: JSON.stringify(dados),
       });
     },
+    async atualizar(id, dados) {
+      return window.RezFireAPI.request(`/pedidos/${id}`, {
+        method: 'PUT',
+        body: JSON.stringify(dados),
+      });
+    },
+    async baixarEstoqueManual(id) {
+      return window.RezFireAPI.request(`/pedidos/${id}/baixar-estoque`, {
+        method: 'POST',
+      });
+    },
     async atualizarStatus(id, status, status_entrega, dadosDevolucao = null) {
       const payload = { status, status_entrega };
       if (dadosDevolucao) {
@@ -205,6 +219,12 @@ window.RezFireAPI = {
     },
     async atualizarModalidade(id, dados) {
       return window.RezFireAPI.request(`/pedidos/${id}/modalidade`, {
+        method: 'PATCH',
+        body: JSON.stringify(dados),
+      });
+    },
+    async atualizarDestinatario(id, dados) {
+      return window.RezFireAPI.request(`/pedidos/${id}/destinatario`, {
         method: 'PATCH',
         body: JSON.stringify(dados),
       });
@@ -301,6 +321,222 @@ window.RezFireAPI = {
     },
   },
 
+  // Módulo Fiscal & Emissão de NF-e (Stories 33a / 33b)
+  fiscal: {
+    async obterEmitente() {
+      return window.RezFireAPI.request('/fiscal/emitente');
+    },
+    async salvarEmitente(dados) {
+      return window.RezFireAPI.request('/fiscal/emitente', {
+        method: 'PUT',
+        body: JSON.stringify(dados),
+      });
+    },
+    async alterarAmbiente(dados) {
+      return window.RezFireAPI.request('/fiscal/emitente/ambiente', {
+        method: 'PATCH',
+        body: JSON.stringify(dados),
+      });
+    },
+    async enviarCertificado(arquivo, senha) {
+      const formData = new FormData();
+      formData.append('certificado', arquivo);
+      formData.append('senha', senha);
+      return window.RezFireAPI.request('/fiscal/emitente/certificado', {
+        method: 'POST',
+        body: formData,
+      });
+    },
+    async removerCertificado() {
+      return window.RezFireAPI.request('/fiscal/emitente/certificado', {
+        method: 'DELETE',
+      });
+    },
+    async obterStatusCertificado(antecedenciaDias) {
+      const qs = antecedenciaDias ? `?antecedencia_dias=${encodeURIComponent(antecedenciaDias)}` : '';
+      return window.RezFireAPI.request(`/fiscal/certificado/status${qs}`);
+    },
+    async obterReferencias() {
+      return window.RezFireAPI.request('/fiscal/referencias');
+    },
+    async obterPendenciasProdutos() {
+      return window.RezFireAPI.request('/fiscal/produtos/pendencias');
+    },
+    async validarEmissao(payload) {
+      return window.RezFireAPI.request('/fiscal/validar-emissao', {
+        method: 'POST',
+        body: JSON.stringify(payload || {}),
+      });
+    },
+    async obterNFePedido(idPedido) {
+      return window.RezFireAPI.request(`/fiscal/pedidos/${idPedido}/nfe`);
+    },
+    async prepararNFe(idPedido, opcoes = {}) {
+      return window.RezFireAPI.request(`/fiscal/pedidos/${idPedido}/preparar-nfe`, {
+        method: 'POST',
+        body: JSON.stringify(opcoes),
+      });
+    },
+    async transmitirNFe(idPedido, opcoes = {}) {
+      return window.RezFireAPI.request(`/fiscal/pedidos/${idPedido}/transmitir-nfe`, {
+        method: 'POST',
+        body: JSON.stringify(opcoes),
+      });
+    },
+    async consultarNFeSefaz(idPedido, opcoes = {}) {
+      return window.RezFireAPI.request(`/fiscal/pedidos/${idPedido}/consultar-nfe`, {
+        method: 'POST',
+        body: JSON.stringify(opcoes),
+      });
+    },
+    async listarTransmissoesNFe(idPedido) {
+      return window.RezFireAPI.request(`/fiscal/pedidos/${idPedido}/nfe/transmissoes`);
+    },
+    async verificarStatusSefaz(opcoes = {}) {
+      const qs = new URLSearchParams();
+      if (opcoes.cenario_teste) qs.set('cenario_teste', opcoes.cenario_teste);
+      if (opcoes.modo_transporte) qs.set('modo_transporte', opcoes.modo_transporte);
+      const suffix = qs.toString() ? `?${qs.toString()}` : '';
+      return window.RezFireAPI.request(`/fiscal/sefaz/status${suffix}`);
+    },
+    async listarNotas(filtros = {}) {
+      const qs = new URLSearchParams();
+      if (filtros.status && filtros.status !== 'todos') qs.set('status', filtros.status);
+      if (filtros.ambiente && filtros.ambiente !== 'todos') qs.set('ambiente', filtros.ambiente);
+      if (filtros.busca) qs.set('busca', filtros.busca);
+      const suffix = qs.toString() ? `?${qs.toString()}` : '';
+      return window.RezFireAPI.request(`/fiscal/notas${suffix}`);
+    },
+    urlXmlNFe(idNota) {
+      const baseUrl = (typeof API_BASE_URL !== 'undefined') ? API_BASE_URL : '/api';
+      return `${baseUrl}/fiscal/notas/${idNota}/xml`;
+    },
+    urlXmlPedido(idPedido) {
+      const baseUrl = (typeof API_BASE_URL !== 'undefined') ? API_BASE_URL : '/api';
+      return `${baseUrl}/fiscal/pedidos/${idPedido}/nfe/xml`;
+    },
+    urlDanfeNota(idNota) {
+      const baseUrl = (typeof API_BASE_URL !== 'undefined') ? API_BASE_URL : '/api';
+      return `${baseUrl}/fiscal/notas/${idNota}/danfe`;
+    },
+    urlDanfePedido(idPedido) {
+      const baseUrl = (typeof API_BASE_URL !== 'undefined') ? API_BASE_URL : '/api';
+      return `${baseUrl}/fiscal/pedidos/${idPedido}/nfe/danfe`;
+    },
+    async obterHtmlDanfeNota(idNota) {
+      const token = localStorage.getItem('rezfire_auth_token');
+      const resp = await fetch(this.urlDanfeNota(idNota), {
+        credentials: 'include',
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      });
+      if (resp.status === 401) {
+        localStorage.removeItem('rezfire_auth_token');
+        localStorage.removeItem('rezfire_user');
+        if (!window.location.pathname.endsWith('login.html')) {
+          window.location.href = 'login.html';
+        }
+        throw new Error('Sessão expirada.');
+      }
+      if (!resp.ok) {
+        const errData = await resp.json().catch(() => ({}));
+        const err = new Error(errData.mensagem || 'Não foi possível gerar o DANFE desta NF-e.');
+        err.status = resp.status;
+        throw err;
+      }
+      return resp.text();
+    },
+    async abrirDanfeNotaNovaAba(idNota) {
+      const html = await this.obterHtmlDanfeNota(idNota);
+      const blob = new Blob([html], { type: 'text/html;charset=utf-8' });
+      const blobUrl = URL.createObjectURL(blob);
+      const win = window.open(blobUrl, '_blank');
+      if (!win) {
+        URL.revokeObjectURL(blobUrl);
+        throw new Error('Pop-up bloqueado pelo navegador. Autorize pop-ups para visualizar/imprimir o DANFE.');
+      }
+      setTimeout(() => URL.revokeObjectURL(blobUrl), 60000);
+    },
+    async baixarXmlNotaArquivo(idNota, filenameFallback = 'NFe.xml') {
+      const token = localStorage.getItem('rezfire_auth_token');
+      const resp = await fetch(this.urlXmlNFe(idNota), {
+        credentials: 'include',
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      });
+      if (!resp.ok) {
+        const errData = await resp.json().catch(() => ({}));
+        throw new Error(errData.mensagem || 'Falha ao baixar arquivo XML.');
+      }
+      const disp = resp.headers.get('content-disposition') || '';
+      const m = /filename="?([^"]+)"?/i.exec(disp);
+      const filename = m && m[1] ? m[1] : filenameFallback;
+      const blob = await resp.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+      return resp.headers.get('x-nfe-sha256') || null;
+    },
+    async cancelarNFe(idPedido, payload) {
+      return window.RezFireAPI.request(`/fiscal/pedidos/${idPedido}/cancelar-nfe`, {
+        method: 'POST',
+        body: JSON.stringify(payload || {}),
+      });
+    },
+    async registrarCartaCorrecao(idPedido, payload) {
+      return window.RezFireAPI.request(`/fiscal/pedidos/${idPedido}/carta-correcao`, {
+        method: 'POST',
+        body: JSON.stringify(payload || {}),
+      });
+    },
+    async listarEventosNFe(idPedido) {
+      return window.RezFireAPI.request(`/fiscal/pedidos/${idPedido}/nfe/eventos`);
+    },
+    async baixarXmlComplementar(endpointUrl, filenameFallback) {
+      const token = localStorage.getItem('rezfire_auth_token');
+      const resp = await fetch(endpointUrl, {
+        credentials: 'include',
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      });
+      if (!resp.ok) {
+        const errData = await resp.json().catch(() => ({}));
+        throw new Error(errData.mensagem || 'Falha ao baixar XML.');
+      }
+      const disp = resp.headers.get('content-disposition') || '';
+      const m = /filename="?([^"]+)"?/i.exec(disp);
+      const filename = m && m[1] ? m[1] : filenameFallback;
+      const blob = await resp.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    },
+    async baixarXmlEventoArquivo(idEvento) {
+      const baseUrl = (typeof API_BASE_URL !== 'undefined') ? API_BASE_URL : '/api';
+      return this.baixarXmlComplementar(`${baseUrl}/fiscal/eventos/${idEvento}/xml`, `Evento-${idEvento}.xml`);
+    },
+    async listarInutilizacoes() {
+      return window.RezFireAPI.request('/fiscal/inutilizacoes');
+    },
+    async inutilizarNumeracao(payload) {
+      return window.RezFireAPI.request('/fiscal/inutilizacoes', {
+        method: 'POST',
+        body: JSON.stringify(payload || {}),
+      });
+    },
+    async baixarXmlInutilizacaoArquivo(idInutilizacao) {
+      const baseUrl = (typeof API_BASE_URL !== 'undefined') ? API_BASE_URL : '/api';
+      return this.baixarXmlComplementar(`${baseUrl}/fiscal/inutilizacoes/${idInutilizacao}/xml`, `Inutilizacao-${idInutilizacao}.xml`);
+    },
+  },
+
   // Módulo de Integração com o Mercado Livre
   mercadolivre: {
     async getAuthUrl(state) {
@@ -389,6 +625,24 @@ window.RezFireAPI = {
     async listar(params = {}) {
       const query = new URLSearchParams(params).toString();
       return window.RezFireAPI.request(`/anuncios${query ? '?' + query : ''}`);
+    },
+    async criar(dados) {
+      return window.RezFireAPI.request('/anuncios', {
+        method: 'POST',
+        body: JSON.stringify(dados),
+      });
+    },
+    async atualizar(id, dados) {
+      return window.RezFireAPI.request(`/anuncios/${id}`, {
+        method: 'PUT',
+        body: JSON.stringify(dados),
+      });
+    },
+    async atualizarStatus(id, dados) {
+      return window.RezFireAPI.request(`/anuncios/${id}/status`, {
+        method: 'PATCH',
+        body: JSON.stringify(dados),
+      });
     },
     async buscarPorId(id) {
       return window.RezFireAPI.request(`/anuncios/${id}`);

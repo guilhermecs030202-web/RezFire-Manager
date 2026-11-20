@@ -5,6 +5,14 @@ import { Produto } from '../entities/Produto';
 import { Estoque } from '../entities/Estoque';
 import { LoteEstoque } from '../entities/LoteEstoque';
 import { MovimentacaoEstoque } from '../entities/MovimentacaoEstoque';
+import { NotaFiscal } from '../entities/NotaFiscal';
+import {
+  UFS_VALIDAS,
+  limparDigitos,
+  validarCep,
+  validarCpfOuCnpj,
+  validarInscricaoEstadual,
+} from '../utils/fiscalValidator';
 
 export interface CriarItemPedidoDTO {
   id_produto: number;
@@ -12,10 +20,29 @@ export interface CriarItemPedidoDTO {
   preco_unitario?: number;
 }
 
-export interface CriarPedidoDTO {
+export interface DadosDestinatarioDTO {
+  cliente_nome?: string;
+  destinatario_documento?: string | null;
+  destinatario_ie?: string | null;
+  destinatario_cep?: string | null;
+  destinatario_logradouro?: string | null;
+  destinatario_numero?: string | null;
+  destinatario_complemento?: string | null;
+  destinatario_bairro?: string | null;
+  destinatario_municipio?: string | null;
+  destinatario_codigo_municipio_ibge?: string | null;
+  destinatario_uf?: string | null;
+  destinatario_email?: string | null;
+  valor_desconto?: number;
+}
+
+export interface CriarPedidoDTO extends DadosDestinatarioDTO {
   codigo_pedido?: string;
   cliente_nome: string;
   origem?: string;
+  origem_dado?: 'manual' | 'mercado_livre';
+  codigo_externo_ml?: string | null;
+  baixar_estoque_agora?: boolean;
   itens: CriarItemPedidoDTO[];
   exibir_na_entrega?: boolean;
   prazo_despacho?: Date | string;
@@ -46,12 +73,152 @@ export class PedidoService {
     return AppDataSource.getRepository(Pedido);
   }
 
+  private get notaFiscalRepo() {
+    return AppDataSource.getRepository(NotaFiscal);
+  }
+
+  private normalizarEValidarDestinatario(dados: DadosDestinatarioDTO) {
+    const cleanOpt = (v: unknown) => {
+      if (v === null || v === undefined) return null;
+      const t = String(v).trim();
+      return t.length > 0 ? t : null;
+    };
+
+    const docRaw = cleanOpt(dados.destinatario_documento);
+    let docLimpo: string | null = null;
+    if (docRaw !== null) {
+      const check = validarCpfOuCnpj(docRaw);
+      if (!check.valido) {
+        throw new Error('CPF ou CNPJ do destinatário inválido.');
+      }
+      docLimpo = check.digitos;
+    }
+
+    const ieRaw = cleanOpt(dados.destinatario_ie);
+    let ieNorm: string | null = null;
+    if (ieRaw !== null) {
+      const upper = ieRaw.toUpperCase();
+      if (!validarInscricaoEstadual(upper)) {
+        throw new Error('Inscrição Estadual do destinatário inválida.');
+      }
+      ieNorm = upper;
+    }
+
+    const cepRaw = cleanOpt(dados.destinatario_cep);
+    let cepLimpo: string | null = null;
+    if (cepRaw !== null) {
+      const digits = limparDigitos(cepRaw);
+      if (!validarCep(digits)) {
+        throw new Error('CEP do destinatário inválido: informe 8 dígitos.');
+      }
+      cepLimpo = digits;
+    }
+
+    const ufRaw = cleanOpt(dados.destinatario_uf);
+    let ufUpper: string | null = null;
+    if (ufRaw !== null) {
+      const u = ufRaw.toUpperCase();
+      if (!(UFS_VALIDAS as readonly string[]).includes(u)) {
+        throw new Error(`UF do destinatário inválida ("${ufRaw}").`);
+      }
+      ufUpper = u;
+    }
+
+    const ibgeRaw = cleanOpt(dados.destinatario_codigo_municipio_ibge);
+    let ibgeLimpo: string | null = null;
+    if (ibgeRaw !== null) {
+      const digits = limparDigitos(ibgeRaw);
+      if (digits.length !== 7) {
+        throw new Error('Código IBGE do município do destinatário deve conter 7 dígitos.');
+      }
+      ibgeLimpo = digits;
+    }
+
+    return {
+      destinatario_documento: docLimpo,
+      destinatario_ie: ieNorm,
+      destinatario_cep: cepLimpo,
+      destinatario_logradouro: cleanOpt(dados.destinatario_logradouro),
+      destinatario_numero: cleanOpt(dados.destinatario_numero),
+      destinatario_complemento: cleanOpt(dados.destinatario_complemento),
+      destinatario_bairro: cleanOpt(dados.destinatario_bairro),
+      destinatario_municipio: cleanOpt(dados.destinatario_municipio),
+      destinatario_codigo_municipio_ibge: ibgeLimpo,
+      destinatario_uf: ufUpper,
+      destinatario_email: cleanOpt(dados.destinatario_email),
+    };
+  }
+
+  private async anexarResumoNotasFiscais(pedidos: Pedido[]) {
+    if (!pedidos || pedidos.length === 0) return pedidos;
+    try {
+      const ids = pedidos.map((p) => p.id_pedido);
+      const notas = await this.notaFiscalRepo
+        .createQueryBuilder('nf')
+        .select([
+          'nf.id_nota_fiscal',
+          'nf.id_pedido',
+          'nf.status',
+          'nf.ambiente',
+          'nf.serie',
+          'nf.numero',
+          'nf.chave_acesso',
+          'nf.protocolo_autorizacao',
+          'nf.ultimo_codigo_sefaz',
+          'nf.ultimo_motivo_sefaz',
+          'nf.ultima_mensagem_amigavel',
+          'nf.tentativas_envio',
+          'nf.autorizada_em',
+          'nf.codigo_pedido_snapshot',
+          'nf.xml_autorizado_path',
+          'nf.xml_autorizado_sha256',
+          'nf.xml_arquivado_em',
+          'nf.guarda_legal_ate',
+          'nf.danfe_gerado_em',
+          'nf.cancelada_em',
+          'nf.protocolo_cancelamento',
+          'nf.justificativa_cancelamento',
+          'nf.total_cartas_correcao',
+          'nf.ultima_carta_correcao_em',
+          'nf.assinatura_valida',
+          'nf.assinada_em',
+          'nf.digest_value',
+        ])
+        .where('nf.id_pedido IN (:...ids)', { ids })
+        .orderBy('nf.id_nota_fiscal', 'DESC')
+        .getMany();
+
+      const mapaPorPedido = new Map<number, NotaFiscal>();
+      for (const nf of notas) {
+        if (nf.id_pedido && !mapaPorPedido.has(nf.id_pedido)) {
+          mapaPorPedido.set(nf.id_pedido, nf);
+        }
+      }
+
+      return pedidos.map((p) => {
+        const nf = mapaPorPedido.get(p.id_pedido) || null;
+        return {
+          ...p,
+          status_fiscal: nf ? nf.status : 'sem_nota',
+          nota_fiscal_resumo: nf,
+        };
+      });
+    } catch {
+      return pedidos.map((p) => ({
+        ...p,
+        status_fiscal: 'sem_nota',
+        nota_fiscal_resumo: null,
+      }));
+    }
+  }
+
   /**
    * Lista todos os pedidos com filtros
    */
   async listar(filtros: {
     status?: 'Confirmado' | 'Concluido' | 'Cancelado';
     status_entrega?: 'A separar' | 'Pronto p/ despacho' | 'Despachado' | 'Entregue';
+    origem_dado?: 'manual' | 'mercado_livre';
     exibir_na_entrega?: boolean;
     busca?: string;
     limite?: number;
@@ -72,6 +239,12 @@ export class PedidoService {
       });
     }
 
+    if (filtros.origem_dado) {
+      qb.andWhere('p.origem_dado = :origem_dado', {
+        origem_dado: filtros.origem_dado,
+      });
+    }
+
     if (filtros.exibir_na_entrega !== undefined) {
       qb.andWhere('p.exibir_na_entrega = :exibir_na_entrega', {
         exibir_na_entrega: filtros.exibir_na_entrega,
@@ -88,7 +261,8 @@ export class PedidoService {
       qb.take(filtros.limite);
     }
 
-    return qb.getMany();
+    const lista = await qb.getMany();
+    return this.anexarResumoNotasFiscais(lista);
   }
 
   /**
@@ -104,7 +278,8 @@ export class PedidoService {
       throw new Error(`Pedido #${id_pedido} não encontrado.`);
     }
 
-    return pedido;
+    const comResumo = await this.anexarResumoNotasFiscais([pedido]);
+    return comResumo[0];
   }
 
   /**
@@ -128,10 +303,33 @@ export class PedidoService {
       const itemRepoTx = queryRunner.manager.getRepository(ItemPedido);
 
       const codigoPedido = dados.codigo_pedido?.trim() || `PED-${Date.now()}`;
+      const origemDado: 'manual' | 'mercado_livre' =
+        dados.origem_dado === 'mercado_livre' ? 'mercado_livre' : 'manual';
+      const codigoExternoRaw = dados.codigo_externo_ml
+        ? String(dados.codigo_externo_ml).trim().replace(/^MLB-/i, '')
+        : codigoPedido.toUpperCase().startsWith('MLB-')
+        ? codigoPedido.slice(4)
+        : null;
+      const codigoExternoMl = codigoExternoRaw && codigoExternoRaw.length > 0 ? codigoExternoRaw : null;
 
       const pedidoExistente = await pedRepoTx.findOne({ where: { codigo_pedido: codigoPedido } });
       if (pedidoExistente) {
         throw new Error(`Código de pedido "${codigoPedido}" já cadastrado.`);
+      }
+
+      if (codigoExternoMl) {
+        const conflitoExterno = await pedRepoTx
+          .createQueryBuilder('p')
+          .where('p.codigo_externo_ml = :ext OR p.codigo_pedido = :codMl', {
+            ext: codigoExternoMl,
+            codMl: `MLB-${codigoExternoMl}`,
+          })
+          .getOne();
+        if (conflitoExterno) {
+          throw new Error(
+            `Já existe um pedido vinculado ao código Mercado Livre "${codigoExternoMl}" (${conflitoExterno.codigo_pedido}).`
+          );
+        }
       }
 
       let valorTotal = 0;
@@ -187,62 +385,75 @@ export class PedidoService {
       }
 
       // 2. Executa a baixa transacional e controle FEFO para cada item físico
+      // Critério 6 da Story #34: verifica se a baixa deve ocorrer agora e se já não houve baixa manual prévia para o mesmo pedido
       const agora = new Date();
-      for (const [idProd, { produto, quantidade }] of baixasFisicas.entries()) {
-        const estoque = await estRepoTx.findOne({ where: { id_produto: idProd } });
-        if (!estoque || estoque.quantidade_atual < quantidade) {
-          throw new Error(
-            `Saldo insuficiente para expedir "${produto.nome}". Disponível: ${estoque?.quantidade_atual || 0}, Necessário: ${quantidade}.`
-          );
-        }
+      const movPreviaPedido = await movRepoTx
+        .createQueryBuilder('m')
+        .where("m.tipo = 'Saída' AND m.motivo LIKE :motivoBusca", {
+          motivoBusca: `%Pedido #${codigoPedido}%`,
+        })
+        .getOne();
 
-        // Debita do estoque físico
-        estoque.quantidade_atual -= quantidade;
-        await estRepoTx.save(estoque);
+      const deveBaixarEstoque = dados.baixar_estoque_agora !== false && !movPreviaPedido;
+      const baixaEstoqueRealizada = deveBaixarEstoque || Boolean(movPreviaPedido);
 
-        // Se o produto tiver lotes (extintores), aloca pelo método FEFO (validade mais próxima e não bloqueada)
-        const lotes = await loteRepoTx
-          .createQueryBuilder('l')
-          .where('l.id_produto = :idProd', { idProd })
-          .andWhere('l.quantidade_disponivel > 0')
-          .andWhere('l.status = :status', { status: 'Ativo' })
-          .orderBy('l.data_validade', 'ASC')
-          .getMany();
+      if (deveBaixarEstoque) {
+        for (const [idProd, { produto, quantidade }] of baixasFisicas.entries()) {
+          const estoque = await estRepoTx.findOne({ where: { id_produto: idProd } });
+          if (!estoque || estoque.quantidade_atual < quantidade) {
+            throw new Error(
+              `Saldo insuficiente para expedir "${produto.nome}". Disponível: ${estoque?.quantidade_atual || 0}, Necessário: ${quantidade}.`
+            );
+          }
 
-        let qtdRestanteParaBaixar = quantidade;
-        for (const lote of lotes) {
-          if (qtdRestanteParaBaixar <= 0) break;
+          // Debita do estoque físico
+          estoque.quantidade_atual -= quantidade;
+          await estRepoTx.save(estoque);
 
-          // Valida se o lote não está no prazo de bloqueio de 6 meses
-          const diasParaVencer = Math.ceil(
-            (new Date(lote.data_validade).getTime() - agora.getTime()) / (1000 * 60 * 60 * 24)
-          );
-          if (diasParaVencer <= 180) {
-            // Lote bloqueado conforme AGENTS.md (prazo mínimo útil ao cliente)
-            lote.status = 'Bloqueado';
+          // Se o produto tiver lotes (extintores), aloca pelo método FEFO (validade mais próxima e não bloqueada)
+          const lotes = await loteRepoTx
+            .createQueryBuilder('l')
+            .where('l.id_produto = :idProd', { idProd })
+            .andWhere('l.quantidade_disponivel > 0')
+            .andWhere('l.status = :status', { status: 'Ativo' })
+            .orderBy('l.data_validade', 'ASC')
+            .getMany();
+
+          let qtdRestanteParaBaixar = quantidade;
+          for (const lote of lotes) {
+            if (qtdRestanteParaBaixar <= 0) break;
+
+            // Valida se o lote não está no prazo de bloqueio de 6 meses
+            const diasParaVencer = Math.ceil(
+              (new Date(lote.data_validade).getTime() - agora.getTime()) / (1000 * 60 * 60 * 24)
+            );
+            if (diasParaVencer <= 180) {
+              // Lote bloqueado conforme AGENTS.md (prazo mínimo útil ao cliente)
+              lote.status = 'Bloqueado';
+              await loteRepoTx.save(lote);
+              continue;
+            }
+
+            const baixarDoLote = Math.min(lote.quantidade_disponivel, qtdRestanteParaBaixar);
+            lote.quantidade_disponivel -= baixarDoLote;
+            if (lote.quantidade_disponivel === 0) {
+              lote.status = 'Esgotado';
+            }
             await loteRepoTx.save(lote);
-            continue;
+            qtdRestanteParaBaixar -= baixarDoLote;
           }
 
-          const baixarDoLote = Math.min(lote.quantidade_disponivel, qtdRestanteParaBaixar);
-          lote.quantidade_disponivel -= baixarDoLote;
-          if (lote.quantidade_disponivel === 0) {
-            lote.status = 'Esgotado';
-          }
-          await loteRepoTx.save(lote);
-          qtdRestanteParaBaixar -= baixarDoLote;
+          // Regra de Ouro: Registra movimentação de saída para o pedido
+          const mov = movRepoTx.create({
+            id_produto: idProd,
+            id_usuario: id_usuario || null,
+            tipo: 'Saída',
+            quantidade,
+            motivo: `Venda - Pedido #${codigoPedido}`,
+            data_movimentacao: agora,
+          });
+          await movRepoTx.save(mov);
         }
-
-        // Regra de Ouro: Registra movimentação de saída para o pedido
-        const mov = movRepoTx.create({
-          id_produto: idProd,
-          id_usuario: id_usuario || null,
-          tipo: 'Saída',
-          quantidade,
-          motivo: `Venda - Pedido #${codigoPedido}`,
-          data_movimentacao: agora,
-        });
-        await movRepoTx.save(mov);
       }
 
       // 3. Apuração financeira de Lucro Real inicial (SCRUM-23 / #18abc)
@@ -286,6 +497,10 @@ export class PedidoService {
       const lucroLiquido = Number((valorTotal - totalCustosFixos - totalTarifasPlataforma).toFixed(2));
       const margemLiquidaPercentual = valorTotal > 0 ? Number(((lucroLiquido / valorTotal) * 100).toFixed(2)) : 0.00;
 
+      const destNormalizado = this.normalizarEValidarDestinatario(dados);
+      const valorDesconto = Math.max(0, Number(dados.valor_desconto || 0));
+      valorTotal = Math.max(0, Number((valorTotal - valorDesconto).toFixed(2)));
+
       // 4. Salva o Pedido
       const prazoDespachoCalculado = dados.prazo_despacho
         ? new Date(dados.prazo_despacho)
@@ -295,8 +510,12 @@ export class PedidoService {
         codigo_pedido: codigoPedido,
         cliente_nome: dados.cliente_nome.trim(),
         origem: origemPedido,
+        origem_dado: origemDado,
+        codigo_externo_ml: codigoExternoMl,
+        baixa_estoque_realizada: baixaEstoqueRealizada,
         status: 'Confirmado',
         valor_total: valorTotal,
+        valor_desconto: valorDesconto,
         data_pedido: agora,
         prazo_despacho: prazoDespachoCalculado,
         data_despacho: null,
@@ -319,6 +538,7 @@ export class PedidoService {
         total_tarifas_plataforma: totalTarifasPlataforma,
         lucro_liquido: lucroLiquido,
         margem_liquida_percentual: margemLiquidaPercentual,
+        ...destNormalizado,
       });
       const pedidoSalvo = await pedRepoTx.save(pedido);
 
@@ -368,8 +588,8 @@ export class PedidoService {
         throw new Error(`Pedido #${id_pedido} não encontrado.`);
       }
 
-      // Se estiver cancelando um pedido que estava Confirmado ou Concluído -> ESTORNO AUTOMÁTICO
-      if (novoStatus === 'Cancelado' && pedido.status !== 'Cancelado') {
+      // Se estiver cancelando um pedido que estava Confirmado ou Concluído -> ESTORNO AUTOMÁTICO (apenas se a baixa já foi realizada)
+      if (novoStatus === 'Cancelado' && pedido.status !== 'Cancelado' && pedido.baixa_estoque_realizada !== false) {
         const agora = new Date();
         const rotuloOcorrencia = dadosDevolucao?.tipo_ocorrencia || 'Cancelamento';
         const motivoFormatado = dadosDevolucao?.motivo_devolucao
@@ -419,6 +639,7 @@ export class PedidoService {
             await movRepoTx.save(mov);
           }
         }
+        pedido.baixa_estoque_realizada = false;
       }
 
       if (dadosDevolucao) {
@@ -999,6 +1220,330 @@ export class PedidoService {
       total_pedidos_geral: pedidos.length,
       comparativo,
     };
+  }
+
+  /**
+   * Atualiza os dados fiscais do destinatário vinculados a um pedido (Story 33c).
+   */
+  async atualizarDestinatario(id_pedido: number, dados: DadosDestinatarioDTO) {
+    const pedido = await this.pedidoRepo.findOne({ where: { id_pedido } });
+    if (!pedido) {
+      throw new Error(`Pedido #${id_pedido} não encontrado.`);
+    }
+
+    const mesclado: DadosDestinatarioDTO = {
+      destinatario_documento:
+        dados.destinatario_documento !== undefined
+          ? dados.destinatario_documento
+          : pedido.destinatario_documento,
+      destinatario_ie:
+        dados.destinatario_ie !== undefined ? dados.destinatario_ie : pedido.destinatario_ie,
+      destinatario_cep:
+        dados.destinatario_cep !== undefined ? dados.destinatario_cep : pedido.destinatario_cep,
+      destinatario_logradouro:
+        dados.destinatario_logradouro !== undefined
+          ? dados.destinatario_logradouro
+          : pedido.destinatario_logradouro,
+      destinatario_numero:
+        dados.destinatario_numero !== undefined
+          ? dados.destinatario_numero
+          : pedido.destinatario_numero,
+      destinatario_complemento:
+        dados.destinatario_complemento !== undefined
+          ? dados.destinatario_complemento
+          : pedido.destinatario_complemento,
+      destinatario_bairro:
+        dados.destinatario_bairro !== undefined
+          ? dados.destinatario_bairro
+          : pedido.destinatario_bairro,
+      destinatario_municipio:
+        dados.destinatario_municipio !== undefined
+          ? dados.destinatario_municipio
+          : pedido.destinatario_municipio,
+      destinatario_codigo_municipio_ibge:
+        dados.destinatario_codigo_municipio_ibge !== undefined
+          ? dados.destinatario_codigo_municipio_ibge
+          : pedido.destinatario_codigo_municipio_ibge,
+      destinatario_uf:
+        dados.destinatario_uf !== undefined ? dados.destinatario_uf : pedido.destinatario_uf,
+      destinatario_email:
+        dados.destinatario_email !== undefined
+          ? dados.destinatario_email
+          : pedido.destinatario_email,
+    };
+
+    const destNorm = this.normalizarEValidarDestinatario(mesclado);
+
+    if (dados.cliente_nome !== undefined) {
+      const nome = String(dados.cliente_nome).trim();
+      if (nome.length < 2) {
+        throw new Error('Nome do destinatário deve ter ao menos 2 caracteres.');
+      }
+      pedido.cliente_nome = nome;
+    }
+
+    if (dados.valor_desconto !== undefined) {
+      pedido.valor_desconto = Math.max(0, Number(dados.valor_desconto || 0));
+    }
+
+    Object.assign(pedido, destNorm);
+    await this.pedidoRepo.save(pedido);
+
+    return this.buscarPorId(id_pedido);
+  }
+
+  /**
+   * Story #34 (Critério 2 & DoR 4): Atualiza dados cadastrais e operacionais de um pedido em modo manual
+   * (cliente, canal/origem, código externo ML para conciliação, prazo de despacho, modalidade e destinatário).
+   */
+  async atualizarPedidoManual(
+    id_pedido: number,
+    dados: Partial<CriarPedidoDTO> & { status?: 'Confirmado' | 'Concluido' | 'Cancelado'; status_entrega?: 'A separar' | 'Pronto p/ despacho' | 'Despachado' | 'Entregue' },
+    id_usuario?: number
+  ) {
+    const pedido = await this.pedidoRepo.findOne({
+      where: { id_pedido },
+      relations: ['itens', 'itens.produto'],
+    });
+    if (!pedido) {
+      throw new Error(`Pedido #${id_pedido} não encontrado.`);
+    }
+
+    if (dados.cliente_nome !== undefined) {
+      const nome = String(dados.cliente_nome).trim();
+      if (nome.length < 2) {
+        throw new Error('Nome do cliente deve ter ao menos 2 caracteres.');
+      }
+      pedido.cliente_nome = nome;
+    }
+
+    if (dados.origem !== undefined) {
+      pedido.origem = String(dados.origem).trim() || pedido.origem;
+    }
+
+    if (dados.codigo_externo_ml !== undefined) {
+      const extClean = dados.codigo_externo_ml
+        ? String(dados.codigo_externo_ml).trim().replace(/^MLB-/i, '')
+        : null;
+      pedido.codigo_externo_ml = extClean && extClean.length > 0 ? extClean : null;
+    }
+
+    if (dados.prazo_despacho !== undefined) {
+      pedido.prazo_despacho = dados.prazo_despacho ? new Date(dados.prazo_despacho) : null;
+    }
+
+    if (dados.modalidade_envio !== undefined && dados.modalidade_envio) {
+      pedido.modalidade_envio = dados.modalidade_envio;
+    }
+
+    if (dados.prazo_dias_estimado !== undefined) {
+      pedido.prazo_dias_estimado = Number(dados.prazo_dias_estimado || pedido.prazo_dias_estimado);
+    }
+
+    if (dados.valor_desconto !== undefined) {
+      const subtotalItens = (pedido.itens || []).reduce(
+        (acc, it) => acc + Number(it.subtotal || Number(it.preco_unitario) * Number(it.quantidade)),
+        0
+      );
+      const novoDesconto = Math.max(0, Number(dados.valor_desconto || 0));
+      pedido.valor_desconto = novoDesconto;
+      pedido.valor_total = Math.max(0, Number((subtotalItens - novoDesconto).toFixed(2)));
+    }
+
+    const possuiCamposDest =
+      dados.destinatario_documento !== undefined ||
+      dados.destinatario_ie !== undefined ||
+      dados.destinatario_cep !== undefined ||
+      dados.destinatario_logradouro !== undefined ||
+      dados.destinatario_numero !== undefined ||
+      dados.destinatario_complemento !== undefined ||
+      dados.destinatario_bairro !== undefined ||
+      dados.destinatario_municipio !== undefined ||
+      dados.destinatario_codigo_municipio_ibge !== undefined ||
+      dados.destinatario_uf !== undefined ||
+      dados.destinatario_email !== undefined;
+
+    if (possuiCamposDest) {
+      const destNorm = this.normalizarEValidarDestinatario({
+        destinatario_documento:
+          dados.destinatario_documento !== undefined
+            ? dados.destinatario_documento
+            : pedido.destinatario_documento,
+        destinatario_ie:
+          dados.destinatario_ie !== undefined ? dados.destinatario_ie : pedido.destinatario_ie,
+        destinatario_cep:
+          dados.destinatario_cep !== undefined ? dados.destinatario_cep : pedido.destinatario_cep,
+        destinatario_logradouro:
+          dados.destinatario_logradouro !== undefined
+            ? dados.destinatario_logradouro
+            : pedido.destinatario_logradouro,
+        destinatario_numero:
+          dados.destinatario_numero !== undefined
+            ? dados.destinatario_numero
+            : pedido.destinatario_numero,
+        destinatario_complemento:
+          dados.destinatario_complemento !== undefined
+            ? dados.destinatario_complemento
+            : pedido.destinatario_complemento,
+        destinatario_bairro:
+          dados.destinatario_bairro !== undefined
+            ? dados.destinatario_bairro
+            : pedido.destinatario_bairro,
+        destinatario_municipio:
+          dados.destinatario_municipio !== undefined
+            ? dados.destinatario_municipio
+            : pedido.destinatario_municipio,
+        destinatario_codigo_municipio_ibge:
+          dados.destinatario_codigo_municipio_ibge !== undefined
+            ? dados.destinatario_codigo_municipio_ibge
+            : pedido.destinatario_codigo_municipio_ibge,
+        destinatario_uf:
+          dados.destinatario_uf !== undefined ? dados.destinatario_uf : pedido.destinatario_uf,
+        destinatario_email:
+          dados.destinatario_email !== undefined
+            ? dados.destinatario_email
+            : pedido.destinatario_email,
+      });
+      Object.assign(pedido, destNorm);
+    }
+
+    await this.pedidoRepo.save(pedido);
+
+    if (dados.status || dados.status_entrega) {
+      return this.atualizarStatus(
+        id_pedido,
+        dados.status || pedido.status,
+        dados.status_entrega,
+        id_usuario
+      );
+    }
+
+    return this.buscarPorId(id_pedido);
+  }
+
+  /**
+   * Story #34 (Critério 6): Executa a baixa manual de estoque para um pedido manual criado
+   * com baixa posterior (`baixa_estoque_realizada = false`), bloqueando estritamente qualquer
+   * baixa em duplicidade.
+   */
+  async executarBaixaManualPedido(id_pedido: number, id_usuario?: number) {
+    const queryRunner = AppDataSource.createQueryRunner();
+    await queryRunner.connect();
+    await queryRunner.startTransaction();
+
+    try {
+      const pedRepoTx = queryRunner.manager.getRepository(Pedido);
+      const prodRepoTx = queryRunner.manager.getRepository(Produto);
+      const estRepoTx = queryRunner.manager.getRepository(Estoque);
+      const loteRepoTx = queryRunner.manager.getRepository(LoteEstoque);
+      const movRepoTx = queryRunner.manager.getRepository(MovimentacaoEstoque);
+
+      const pedido = await pedRepoTx.findOne({
+        where: { id_pedido },
+        relations: ['itens', 'itens.produto'],
+      });
+
+      if (!pedido) {
+        throw new Error(`Pedido #${id_pedido} não encontrado.`);
+      }
+
+      if (pedido.status === 'Cancelado') {
+        throw new Error('Não é permitido baixar estoque de um pedido cancelado.');
+      }
+
+      const movExistente = await movRepoTx
+        .createQueryBuilder('m')
+        .where("m.tipo = 'Saída' AND m.motivo LIKE :motivoBusca", {
+          motivoBusca: `%Pedido #${pedido.codigo_pedido}%`,
+        })
+        .getOne();
+
+      if (pedido.baixa_estoque_realizada || movExistente) {
+        if (!pedido.baixa_estoque_realizada) {
+          pedido.baixa_estoque_realizada = true;
+          await pedRepoTx.save(pedido);
+          await queryRunner.commitTransaction();
+        }
+        throw Object.assign(
+          new Error(
+            `A baixa de estoque do pedido #${pedido.codigo_pedido} já foi realizada anteriormente. Operação bloqueada para impedir baixa em duplicidade.`
+          ),
+          { statusCode: 409 }
+        );
+      }
+
+      const agora = new Date();
+      for (const item of pedido.itens || []) {
+        const produto =
+          item.produto || (await prodRepoTx.findOne({ where: { id_produto: item.id_produto } }));
+        if (!produto) continue;
+
+        const componentes =
+          produto.tipo === 'Combo' && produto.combo_items && produto.combo_items.length > 0
+            ? produto.combo_items.map((ci) => ({
+                id_produto: ci.id_produto,
+                quantidade: ci.quantidade * item.quantidade,
+              }))
+            : [{ id_produto: produto.id_produto, quantidade: item.quantidade }];
+
+        for (const comp of componentes) {
+          const estoque = await estRepoTx.findOne({ where: { id_produto: comp.id_produto } });
+          if (!estoque || estoque.quantidade_atual < comp.quantidade) {
+            throw new Error(
+              `Saldo insuficiente para baixa manual do produto #${comp.id_produto}. Disponível: ${estoque?.quantidade_atual || 0}, Necessário: ${comp.quantidade}.`
+            );
+          }
+
+          estoque.quantidade_atual -= comp.quantidade;
+          await estRepoTx.save(estoque);
+
+          const lotes = await loteRepoTx
+            .createQueryBuilder('l')
+            .where('l.id_produto = :idProd', { idProd: comp.id_produto })
+            .andWhere('l.quantidade_disponivel > 0')
+            .andWhere('l.status = :status', { status: 'Ativo' })
+            .orderBy('l.data_validade', 'ASC')
+            .getMany();
+
+          let restante = comp.quantidade;
+          for (const lote of lotes) {
+            if (restante <= 0) break;
+            const dias = Math.ceil(
+              (new Date(lote.data_validade).getTime() - agora.getTime()) / (1000 * 60 * 60 * 24)
+            );
+            if (dias <= 180) continue;
+            const deb = Math.min(lote.quantidade_disponivel, restante);
+            lote.quantidade_disponivel -= deb;
+            if (lote.quantidade_disponivel === 0) lote.status = 'Esgotado';
+            await loteRepoTx.save(lote);
+            restante -= deb;
+          }
+
+          const mov = movRepoTx.create({
+            id_produto: comp.id_produto,
+            id_usuario: id_usuario || null,
+            tipo: 'Saída',
+            quantidade: comp.quantidade,
+            motivo: `Baixa Manual - Pedido #${pedido.codigo_pedido}`,
+            data_movimentacao: agora,
+          });
+          await movRepoTx.save(mov);
+        }
+      }
+
+      pedido.baixa_estoque_realizada = true;
+      await pedRepoTx.save(pedido);
+      await queryRunner.commitTransaction();
+
+      return this.buscarPorId(id_pedido);
+    } catch (err) {
+      if (queryRunner.isTransactionActive) {
+        await queryRunner.rollbackTransaction();
+      }
+      throw err;
+    } finally {
+      await queryRunner.release();
+    }
   }
 }
 

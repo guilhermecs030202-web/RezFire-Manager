@@ -2,6 +2,11 @@ import { AppDataSource } from '../config/database';
 import { Produto } from '../entities/Produto';
 import { Estoque } from '../entities/Estoque';
 import { LoteEstoque } from '../entities/LoteEstoque';
+import { EmitenteFiscal } from '../entities/EmitenteFiscal';
+import {
+  avaliarAptidaoFiscalProduto,
+  normalizarEValidarDadosFiscaisProduto,
+} from '../utils/fiscalValidator';
 
 export class ProdutoService {
   private get produtoRepo() {
@@ -14,6 +19,22 @@ export class ProdutoService {
 
   private get loteRepo() {
     return AppDataSource.getRepository(LoteEstoque);
+  }
+
+  private get emitenteRepo() {
+    return AppDataSource.getRepository(EmitenteFiscal);
+  }
+
+  private async obterRegimeEmitenteAtual(): Promise<string | null> {
+    try {
+      const emitente = await this.emitenteRepo.findOne({
+        where: {},
+        select: ['id_emitente', 'regime_tributario'],
+      });
+      return emitente?.regime_tributario || null;
+    } catch {
+      return null;
+    }
   }
 
   /**
@@ -42,18 +63,22 @@ export class ProdutoService {
     qb.orderBy('p.nome', 'ASC');
 
     const produtos = await qb.getMany();
+    const regimeEmitente = await this.obterRegimeEmitenteAtual();
 
-    // Cria um mapa para consulta rápida de saldos físicos para cálculo de combos
+    // Cria mapas para consulta rápida de saldos físicos e dados fiscais de componentes de combos
     const estoqueFisicoMap = new Map<number, number>();
+    const produtoByIdMap = new Map<number, Produto>();
     for (const prod of produtos) {
+      produtoByIdMap.set(prod.id_produto, prod);
       if (prod.tipo !== 'Combo') {
         estoqueFisicoMap.set(prod.id_produto, prod.estoque?.quantidade_atual || 0);
       }
     }
 
-    // Calcula estoque dinâmico de combos baseado no item gargalo
+    // Calcula estoque dinâmico de combos e status fiscal (Story 33b)
     return produtos.map((prod) => {
       let quantidadeDisponivel = prod.estoque?.quantidade_atual || 0;
+      const fiscalStatus = avaliarAptidaoFiscalProduto(prod, regimeEmitente);
 
       if (prod.tipo === 'Combo' && prod.combo_items && prod.combo_items.length > 0) {
         const disponibilidades = prod.combo_items.map((item) => {
@@ -61,12 +86,25 @@ export class ProdutoService {
           return Math.floor(saldoComponente / item.quantidade);
         });
         quantidadeDisponivel = Math.min(...disponibilidades);
+
+        for (const item of prod.combo_items) {
+          const comp = produtoByIdMap.get(item.id_produto);
+          if (comp) {
+            const avalComp = avaliarAptidaoFiscalProduto(comp, regimeEmitente);
+            if (!avalComp.apto_nfe) {
+              fiscalStatus.alertas_fiscais.push(
+                `Componente ${comp.sku} sem dados fiscais completos: ${avalComp.campos_faltantes.join(', ')}.`
+              );
+            }
+          }
+        }
       }
 
       return {
         ...prod,
         quantidade_atual: quantidadeDisponivel,
         estoque_minimo: prod.estoque?.estoque_minimo || 0,
+        fiscal_status: fiscalStatus,
       };
     });
   }
@@ -84,6 +122,9 @@ export class ProdutoService {
       throw new Error(`Produto #${id_produto} não encontrado.`);
     }
 
+    const regimeEmitente = await this.obterRegimeEmitenteAtual();
+    const fiscalStatus = avaliarAptidaoFiscalProduto(produto, regimeEmitente);
+
     let quantidadeDisponivel = produto.estoque?.quantidade_atual || 0;
 
     if (produto.tipo === 'Combo' && produto.combo_items && produto.combo_items.length > 0) {
@@ -99,12 +140,30 @@ export class ProdutoService {
         return Math.floor(saldo / item.quantidade);
       });
       quantidadeDisponivel = Math.min(...disponibilidades);
+
+      const compsProd = await this.produtoRepo
+        .createQueryBuilder('cp')
+        .where('cp.id_produto IN (:...ids)', { ids: idsComponentes })
+        .getMany();
+      const mapaComps = new Map(compsProd.map((c) => [c.id_produto, c]));
+      for (const item of produto.combo_items) {
+        const comp = mapaComps.get(item.id_produto);
+        if (comp) {
+          const avalComp = avaliarAptidaoFiscalProduto(comp, regimeEmitente);
+          if (!avalComp.apto_nfe) {
+            fiscalStatus.alertas_fiscais.push(
+              `Componente ${comp.sku} sem dados fiscais completos: ${avalComp.campos_faltantes.join(', ')}.`
+            );
+          }
+        }
+      }
     }
 
     return {
       ...produto,
       quantidade_atual: quantidadeDisponivel,
       estoque_minimo: produto.estoque?.estoque_minimo || 0,
+      fiscal_status: fiscalStatus,
     };
   }
 
@@ -122,7 +181,22 @@ export class ProdutoService {
     estoque_minimo?: number;
     combo_items?: { id_produto: number; quantidade: number }[];
     detalhes_extintor?: any;
+    ncm?: string | null;
+    cfop?: string | null;
+    origem_mercadoria?: string | null;
+    cst_csosn?: string | null;
+    unidade_comercial?: string | null;
+    cest?: string | null;
   }) {
+    const fiscalNormalizado = normalizarEValidarDadosFiscaisProduto({
+      ncm: dados.ncm,
+      cfop: dados.cfop,
+      origem_mercadoria: dados.origem_mercadoria,
+      cst_csosn: dados.cst_csosn,
+      unidade_comercial: dados.unidade_comercial,
+      cest: dados.cest,
+    });
+
     const queryRunner = AppDataSource.createQueryRunner();
     await queryRunner.connect();
     await queryRunner.startTransaction();
@@ -147,6 +221,7 @@ export class ProdutoService {
         combo_items: dados.tipo === 'Combo' ? dados.combo_items : null,
         detalhes_extintor: dados.detalhes_extintor || null,
         ativo: true,
+        ...fiscalNormalizado,
       });
 
       const produtoSalvo = await prodRepoTx.save(produto);
@@ -186,6 +261,12 @@ export class ProdutoService {
       ativo?: boolean;
       combo_items?: { id_produto: number; quantidade: number }[];
       detalhes_extintor?: any;
+      ncm?: string | null;
+      cfop?: string | null;
+      origem_mercadoria?: string | null;
+      cst_csosn?: string | null;
+      unidade_comercial?: string | null;
+      cest?: string | null;
     }
   ) {
     const queryRunner = AppDataSource.createQueryRunner();
@@ -220,6 +301,24 @@ export class ProdutoService {
       if (dados.ativo !== undefined) produto.ativo = dados.ativo;
       if (dados.combo_items !== undefined) produto.combo_items = dados.combo_items;
       if (dados.detalhes_extintor !== undefined) produto.detalhes_extintor = dados.detalhes_extintor;
+
+      const fiscalAtualizado = normalizarEValidarDadosFiscaisProduto({
+        ncm: dados.ncm !== undefined ? dados.ncm : produto.ncm,
+        cfop: dados.cfop !== undefined ? dados.cfop : produto.cfop,
+        origem_mercadoria:
+          dados.origem_mercadoria !== undefined ? dados.origem_mercadoria : produto.origem_mercadoria,
+        cst_csosn: dados.cst_csosn !== undefined ? dados.cst_csosn : produto.cst_csosn,
+        unidade_comercial:
+          dados.unidade_comercial !== undefined ? dados.unidade_comercial : produto.unidade_comercial,
+        cest: dados.cest !== undefined ? dados.cest : produto.cest,
+      });
+
+      produto.ncm = fiscalAtualizado.ncm;
+      produto.cfop = fiscalAtualizado.cfop;
+      produto.origem_mercadoria = fiscalAtualizado.origem_mercadoria;
+      produto.cst_csosn = fiscalAtualizado.cst_csosn;
+      produto.unidade_comercial = fiscalAtualizado.unidade_comercial;
+      produto.cest = fiscalAtualizado.cest;
 
       await prodRepoTx.save(produto);
 

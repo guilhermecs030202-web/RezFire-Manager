@@ -19,15 +19,25 @@ export class AnuncioML {
   @PrimaryGeneratedColumn({ type: 'int', unsigned: true })
   id_anuncio: number;
 
-  @Column({ type: 'int', unsigned: true })
-  id_conexao: number;
+  @Column({ type: 'int', unsigned: true, nullable: true })
+  id_conexao: number | null;
 
-  @ManyToOne(() => ConexaoMercadoLivre, (c) => c.anuncios, { onDelete: 'CASCADE' })
+  @ManyToOne(() => ConexaoMercadoLivre, (c) => c.anuncios, { onDelete: 'SET NULL', nullable: true })
   @JoinColumn({ name: 'id_conexao' })
-  conexao: ConexaoMercadoLivre;
+  conexao: ConexaoMercadoLivre | null;
 
   @Column({ type: 'varchar', length: 64, unique: true })
   ml_item_id: string;
+
+  @Column({
+    type: 'enum',
+    enum: ['manual', 'mercado_livre'],
+    default: 'manual',
+  })
+  origem_dado: 'manual' | 'mercado_livre';
+
+  @Column({ type: 'varchar', length: 64, nullable: true })
+  codigo_externo_ml: string | null;
 
   @Column({ type: 'varchar', length: 255 })
   titulo: string;

@@ -61,6 +61,25 @@ export class Produto {
   @Column({ type: 'boolean', default: true })
   ativo: boolean;
 
+  // Dados fiscais do produto para NF-e (Story 33b)
+  @Column({ type: 'varchar', length: 8, nullable: true })
+  ncm: string | null;
+
+  @Column({ type: 'varchar', length: 4, nullable: true })
+  cfop: string | null;
+
+  @Column({ type: 'varchar', length: 1, nullable: true })
+  origem_mercadoria: string | null;
+
+  @Column({ type: 'varchar', length: 3, nullable: true })
+  cst_csosn: string | null;
+
+  @Column({ type: 'varchar', length: 6, nullable: true })
+  unidade_comercial: string | null;
+
+  @Column({ type: 'varchar', length: 7, nullable: true })
+  cest: string | null;
+
   @CreateDateColumn({ type: 'timestamp' })
   created_at: Date;
 

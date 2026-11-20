@@ -317,5 +317,98 @@ export class FiscalController {
       return res.status(status).json({ sucesso: false, mensagem: error.message });
     }
   }
+
+  async cancelarNFePedido(req: Request, res: Response) {
+    try {
+      const idPedido = Number(req.params.id);
+      const idUsuario = req.usuario?.id_usuario;
+      const resultado = await fiscalService.cancelarNFePedido(idPedido, req.body || {}, idUsuario);
+      if (resultado.indisponivel) {
+        return res.status(503).json(resultado);
+      }
+      return res.json(resultado);
+    } catch (error: any) {
+      const status = error.statusCode || 400;
+      return res.status(status).json({ sucesso: false, mensagem: error.message });
+    }
+  }
+
+  async registrarCartaCorrecaoPedido(req: Request, res: Response) {
+    try {
+      const idPedido = Number(req.params.id);
+      const idUsuario = req.usuario?.id_usuario;
+      const resultado = await fiscalService.registrarCartaCorrecaoPedido(
+        idPedido,
+        req.body || {},
+        idUsuario
+      );
+      if (resultado.indisponivel) {
+        return res.status(503).json(resultado);
+      }
+      return res.json(resultado);
+    } catch (error: any) {
+      const status = error.statusCode || 400;
+      return res.status(status).json({ sucesso: false, mensagem: error.message });
+    }
+  }
+
+  async listarEventosDoPedido(req: Request, res: Response) {
+    try {
+      const idPedido = Number(req.params.id);
+      const resultado = await fiscalService.listarEventosDoPedido(idPedido);
+      return res.json(resultado);
+    } catch (error: any) {
+      return res.status(404).json({ sucesso: false, mensagem: error.message });
+    }
+  }
+
+  async baixarXmlEvento(req: Request, res: Response) {
+    try {
+      const idEvento = Number(req.params.id);
+      const { conteudoXml, nomeArquivo } = await fiscalService.obterXmlEventoParaDownload(idEvento);
+      res.setHeader('Content-Type', 'application/xml; charset=utf-8');
+      res.setHeader('Content-Disposition', `attachment; filename="${nomeArquivo}"`);
+      return res.send(conteudoXml);
+    } catch (error: any) {
+      const status = error.statusCode || 404;
+      return res.status(status).json({ sucesso: false, mensagem: error.message });
+    }
+  }
+
+  async listarInutilizacoes(_req: Request, res: Response) {
+    try {
+      const resultado = await fiscalService.listarInutilizacoesELacunas();
+      return res.json(resultado);
+    } catch (error: any) {
+      return res.status(500).json({ sucesso: false, mensagem: error.message });
+    }
+  }
+
+  async inutilizarNumeracao(req: Request, res: Response) {
+    try {
+      const idUsuario = req.usuario?.id_usuario;
+      const resultado = await fiscalService.inutilizarNumeracao(req.body || {}, idUsuario);
+      if (resultado.indisponivel) {
+        return res.status(503).json(resultado);
+      }
+      return res.json(resultado);
+    } catch (error: any) {
+      const status = error.statusCode || 400;
+      return res.status(status).json({ sucesso: false, mensagem: error.message });
+    }
+  }
+
+  async baixarXmlInutilizacao(req: Request, res: Response) {
+    try {
+      const idInut = Number(req.params.id);
+      const { conteudoXml, nomeArquivo } = await fiscalService.obterXmlInutilizacaoParaDownload(idInut);
+      res.setHeader('Content-Type', 'application/xml; charset=utf-8');
+      res.setHeader('Content-Disposition', `attachment; filename="${nomeArquivo}"`);
+      return res.send(conteudoXml);
+    } catch (error: any) {
+      const status = error.statusCode || 404;
+      return res.status(status).json({ sucesso: false, mensagem: error.message });
+    }
+  }
 }
 

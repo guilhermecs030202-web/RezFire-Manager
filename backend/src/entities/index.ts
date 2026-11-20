@@ -20,4 +20,6 @@ export { EmitenteFiscal } from './EmitenteFiscal';
 export { NotaFiscal } from './NotaFiscal';
 export { NotaFiscalItem } from './NotaFiscalItem';
 export { NotaFiscalTransmissao } from './NotaFiscalTransmissao';
+export { NotaFiscalEvento } from './NotaFiscalEvento';
+export { NotaFiscalInutilizacao } from './NotaFiscalInutilizacao';
 

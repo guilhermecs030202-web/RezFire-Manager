@@ -465,6 +465,61 @@ window.RezFireAPI = {
       URL.revokeObjectURL(url);
       return resp.headers.get('x-nfe-sha256') || null;
     },
+    async cancelarNFe(idPedido, payload) {
+      return window.RezFireAPI.request(`/fiscal/pedidos/${idPedido}/cancelar-nfe`, {
+        method: 'POST',
+        body: JSON.stringify(payload || {}),
+      });
+    },
+    async registrarCartaCorrecao(idPedido, payload) {
+      return window.RezFireAPI.request(`/fiscal/pedidos/${idPedido}/carta-correcao`, {
+        method: 'POST',
+        body: JSON.stringify(payload || {}),
+      });
+    },
+    async listarEventosNFe(idPedido) {
+      return window.RezFireAPI.request(`/fiscal/pedidos/${idPedido}/nfe/eventos`);
+    },
+    async baixarXmlComplementar(endpointUrl, filenameFallback) {
+      const token = localStorage.getItem('rezfire_auth_token');
+      const resp = await fetch(endpointUrl, {
+        credentials: 'include',
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      });
+      if (!resp.ok) {
+        const errData = await resp.json().catch(() => ({}));
+        throw new Error(errData.mensagem || 'Falha ao baixar XML.');
+      }
+      const disp = resp.headers.get('content-disposition') || '';
+      const m = /filename="?([^"]+)"?/i.exec(disp);
+      const filename = m && m[1] ? m[1] : filenameFallback;
+      const blob = await resp.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    },
+    async baixarXmlEventoArquivo(idEvento) {
+      const baseUrl = (typeof API_BASE_URL !== 'undefined') ? API_BASE_URL : '/api';
+      return this.baixarXmlComplementar(`${baseUrl}/fiscal/eventos/${idEvento}/xml`, `Evento-${idEvento}.xml`);
+    },
+    async listarInutilizacoes() {
+      return window.RezFireAPI.request('/fiscal/inutilizacoes');
+    },
+    async inutilizarNumeracao(payload) {
+      return window.RezFireAPI.request('/fiscal/inutilizacoes', {
+        method: 'POST',
+        body: JSON.stringify(payload || {}),
+      });
+    },
+    async baixarXmlInutilizacaoArquivo(idInutilizacao) {
+      const baseUrl = (typeof API_BASE_URL !== 'undefined') ? API_BASE_URL : '/api';
+      return this.baixarXmlComplementar(`${baseUrl}/fiscal/inutilizacoes/${idInutilizacao}/xml`, `Inutilizacao-${idInutilizacao}.xml`);
+    },
   },
 
   // Módulo de Integração com o Mercado Livre

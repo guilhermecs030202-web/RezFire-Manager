@@ -228,3 +228,94 @@ export function verificarAssinaturaXmlNFe(xmlAssinado: string): VerificacaoAssin
   }
 }
 
+function assinarBlocoXmlEnveloped(
+  xmlCompleto: string,
+  tagAlvo: 'infEvento' | 'infInut',
+  tagFechamentoPai: '</evento>' | '</inutNFe>',
+  idAtributo: string,
+  pfxBuffer: Buffer,
+  senha: string
+): AssinaturaNFeResultado {
+  const { privateKeyPem, x509DerBase64, serial } = extrairCredenciaisPkcs12(pfxBuffer, senha);
+
+  const rxTag = new RegExp(`<${tagAlvo}\\s+([^>]+)>([\\s\\S]*?)<\\/${tagAlvo}>`);
+  const m = xmlCompleto.match(rxTag);
+  if (!m) {
+    throw new Error(`Elemento <${tagAlvo}> não encontrado no XML.`);
+  }
+
+  const attrsRaw = m[1].trim();
+  const body = m[2];
+  const canonico = attrsRaw.includes('xmlns="http://www.portalfiscal.inf.br/nfe"')
+    ? `<${tagAlvo} ${attrsRaw}>${body}</${tagAlvo}>`
+    : `<${tagAlvo} xmlns="http://www.portalfiscal.inf.br/nfe" ${attrsRaw}>${body}</${tagAlvo}>`;
+
+  const digestValue = crypto.createHash('sha1').update(canonico, 'utf8').digest('base64');
+  const signedInfoBody =
+    `<CanonicalizationMethod Algorithm="http://www.w3.org/TR/2001/REC-xml-c14n-20010315"></CanonicalizationMethod>` +
+    `<SignatureMethod Algorithm="http://www.w3.org/2000/09/xmldsig#rsa-sha1"></SignatureMethod>` +
+    `<Reference URI="#${idAtributo}">` +
+      `<Transforms>` +
+        `<Transform Algorithm="http://www.w3.org/2000/09/xmldsig#enveloped-signature"></Transform>` +
+        `<Transform Algorithm="http://www.w3.org/TR/2001/REC-xml-c14n-20010315"></Transform>` +
+      `</Transforms>` +
+      `<DigestMethod Algorithm="http://www.w3.org/2000/09/xmldsig#sha1"></DigestMethod>` +
+      `<DigestValue>${digestValue}</DigestValue>` +
+    `</Reference>`;
+
+  const signedInfoCanonico = `<SignedInfo xmlns="http://www.w3.org/2000/09/xmldsig#">${signedInfoBody}</SignedInfo>`;
+  const signer = crypto.createSign('RSA-SHA1');
+  signer.update(signedInfoCanonico, 'utf8');
+  const signatureValue = signer.sign(privateKeyPem, 'base64');
+
+  const signatureXml =
+    `<Signature xmlns="http://www.w3.org/2000/09/xmldsig#">` +
+      `<SignedInfo>${signedInfoBody}</SignedInfo>` +
+      `<SignatureValue>${signatureValue}</SignatureValue>` +
+      `<KeyInfo><X509Data><X509Certificate>${x509DerBase64}</X509Certificate></X509Data></KeyInfo>` +
+    `</Signature>`;
+
+  if (!xmlCompleto.includes(tagFechamentoPai)) {
+    throw new Error(`Tag ${tagFechamentoPai} ausente no XML.`);
+  }
+
+  return {
+    xml_assinado: xmlCompleto.replace(tagFechamentoPai, `${signatureXml}${tagFechamentoPai}`),
+    digest_value: digestValue,
+    assinatura_valida: true,
+    certificado_serial: serial,
+  };
+}
+
+export function assinarXmlEventoNFe(
+  xmlEventoSemAssinatura: string,
+  idInfEvento: string,
+  pfxBuffer: Buffer,
+  senha: string
+): AssinaturaNFeResultado {
+  return assinarBlocoXmlEnveloped(
+    xmlEventoSemAssinatura,
+    'infEvento',
+    '</evento>',
+    idInfEvento,
+    pfxBuffer,
+    senha
+  );
+}
+
+export function assinarXmlInutilizacaoNFe(
+  xmlInutSemAssinatura: string,
+  idInfInut: string,
+  pfxBuffer: Buffer,
+  senha: string
+): AssinaturaNFeResultado {
+  return assinarBlocoXmlEnveloped(
+    xmlInutSemAssinatura,
+    'infInut',
+    '</inutNFe>',
+    idInfInut,
+    pfxBuffer,
+    senha
+  );
+}
+

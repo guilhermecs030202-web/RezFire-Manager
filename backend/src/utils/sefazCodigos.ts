@@ -310,6 +310,142 @@ const DICIONARIO_SEFAZ: Record<string, DefinicaoCodigoSefaz> = {
     permiteReenvioMesmoNumero: true,
     sugereAvancarNumero: false,
   },
+  // Eventos (Cancelamento / Carta de Correção) e Inutilização (Story 33f)
+  '102': {
+    cStat: '102',
+    categoria: 'autorizada',
+    titulo: 'Inutilização homologada',
+    mensagemAmigavel: 'Numeração inutilizada e homologada pela SEFAZ.',
+    acaoRecomendada: 'Arquive o XML procInutNFe para comprovação fiscal da faixa.',
+    permiteReenvioMesmoNumero: false,
+    sugereAvancarNumero: false,
+  },
+  '128': {
+    cStat: '128',
+    categoria: 'em_processamento',
+    titulo: 'Lote de evento processado',
+    mensagemAmigavel: 'A SEFAZ processou o lote de eventos enviado.',
+    acaoRecomendada: 'Leia o resultado específico dentro de <retEvento>.',
+    permiteReenvioMesmoNumero: false,
+    sugereAvancarNumero: false,
+  },
+  '135': {
+    cStat: '135',
+    categoria: 'autorizada',
+    titulo: 'Evento registrado e vinculado',
+    mensagemAmigavel: 'Evento homologado pela SEFAZ e vinculado à NF-e.',
+    acaoRecomendada: 'Arquive o protocolo e o XML procEventoNFe.',
+    permiteReenvioMesmoNumero: false,
+    sugereAvancarNumero: false,
+  },
+  '136': {
+    cStat: '136',
+    categoria: 'autorizada',
+    titulo: 'Evento registrado sem vinculação local',
+    mensagemAmigavel: 'Evento registrado pela SEFAZ (cStat 136).',
+    acaoRecomendada: 'Conserve o protocolo emitido pela SEFAZ.',
+    permiteReenvioMesmoNumero: false,
+    sugereAvancarNumero: false,
+  },
+  '155': {
+    cStat: '155',
+    categoria: 'autorizada',
+    titulo: 'Cancelamento homologado extemporâneo',
+    mensagemAmigavel: 'Cancelamento homologado pela SEFAZ fora do prazo regular.',
+    acaoRecomendada: 'Registre na contabilidade e arquive o procEventoNFe.',
+    permiteReenvioMesmoNumero: false,
+    sugereAvancarNumero: false,
+  },
+  '206': {
+    cStat: '206',
+    categoria: 'rejeitada',
+    titulo: 'Numeração já inutilizada',
+    mensagemAmigavel: 'Este número já está inutilizado na SEFAZ.',
+    acaoRecomendada: 'Avance para o próximo número sequencial disponível.',
+    permiteReenvioMesmoNumero: false,
+    sugereAvancarNumero: true,
+  },
+  '218': {
+    cStat: '218',
+    categoria: 'rejeitada',
+    titulo: 'NF-e já cancelada',
+    mensagemAmigavel: 'Esta NF-e já foi cancelada anteriormente na SEFAZ.',
+    acaoRecomendada: 'Sincronize a situação da NF-e via consulta de protocolo.',
+    permiteReenvioMesmoNumero: false,
+    sugereAvancarNumero: false,
+  },
+  '220': {
+    cStat: '220',
+    categoria: 'rejeitada',
+    titulo: 'Prazo de cancelamento excedido',
+    mensagemAmigavel: 'O prazo legal para cancelamento desta NF-e encerrou.',
+    acaoRecomendada: 'Avalie emissão de NF-e de devolução junto à contabilidade.',
+    permiteReenvioMesmoNumero: false,
+    sugereAvancarNumero: false,
+  },
+  '256': {
+    cStat: '256',
+    categoria: 'rejeitada',
+    titulo: 'Faixa já inutilizada',
+    mensagemAmigavel: 'Parte desta faixa já consta inutilizada na SEFAZ.',
+    acaoRecomendada: 'Informe somente números ainda não utilizados ou inutilizados.',
+    permiteReenvioMesmoNumero: false,
+    sugereAvancarNumero: false,
+  },
+  '494': {
+    cStat: '494',
+    categoria: 'rejeitada',
+    titulo: 'Chave inexistente para evento',
+    mensagemAmigavel: 'Chave de acesso não encontrada na base da SEFAZ.',
+    acaoRecomendada: 'Consulte a NF-e na SEFAZ antes de enviar o evento.',
+    permiteReenvioMesmoNumero: false,
+    sugereAvancarNumero: false,
+  },
+  '501': {
+    cStat: '501',
+    categoria: 'rejeitada',
+    titulo: 'Cancelamento fora do prazo (> 24h)',
+    mensagemAmigavel: 'O cancelamento por evento superou o prazo de 24 horas após autorização.',
+    acaoRecomendada: 'Para estornar a operação após 24h, emita NF-e de devolução com orientação contábil.',
+    permiteReenvioMesmoNumero: false,
+    sugereAvancarNumero: false,
+  },
+  '563': {
+    cStat: '563',
+    categoria: 'rejeitada',
+    titulo: 'Inutilização duplicada para a faixa',
+    mensagemAmigavel: 'Já existe inutilização registrada para esta série e faixa.',
+    acaoRecomendada: 'Consulte a tabela de inutilizações homologadas.',
+    permiteReenvioMesmoNumero: false,
+    sugereAvancarNumero: false,
+  },
+  '573': {
+    cStat: '573',
+    categoria: 'rejeitada',
+    titulo: 'Duplicidade de evento',
+    mensagemAmigavel: 'Evento idêntico já registrado com a mesma sequência.',
+    acaoRecomendada: 'Para nova Carta de Correção, incremente a sequência do evento.',
+    permiteReenvioMesmoNumero: false,
+    sugereAvancarNumero: false,
+  },
+  '578': {
+    cStat: '578',
+    categoria: 'rejeitada',
+    titulo: 'Data do evento adiantada',
+    mensagemAmigavel: 'Data/hora do evento está adiantada perante o servidor SEFAZ.',
+    acaoRecomendada: 'Sincronize o horário do servidor e envie novamente.',
+    permiteReenvioMesmoNumero: true,
+    sugereAvancarNumero: false,
+  },
+  '580': {
+    cStat: '580',
+    categoria: 'rejeitada',
+    titulo: 'Nota precisa estar autorizada',
+    mensagemAmigavel: 'O evento exige que a NF-e esteja autorizada na SEFAZ.',
+    acaoRecomendada: 'Confirme a autorização da NF-e antes de enviar eventos.',
+    permiteReenvioMesmoNumero: false,
+    sugereAvancarNumero: false,
+  },
 };
 
 export function interpretarCodigoSefaz(
@@ -326,8 +462,8 @@ export function interpretarCodigoSefaz(
   }
 
   let categoria: CategoriaRetornoSefaz = 'rejeitada';
-  if (cStat === '100' || cStat === '150') categoria = 'autorizada';
-  else if (cStat === '103' || cStat === '105') categoria = 'em_processamento';
+  if (cStat === '100' || cStat === '150' || cStat === '102' || cStat === '135' || cStat === '136' || cStat === '155') categoria = 'autorizada';
+  else if (cStat === '103' || cStat === '105' || cStat === '128') categoria = 'em_processamento';
   else if (cStat === '107') categoria = 'servico_ativo';
   else if (cStat === '108' || cStat === '109') categoria = 'indisponivel';
   else if (cStat === '110' || cStat === '301' || cStat === '302' || cStat === '303') categoria = 'denegada';

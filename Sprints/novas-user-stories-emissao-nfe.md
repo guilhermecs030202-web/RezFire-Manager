@@ -169,20 +169,20 @@ A história, como está, **não atende ao INVEST**: é grande demais (S), difíc
 
 **Critérios de aceite**
 
-- [ ] O cancelamento só é permitido para nota autorizada e dentro do prazo e das regras aplicáveis, com justificativa obrigatória.
-- [ ] A carta de correção é registrada com o texto informado e respeita as regras do que pode ser corrigido.
-- [ ] Cancelamento e correção são enviados à SEFAZ, e o status fiscal do pedido é atualizado.
-- [ ] Os eventos ficam registrados com seu protocolo.
-- [ ] Quando a operação não for permitida (fora do prazo ou regra), o sistema explica o motivo.
-- [ ] Numeração pulada e não utilizada pode ser inutilizada.
+- [x] O cancelamento só é permitido para nota autorizada e dentro do prazo e das regras aplicáveis, com justificativa obrigatória. *(Exige `status === 'autorizada'`, prazo legal configurável `SEFAZ_PRAZO_CANCELAMENTO_HORAS=24`h, mercadoria não circulada (`status_entrega` diferente de `'Despachado'` e `'Entregue'`) e justificativa obrigatória de 15 a 255 caracteres.)*
+- [x] A carta de correção é registrada com o texto informado e respeita as regras do que pode ser corrigido. *(Exige texto de 15 a 1000 caracteres, valida vedações do Art. 7º, § 1º-A do Convênio S/N de 1970, prazo `SEFAZ_PRAZO_CCE_DIAS=30` dias e limite máximo de 20 cartas de correção sequenciais por NF-e com `xCondUso` oficial.)*
+- [x] Cancelamento e correção são enviados à SEFAZ, e o status fiscal do pedido é atualizado. *(Assinados via XMLDSig RSA-SHA1 (`assinarXmlEventoNFe`), transmitidos ao serviço `NFeRecepcaoEvento4` (`tpEvento 110111` e `110110`), atualizando `status_fiscal` para `'cancelada'` no cancelamento — sem cancelar automaticamente o pedido comercial nem estornar estoque — e incrementando `total_cartas_correcao` na CC-e.)*
+- [x] Os eventos ficam registrados com seu protocolo. *(Persistidos em `notas_fiscais_eventos` com `protocolo_sefaz`, `codigo_sefaz`, `xml_evento_assinado`, `xml_retorno_sefaz` e distribuição `procEventoNFe` arquivada em disco em `uploads/fiscal-xmls/eventos/{ambiente}/{YYYY}/{MM}/` com hash SHA-256 e download via `/api/fiscal/eventos/:id/xml`.)*
+- [x] Quando a operação não for permitida (fora do prazo ou regra), o sistema explica o motivo. *(Retorna HTTP `400`/`422` com explicação detalhada da regra violada e recomendação operacional — ex.: nota de devolução quando a mercadoria já circulou ou nota complementar quando há alteração de valores/impostos.)*
+- [x] Numeração pulada e não utilizada pode ser inutilizada. *(Assinatura `infInut` via `assinarXmlInutilizacaoNFe`, transmissão a `NFeInutilizacao4`, persistência em `notas_fiscais_inutilizacoes` com `procInutNFe` em disco, bloqueio de sobreposição com NF-es ou faixas já inutilizadas, avanço automático de `proximo_numero_nfe` quando aplicável e detecção automática de `lacunas_sugeridas` na série ativa.)*
 
 **Definition of Ready (DoR): não pronto até que...**
 
-- [ ] Story 33d concluída.
-- [ ] Prazos e regras de cancelamento e de carta de correção confirmados com o contador.
-- [ ] Definido o que acontece com o estoque e com o pedido quando a nota é cancelada (relação com #1 e #9b).
-- [ ] Definido o fluxo para casos que exigem nota de devolução ou complementar (no escopo ou fora).
-- [ ] Estimativa (5 SP) revisada, pois o escopo de eventos pode crescer.
+- [x] Story 33d concluída.
+- [ ] Prazos e regras de cancelamento e de carta de correção confirmados com o contador. *(Padrão legal SEFAZ/SP implementado: 24h para cancelamento antes da circulação física e 30 dias / até 20 eventos para CC-e com bloqueio das vedações do Art. 7º §1º-A; validar eventuais particularidades de cancelamento extemporâneo com a contabilidade.)*
+- [x] Definido o que acontece com o estoque e com o pedido quando a nota é cancelada (relação com #1 e #9b). *(Implementada separação estrita: o cancelamento fiscal da NF-e altera apenas `status_fiscal = 'cancelada'` para permitir reemissão ou correção fiscal, mantendo o pedido comercial `Confirmado` e o estoque intacto até que o gestor decida cancelar comercialmente o pedido.)*
+- [x] Definido o fluxo para casos que exigem nota de devolução ou complementar (no escopo ou fora). *(Fora do escopo de emissão automática no MVP de saída; quando o cancelamento ou CC-e é bloqueado por mercadoria já despachada/entregue ou tentativa de alterar valores/impostos, o sistema bloqueia a operação e orienta explicitamente a emissão de NF-e de devolução ou complementar junto à contabilidade.)*
+- [x] Estimativa (5 SP) revisada, pois o escopo de eventos pode crescer.
 
 ---
 

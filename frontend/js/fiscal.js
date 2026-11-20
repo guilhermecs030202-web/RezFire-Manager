@@ -345,16 +345,104 @@
     }
   }
 
+  function renderInutilizacoes(dados) {
+    const infoEl = document.getElementById('inut-info-serie');
+    const lacunasWrap = document.getElementById('inut-lacunas-wrap');
+    const tbody = document.getElementById('fiscal-inutilizacoes-body');
+    const serieInp = document.getElementById('inut_serie');
+
+    if (dados && infoEl) {
+      infoEl.textContent = `Série ${dados.serie_atual || 1} · Ambiente ${String(dados.ambiente_atual || 'homologacao').toUpperCase()} · Próximo Nº ${dados.proximo_numero_atual || 1}`;
+    }
+    if (dados && serieInp && !serieInp.dataset.touched) {
+      serieInp.value = String(dados.serie_atual || 1);
+    }
+
+    if (lacunasWrap) {
+      const lacunas = dados?.lacunas_sugeridas || [];
+      if (lacunas.length > 0) {
+        lacunasWrap.style.display = 'block';
+        lacunasWrap.innerHTML =
+          `<div class="p-3 rounded-lg bg-amber-50 border border-amber-200 text-xs text-amber-900">` +
+          `<strong>Lacunas detectadas na numeração atual:</strong> clique para preencher automaticamente: ` +
+          lacunas
+            .map(
+              (l) =>
+                `<button type="button" class="btn-lacuna inline-flex items-center px-2 py-0.5 ml-1.5 rounded bg-white border border-amber-300 font-mono font-bold hover:bg-amber-100" data-serie="${dados.serie_atual}" data-ini="${l.numero_inicial}" data-fim="${l.numero_final}">${l.numero_inicial === l.numero_final ? `Nº ${l.numero_inicial}` : `Nº ${l.numero_inicial}–${l.numero_final}`}</button>`
+            )
+            .join('') +
+          `</div>`;
+        lacunasWrap.querySelectorAll('.btn-lacuna').forEach((b) => {
+          b.addEventListener('click', () => {
+            document.getElementById('inut_serie').value = b.getAttribute('data-serie');
+            document.getElementById('inut_numero_inicial').value = b.getAttribute('data-ini');
+            document.getElementById('inut_numero_final').value = b.getAttribute('data-fim');
+          });
+        });
+      } else {
+        lacunasWrap.style.display = 'none';
+      }
+    }
+
+    if (!tbody) return;
+    const lista = dados?.inutilizacoes || [];
+    if (lista.length === 0) {
+      tbody.innerHTML = `<tr class="empty-row"><td colspan="6">Nenhuma faixa de numeração inutilizada até o momento.</td></tr>`;
+      return;
+    }
+
+    tbody.innerHTML = lista
+      .map((inut) => {
+        const faixa =
+          inut.numero_inicial === inut.numero_final
+            ? `Nº ${inut.numero_inicial}`
+            : `Nº ${inut.numero_inicial} a ${inut.numero_final}`;
+        const cls =
+          inut.status === 'autorizada'
+            ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
+            : 'bg-red-50 text-red-800 border-red-200';
+        return `
+          <tr>
+            <td><strong>Série ${escapeHtml(inut.serie)} · ${escapeHtml(faixa)}</strong></td>
+            <td>
+              <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-bold border ${cls}">${escapeHtml(String(inut.status || '').toUpperCase())}</span>
+              <span class="text-[11px] text-stone-500 ml-1">${escapeHtml(String(inut.ambiente || '').toUpperCase())}</span>
+            </td>
+            <td class="font-mono text-xs">${escapeHtml(inut.protocolo || '—')}</td>
+            <td class="text-xs text-stone-700">${escapeHtml(inut.justificativa)}</td>
+            <td class="text-xs text-stone-500">${formatarData(inut.created_at)}</td>
+            <td style="text-align:right">
+              ${inut.tem_xml ? `<button type="button" class="btn-ghost btn-inut-xml" data-id="${inut.id_inutilizacao}" style="padding:4px 10px;font-size:0.74rem">XML</button>` : '—'}
+            </td>
+          </tr>
+        `;
+      })
+      .join('');
+
+    tbody.querySelectorAll('.btn-inut-xml').forEach((btn) => {
+      btn.addEventListener('click', async () => {
+        const id = Number(btn.getAttribute('data-id'));
+        try {
+          await window.RezFireAPI.fiscal.baixarXmlInutilizacaoArquivo(id);
+        } catch (err) {
+          showBanner('erro', err.message || 'Erro ao baixar XML de inutilização.');
+        }
+      });
+    });
+  }
+
   async function carregarTudo() {
     try {
-      const [resEmitente, resPendencias, resNotas] = await Promise.all([
+      const [resEmitente, resPendencias, resNotas, resInut] = await Promise.all([
         window.RezFireAPI.fiscal.obterEmitente(),
         window.RezFireAPI.fiscal.obterPendenciasProdutos(),
         window.RezFireAPI.fiscal.listarNotas({}),
+        window.RezFireAPI.fiscal.listarInutilizacoes().catch(() => null),
       ]);
       renderEmitente(resEmitente.emitente || null);
       renderPendenciasProdutos(resPendencias);
       renderNotasFiscais(resNotas.notas || []);
+      if (resInut) renderInutilizacoes(resInut);
     } catch (err) {
       if (String(err.message || '').includes('Acesso negado')) {
         document.getElementById('fiscal-conteudo').style.display = 'none';
@@ -366,6 +454,47 @@
   }
 
   function bindEvents() {
+    document.getElementById('inut_serie')?.addEventListener('input', (e) => {
+      e.target.dataset.touched = '1';
+    });
+
+    document.getElementById('form-inutilizacao')?.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const errEl = document.getElementById('inut-form-error');
+      const btn = document.getElementById('btn-enviar-inutilizacao');
+      if (errEl) errEl.textContent = '';
+
+      const payload = {
+        serie: Number(document.getElementById('inut_serie').value),
+        numero_inicial: Number(document.getElementById('inut_numero_inicial').value),
+        numero_final: Number(document.getElementById('inut_numero_final').value),
+        justificativa: document.getElementById('inut_justificativa').value.trim(),
+      };
+
+      if (btn) {
+        btn.disabled = true;
+        btn.textContent = 'Enviando...';
+      }
+      try {
+        const res = await window.RezFireAPI.fiscal.inutilizarNumeracao(payload);
+        showBanner(res.autorizada ? 'sucesso' : 'erro', res.mensagem || 'Retorno de inutilização recebido.');
+        document.getElementById('inut_numero_inicial').value = '';
+        document.getElementById('inut_numero_final').value = '';
+        document.getElementById('inut_justificativa').value = '';
+        const atual = await window.RezFireAPI.fiscal.listarInutilizacoes();
+        renderInutilizacoes(atual);
+        const emAtual = await window.RezFireAPI.fiscal.obterEmitente();
+        renderEmitente(emAtual.emitente || null);
+      } catch (err) {
+        if (errEl) errEl.textContent = err.message || 'Não foi possível inutilizar a faixa.';
+      } finally {
+        if (btn) {
+          btn.disabled = false;
+          btn.textContent = 'Inutilizar Faixa';
+        }
+      }
+    });
+
     document.getElementById('filtro-notas-status')?.addEventListener('change', carregarNotasFiscais);
     let buscaTimer = null;
     document.getElementById('busca-notas-fiscais')?.addEventListener('input', () => {

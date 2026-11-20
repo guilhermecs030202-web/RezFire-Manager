@@ -12,6 +12,7 @@ import {
 import { Pedido } from './Pedido';
 import { NotaFiscalItem } from './NotaFiscalItem';
 import { NotaFiscalTransmissao } from './NotaFiscalTransmissao';
+import { NotaFiscalEvento } from './NotaFiscalEvento';
 
 @Entity('notas_fiscais')
 @Index(['ambiente', 'serie', 'numero'], { unique: true })
@@ -129,6 +130,21 @@ export class NotaFiscal {
   @Column({ type: 'timestamp', nullable: true })
   danfe_gerado_em: Date | null;
 
+  @Column({ type: 'timestamp', nullable: true })
+  cancelada_em: Date | null;
+
+  @Column({ type: 'varchar', length: 64, nullable: true })
+  protocolo_cancelamento: string | null;
+
+  @Column({ type: 'text', nullable: true })
+  justificativa_cancelamento: string | null;
+
+  @Column({ type: 'int', unsigned: true, default: 0 })
+  total_cartas_correcao: number;
+
+  @Column({ type: 'timestamp', nullable: true })
+  ultima_carta_correcao_em: Date | null;
+
   @CreateDateColumn({ type: 'timestamp' })
   created_at: Date;
 
@@ -140,5 +156,8 @@ export class NotaFiscal {
 
   @OneToMany(() => NotaFiscalTransmissao, (transmissao) => transmissao.nota_fiscal)
   transmissoes: NotaFiscalTransmissao[];
+
+  @OneToMany(() => NotaFiscalEvento, (evento) => evento.nota_fiscal)
+  eventos: NotaFiscalEvento[];
 }
 

@@ -18,12 +18,19 @@ router.get('/pedidos/:id/nfe', controller.obterNFeDoPedido);
 router.post('/pedidos/:id/preparar-nfe', requerPerfil(['GESTOR']), controller.prepararNFePedido);
 router.post('/pedidos/:id/transmitir-nfe', requerPerfil(['GESTOR']), controller.transmitirNFePedido);
 router.post('/pedidos/:id/consultar-nfe', requerPerfil(['GESTOR']), controller.consultarSituacaoNFePedido);
+router.post('/pedidos/:id/cancelar-nfe', requerPerfil(['GESTOR']), controller.cancelarNFePedido);
+router.post('/pedidos/:id/carta-correcao', requerPerfil(['GESTOR']), controller.registrarCartaCorrecaoPedido);
 router.get('/pedidos/:id/nfe/transmissoes', controller.listarTransmissoesDoPedido);
+router.get('/pedidos/:id/nfe/eventos', controller.listarEventosDoPedido);
 router.get('/pedidos/:id/nfe/xml', requerPerfil(['GESTOR']), controller.baixarXmlPorPedido);
 router.get('/pedidos/:id/nfe/danfe', controller.visualizarDanfePorPedido);
 router.get('/notas', requerPerfil(['GESTOR']), controller.listarNotasFiscais);
 router.get('/notas/:id/xml', requerPerfil(['GESTOR']), controller.baixarXmlNota);
 router.get('/notas/:id/danfe', controller.visualizarDanfePorNota);
+router.get('/eventos/:id/xml', requerPerfil(['GESTOR']), controller.baixarXmlEvento);
+router.get('/inutilizacoes', requerPerfil(['GESTOR']), controller.listarInutilizacoes);
+router.post('/inutilizacoes', requerPerfil(['GESTOR']), controller.inutilizarNumeracao);
+router.get('/inutilizacoes/:id/xml', requerPerfil(['GESTOR']), controller.baixarXmlInutilizacao);
 router.get('/sefaz/status', requerPerfil(['GESTOR']), controller.verificarStatusServicoSefaz);
 
 // Configuração do emitente, certificado A1 e ambiente SEFAZ — estritamente restrita ao GESTOR (DoR 33a + #20)

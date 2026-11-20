@@ -13,6 +13,8 @@ import {
   ResultadoTransmissao,
   TipoOperacaoTransmissao,
 } from '../entities/NotaFiscalTransmissao';
+import { NotaFiscalEvento } from '../entities/NotaFiscalEvento';
+import { NotaFiscalInutilizacao } from '../entities/NotaFiscalInutilizacao';
 import {
   decryptBuffer,
   decryptText,
@@ -22,14 +24,23 @@ import {
 } from '../utils/cryptoVault';
 import { validarCertificadoA1 } from '../utils/certificadoA1Parser';
 import { montarXmlNFe400, validarDadosParaNFe } from '../utils/nfeBuilder';
-import { assinarXmlNFe } from '../utils/nfeSigner';
+import {
+  assinarXmlEventoNFe,
+  assinarXmlInutilizacaoNFe,
+  assinarXmlNFe,
+} from '../utils/nfeSigner';
 import { gerarHtmlDanfe } from '../utils/danfeGenerator';
 import {
   CenarioSimulacaoSefaz,
+  CONDICAO_USO_CCE_OFICIAL,
   consultarProtocoloSefaz,
   consultarStatusServicoSefaz,
   enviarAutorizacaoSefaz,
+  enviarEventoSefaz,
+  enviarInutilizacaoSefaz,
   ModoTransporteSefaz,
+  montarXmlEventoNFe,
+  montarXmlInutilizacaoNFe,
   ResultadoChamadaSefaz,
 } from '../utils/sefazClient';
 import { interpretarCodigoSefaz } from '../utils/sefazCodigos';
@@ -93,6 +104,14 @@ export class FiscalService {
 
   private get transmissaoRepo() {
     return AppDataSource.getRepository(NotaFiscalTransmissao);
+  }
+
+  private get eventoRepo() {
+    return AppDataSource.getRepository(NotaFiscalEvento);
+  }
+
+  private get inutilizacaoRepo() {
+    return AppDataSource.getRepository(NotaFiscalInutilizacao);
   }
 
   /**
@@ -662,12 +681,16 @@ export class FiscalService {
       order: { id_nota_fiscal: 'DESC' },
     });
 
-    const permissoesTransmissoes = await this.listarTransmissoesDoPedido(id_pedido);
+    const [permissoesTransmissoes, eventosRes] = await Promise.all([
+      this.listarTransmissoesDoPedido(id_pedido),
+      this.listarEventosDoPedido(id_pedido),
+    ]);
 
     return {
       status_fiscal: notaFiscal ? notaFiscal.status : 'sem_nota',
       nota_fiscal: notaFiscal || null,
       transmissoes: permissoesTransmissoes.transmissoes,
+      eventos: eventosRes.eventos,
       prontidao_atual: {
         apto: erros.length === 0,
         erros_validacao: erros,
@@ -1691,6 +1714,9 @@ export class FiscalService {
         'nf.xml_arquivado_em',
         'nf.guarda_legal_ate',
         'nf.danfe_gerado_em',
+        'nf.cancelada_em',
+        'nf.protocolo_cancelamento',
+        'nf.total_cartas_correcao',
         'nf.destinatario_snapshot',
         'nf.created_at',
       ])
@@ -1740,6 +1766,9 @@ export class FiscalService {
       xml_arquivado_em: nf.xml_arquivado_em,
       guarda_legal_ate: nf.guarda_legal_ate,
       danfe_gerado_em: nf.danfe_gerado_em,
+      cancelada_em: nf.cancelada_em,
+      protocolo_cancelamento: nf.protocolo_cancelamento,
+      total_cartas_correcao: Number(nf.total_cartas_correcao || 0),
       destinatario_nome: nf.destinatario_snapshot?.nome || null,
       destinatario_documento: nf.destinatario_snapshot?.documento || null,
       tem_xml_autorizado: Boolean(nf.xml_autorizado_path || nf.status === 'autorizada' || nf.status === 'cancelada'),
@@ -1747,6 +1776,781 @@ export class FiscalService {
         (nf.status === 'autorizada' || nf.status === 'cancelada') && Boolean(nf.protocolo_autorizacao),
       created_at: nf.created_at,
     }));
+  }
+
+  // ─── Story 33f: Cancelamento, Carta de Correção e Inutilização ──────────────
+
+  private arquivarXmlComplementarEmDisco(relPath: string, xmlConteudo: string): string {
+    const absPath = this.resolverCaminhoAbsolutoArquivoXml(relPath);
+    fs.mkdirSync(path.dirname(absPath), { recursive: true });
+    fs.writeFileSync(absPath, Buffer.from(xmlConteudo, 'utf8'), { mode: 0o600 });
+    return relPath;
+  }
+
+  private serializarEventoResumo(e: NotaFiscalEvento) {
+    return {
+      id_evento: e.id_evento,
+      id_nota_fiscal: e.id_nota_fiscal,
+      id_usuario: e.id_usuario,
+      tipo_evento: e.tipo_evento,
+      codigo_tipo_evento: e.codigo_tipo_evento,
+      sequencia: e.sequencia,
+      ambiente: e.ambiente,
+      modo_transporte: e.modo_transporte,
+      status: e.status,
+      descricao_evento: e.descricao_evento,
+      codigo_sefaz: e.codigo_sefaz,
+      motivo_sefaz: e.motivo_sefaz,
+      mensagem_amigavel: e.mensagem_amigavel,
+      protocolo_evento: e.protocolo_evento,
+      data_evento: e.data_evento,
+      tem_xml_evento: Boolean(e.xml_evento_autorizado || e.xml_envio),
+      xml_evento_path: e.xml_evento_path,
+      created_at: e.created_at,
+    };
+  }
+
+  async listarEventosDoPedido(id_pedido: number) {
+    const pedido = await this.pedidoRepo.findOne({ where: { id_pedido } });
+    if (!pedido) {
+      throw new Error(`Pedido #${id_pedido} não encontrado.`);
+    }
+
+    const notas = await this.notaFiscalRepo.find({
+      where: { id_pedido },
+      order: { id_nota_fiscal: 'DESC' },
+    });
+
+    if (notas.length === 0) {
+      return { sucesso: true, eventos: [] };
+    }
+
+    const idsNotas = notas.map((n) => n.id_nota_fiscal);
+    const eventos = await this.eventoRepo
+      .createQueryBuilder('ev')
+      .where('ev.id_nota_fiscal IN (:...idsNotas)', { idsNotas })
+      .orderBy('ev.id_evento', 'DESC')
+      .getMany();
+
+    return {
+      sucesso: true,
+      eventos: eventos.map((e) => this.serializarEventoResumo(e)),
+    };
+  }
+
+  async cancelarNFePedido(
+    id_pedido: number,
+    payload: {
+      justificativa?: string;
+      cenario_teste?: CenarioSimulacaoSefaz;
+      cstat_simulado?: string;
+      xmotivo_simulado?: string;
+      modo_transporte?: ModoTransporteSefaz;
+    } = {},
+    id_usuario?: number
+  ) {
+    const pedido = await this.pedidoRepo.findOne({ where: { id_pedido } });
+    if (!pedido) {
+      throw Object.assign(new Error(`Pedido #${id_pedido} não encontrado.`), { statusCode: 404 });
+    }
+
+    const emitente = await this.emitenteRepo
+      .createQueryBuilder('e')
+      .addSelect(['e.certificado_arquivo_enc', 'e.senha_certificado_enc'])
+      .getOne();
+
+    if (!emitente) {
+      throw Object.assign(new Error('Emitente fiscal não cadastrado.'), { statusCode: 400 });
+    }
+
+    const modo = this.validarGuardrailProducaoESelecionarModo(emitente.ambiente, payload);
+
+    const nota = await this.notaFiscalRepo.findOne({
+      where: { id_pedido },
+      relations: ['itens'],
+      order: { id_nota_fiscal: 'DESC' },
+    });
+
+    if (!nota) {
+      throw Object.assign(
+        new Error('Este pedido não possui NF-e vinculada para cancelamento.'),
+        { statusCode: 400 }
+      );
+    }
+
+    if (nota.status !== 'autorizada') {
+      const msgStatus =
+        nota.status === 'cancelada'
+          ? `Esta NF-e Nº ${nota.numero} já foi cancelada em ${nota.cancelada_em ? new Date(nota.cancelada_em).toLocaleString('pt-BR') : 'data anterior'} (Protocolo ${nota.protocolo_cancelamento || '—'}).`
+          : `Somente NF-e com status "autorizada" pode ser cancelada por evento na SEFAZ (status atual: "${nota.status}").`;
+      throw Object.assign(new Error(msgStatus), { statusCode: 400 });
+    }
+
+    if (!nota.chave_acesso || !nota.protocolo_autorizacao) {
+      throw Object.assign(
+        new Error('NF-e sem chave de acesso ou protocolo de autorização para cancelar.'),
+        { statusCode: 400 }
+      );
+    }
+
+    if (nota.ambiente !== emitente.ambiente) {
+      throw Object.assign(
+        new Error(
+          `Esta NF-e foi emitida em "${nota.ambiente}", mas o emitente está em "${emitente.ambiente}". Altere o ambiente antes de enviar o evento.`
+        ),
+        { statusCode: 400 }
+      );
+    }
+
+    const justificativa = String(payload.justificativa || '').trim();
+    if (justificativa.length < 15 || justificativa.length > 255) {
+      throw Object.assign(
+        new Error('Justificativa de cancelamento obrigatória entre 15 e 255 caracteres.'),
+        { statusCode: 400 }
+      );
+    }
+
+    // Regra de prazo legal (padrão 24h após autorização)
+    const refAut = nota.autorizada_em || nota.emitida_em;
+    if (refAut) {
+      const limiteHoras = Number(env.SEFAZ_PRAZO_CANCELAMENTO_HORAS || 24);
+      const horasDecorridas = (Date.now() - new Date(refAut).getTime()) / 3600000;
+      if (horasDecorridas > limiteHoras) {
+        throw Object.assign(
+          new Error(
+            `Prazo legal de cancelamento expirado (${Math.floor(horasDecorridas)}h decorridas; limite de ${limiteHoras}h). Para estornar após o prazo, emita NF-e de devolução junto à contabilidade.`
+          ),
+          { statusCode: 422 }
+        );
+      }
+    }
+
+    // Regra fiscal: vedado cancelar após saída/circulação física da mercadoria
+    if (pedido.status_entrega === 'Despachado' || pedido.status_entrega === 'Entregue') {
+      throw Object.assign(
+        new Error(
+          `Cancelamento bloqueado: o pedido já consta como "${pedido.status_entrega}" (mercadoria em circulação/entregue). Utilize NF-e de devolução.`
+        ),
+        { statusCode: 422 }
+      );
+    }
+
+    const { pfxBuffer, senha } = this.carregarPfxESenhaDeEmitente(emitente);
+    try {
+      const { idInfEvento, xmlEvento } = montarXmlEventoNFe({
+        ambiente: emitente.ambiente,
+        uf: emitente.uf,
+        cnpj: emitente.cnpj,
+        chaveAcesso: nota.chave_acesso,
+        tpEvento: '110111',
+        nSeqEvento: 1,
+        descEvento: 'Cancelamento',
+        protocoloNFe: nota.protocolo_autorizacao,
+        justificativa,
+      });
+
+      const assinado = assinarXmlEventoNFe(xmlEvento, idInfEvento, pfxBuffer, senha);
+      const chamada = await enviarEventoSefaz({
+        uf: emitente.uf,
+        ambiente: emitente.ambiente,
+        chaveAcesso: nota.chave_acesso,
+        tpEvento: '110111',
+        nSeqEvento: 1,
+        xmlEventoAssinado: assinado.xml_assinado,
+        pfxBuffer,
+        senha,
+        cenarioTeste: payload.cenario_teste,
+        cStatSimulado: payload.cstat_simulado,
+        xMotivoSimulado: payload.xmotivo_simulado,
+        modoTransporte: modo,
+      });
+
+      const aceito = !chamada.indisponivel && chamada.interpretacao.categoria === 'autorizada';
+      const agora = new Date();
+      let xmlEventoPath: string | null = null;
+      if (aceito && chamada.xmlProcAutorizado) {
+        const yyyy = String(agora.getUTCFullYear());
+        const mm = String(agora.getUTCMonth() + 1).padStart(2, '0');
+        xmlEventoPath = this.arquivarXmlComplementarEmDisco(
+          `eventos/${emitente.ambiente}/${yyyy}/${mm}/110111-${nota.chave_acesso}-1-procEventoNFe.xml`,
+          chamada.xmlProcAutorizado
+        );
+      }
+
+      const eventoSalvo = await this.eventoRepo.save(
+        this.eventoRepo.create({
+          id_nota_fiscal: nota.id_nota_fiscal,
+          id_usuario: id_usuario ?? null,
+          tipo_evento: 'cancelamento',
+          codigo_tipo_evento: '110111',
+          sequencia: 1,
+          ambiente: emitente.ambiente,
+          modo_transporte: modo,
+          status: chamada.indisponivel ? 'indisponivel' : aceito ? 'registrado' : 'rejeitado',
+          descricao_evento: justificativa,
+          condicao_uso: null,
+          codigo_sefaz: chamada.cStat,
+          motivo_sefaz: chamada.xMotivo,
+          mensagem_amigavel: chamada.interpretacao.mensagemAmigavel,
+          protocolo_evento: chamada.nProt,
+          data_evento: agora,
+          xml_envio: assinado.xml_assinado,
+          xml_retorno: chamada.xmlResposta,
+          xml_evento_autorizado: chamada.xmlProcAutorizado,
+          xml_evento_path: xmlEventoPath,
+        })
+      );
+
+      if (aceito) {
+        nota.status = 'cancelada';
+        nota.cancelada_em = agora;
+        nota.protocolo_cancelamento = chamada.nProt || null;
+        nota.justificativa_cancelamento = justificativa;
+        nota.ultimo_codigo_sefaz = chamada.cStat;
+        nota.ultimo_motivo_sefaz = chamada.xMotivo;
+        nota.ultima_mensagem_amigavel = chamada.interpretacao.mensagemAmigavel;
+        await this.notaFiscalRepo.save(nota);
+      }
+
+      const [notaAtualizada, histEvt] = await Promise.all([
+        this.notaFiscalRepo.findOne({
+          where: { id_nota_fiscal: nota.id_nota_fiscal },
+          relations: ['itens'],
+        }),
+        this.listarEventosDoPedido(id_pedido),
+      ]);
+
+      return {
+        sucesso: !chamada.indisponivel,
+        indisponivel: chamada.indisponivel,
+        registrado: aceito,
+        mensagem: chamada.indisponivel
+          ? 'SEFAZ temporariamente indisponível ao enviar o cancelamento. A NF-e permanece autorizada; tente novamente.'
+          : aceito
+            ? `NF-e Série ${nota.serie} Nº ${nota.numero} CANCELADA na SEFAZ! Protocolo: ${chamada.nProt || '—'}`
+            : `Cancelamento rejeitado pela SEFAZ (${chamada.cStat}): ${chamada.interpretacao.mensagemAmigavel}`,
+        nota_fiscal: notaAtualizada,
+        evento: this.serializarEventoResumo(eventoSalvo),
+        eventos: histEvt.eventos,
+        interpretacao: chamada.interpretacao,
+      };
+    } finally {
+      pfxBuffer.fill(0);
+    }
+  }
+
+  async registrarCartaCorrecaoPedido(
+    id_pedido: number,
+    payload: {
+      texto_correcao?: string;
+      tipo_correcao?: string;
+      cenario_teste?: CenarioSimulacaoSefaz;
+      cstat_simulado?: string;
+      xmotivo_simulado?: string;
+      modo_transporte?: ModoTransporteSefaz;
+    } = {},
+    id_usuario?: number
+  ) {
+    const pedido = await this.pedidoRepo.findOne({ where: { id_pedido } });
+    if (!pedido) {
+      throw Object.assign(new Error(`Pedido #${id_pedido} não encontrado.`), { statusCode: 404 });
+    }
+
+    const emitente = await this.emitenteRepo
+      .createQueryBuilder('e')
+      .addSelect(['e.certificado_arquivo_enc', 'e.senha_certificado_enc'])
+      .getOne();
+
+    if (!emitente) {
+      throw Object.assign(new Error('Emitente fiscal não cadastrado.'), { statusCode: 400 });
+    }
+
+    const modo = this.validarGuardrailProducaoESelecionarModo(emitente.ambiente, payload);
+
+    const nota = await this.notaFiscalRepo.findOne({
+      where: { id_pedido },
+      relations: ['itens'],
+      order: { id_nota_fiscal: 'DESC' },
+    });
+
+    if (!nota) {
+      throw Object.assign(
+        new Error('Este pedido não possui NF-e vinculada para Carta de Correção.'),
+        { statusCode: 400 }
+      );
+    }
+
+    if (nota.status !== 'autorizada') {
+      throw Object.assign(
+        new Error(
+          `Carta de Correção só é permitida para NF-e com status "autorizada" (status atual: "${nota.status}").`
+        ),
+        { statusCode: 400 }
+      );
+    }
+
+    if (!nota.chave_acesso) {
+      throw Object.assign(new Error('NF-e sem chave de acesso válida.'), { statusCode: 400 });
+    }
+
+    if (nota.ambiente !== emitente.ambiente) {
+      throw Object.assign(
+        new Error(
+          `Esta NF-e pertence ao ambiente "${nota.ambiente}", mas o sistema está em "${emitente.ambiente}".`
+        ),
+        { statusCode: 400 }
+      );
+    }
+
+    const tipoCorrecao = String(payload.tipo_correcao || '').trim().toLowerCase();
+    const tiposVedados: Record<string, string> = {
+      valor_imposto:
+        'A legislação da CC-e proíbe alterar valores de operação, quantidade, preço, base de cálculo ou alíquota de impostos.',
+      mudanca_destinatario:
+        'A legislação da CC-e proíbe alterar dados cadastrais que impliquem mudança de remetente ou destinatário.',
+      data_emissao_saida:
+        'A legislação da CC-e proíbe alterar a data de emissão ou data de saída da NF-e.',
+    };
+    if (tipoCorrecao && tiposVedados[tipoCorrecao]) {
+      throw Object.assign(new Error(tiposVedados[tipoCorrecao]), { statusCode: 422 });
+    }
+
+    const textoCorrecao = String(payload.texto_correcao || '').trim();
+    if (textoCorrecao.length < 15 || textoCorrecao.length > 1000) {
+      throw Object.assign(
+        new Error('O texto da Carta de Correção deve conter entre 15 e 1000 caracteres.'),
+        { statusCode: 400 }
+      );
+    }
+
+    const TEXTO_VEDADO_CCE_RX =
+      /(alterar|corrigir|mudar|modificar|retificar|trocar|substituir)\s+(?:o|a|os|as)?\s*(?:valor(?:\s+(?:total|da\s+nota|unitario|dos\s+produtos|do\s+icms|do\s+ipi|do\s+imposto))?|pre[cç]o|al[ií]quota|base\s+de\s+c[aá]lculo|quantidade|qtd|cnpj|cpf|destinat[aá]rio|remetente|data\s+de\s+emiss[aã]o|data\s+de\s+sa[ií]da)/i;
+    if (TEXTO_VEDADO_CCE_RX.test(textoCorrecao)) {
+      throw Object.assign(
+        new Error(
+          'Texto bloqueado pelas regras da CC-e: não é permitido alterar valores/impostos, quantidades, CNPJ/CPF (partes) ou datas de emissão/saída por Carta de Correção.'
+        ),
+        { statusCode: 422 }
+      );
+    }
+
+    const refAut = nota.autorizada_em || nota.emitida_em;
+    if (refAut) {
+      const limiteDias = Number(env.SEFAZ_PRAZO_CCE_DIAS || 30);
+      const diasDecorridos = (Date.now() - new Date(refAut).getTime()) / 86400000;
+      if (diasDecorridos > limiteDias) {
+        throw Object.assign(
+          new Error(
+            `Prazo regulamentar para Carta de Correção (${limiteDias} dias) expirado (${Math.floor(diasDecorridos)} dias após autorização).`
+          ),
+          { statusCode: 422 }
+        );
+      }
+    }
+
+    const qtdCceExistentes = await this.eventoRepo.count({
+      where: {
+        id_nota_fiscal: nota.id_nota_fiscal,
+        tipo_evento: 'carta_correcao',
+        status: 'registrado',
+      },
+    });
+    if (qtdCceExistentes >= 20) {
+      throw Object.assign(
+        new Error('Limite máximo de 20 Cartas de Correção por NF-e atingido.'),
+        { statusCode: 422 }
+      );
+    }
+
+    const sequencia = qtdCceExistentes + 1;
+    const { pfxBuffer, senha } = this.carregarPfxESenhaDeEmitente(emitente);
+    try {
+      const { idInfEvento, xmlEvento } = montarXmlEventoNFe({
+        ambiente: emitente.ambiente,
+        uf: emitente.uf,
+        cnpj: emitente.cnpj,
+        chaveAcesso: nota.chave_acesso,
+        tpEvento: '110110',
+        nSeqEvento: sequencia,
+        descEvento: 'Carta de Correcao',
+        textoCorrecao,
+      });
+
+      const assinado = assinarXmlEventoNFe(xmlEvento, idInfEvento, pfxBuffer, senha);
+      const chamada = await enviarEventoSefaz({
+        uf: emitente.uf,
+        ambiente: emitente.ambiente,
+        chaveAcesso: nota.chave_acesso,
+        tpEvento: '110110',
+        nSeqEvento: sequencia,
+        xmlEventoAssinado: assinado.xml_assinado,
+        pfxBuffer,
+        senha,
+        cenarioTeste: payload.cenario_teste,
+        cStatSimulado: payload.cstat_simulado,
+        xMotivoSimulado: payload.xmotivo_simulado,
+        modoTransporte: modo,
+      });
+
+      const aceito = !chamada.indisponivel && chamada.interpretacao.categoria === 'autorizada';
+      const agora = new Date();
+      let xmlEventoPath: string | null = null;
+      if (aceito && chamada.xmlProcAutorizado) {
+        const yyyy = String(agora.getUTCFullYear());
+        const mm = String(agora.getUTCMonth() + 1).padStart(2, '0');
+        xmlEventoPath = this.arquivarXmlComplementarEmDisco(
+          `eventos/${emitente.ambiente}/${yyyy}/${mm}/110110-${nota.chave_acesso}-${sequencia}-procEventoNFe.xml`,
+          chamada.xmlProcAutorizado
+        );
+      }
+
+      const eventoSalvo = await this.eventoRepo.save(
+        this.eventoRepo.create({
+          id_nota_fiscal: nota.id_nota_fiscal,
+          id_usuario: id_usuario ?? null,
+          tipo_evento: 'carta_correcao',
+          codigo_tipo_evento: '110110',
+          sequencia,
+          ambiente: emitente.ambiente,
+          modo_transporte: modo,
+          status: chamada.indisponivel ? 'indisponivel' : aceito ? 'registrado' : 'rejeitado',
+          descricao_evento: textoCorrecao,
+          condicao_uso: CONDICAO_USO_CCE_OFICIAL,
+          codigo_sefaz: chamada.cStat,
+          motivo_sefaz: chamada.xMotivo,
+          mensagem_amigavel: chamada.interpretacao.mensagemAmigavel,
+          protocolo_evento: chamada.nProt,
+          data_evento: agora,
+          xml_envio: assinado.xml_assinado,
+          xml_retorno: chamada.xmlResposta,
+          xml_evento_autorizado: chamada.xmlProcAutorizado,
+          xml_evento_path: xmlEventoPath,
+        })
+      );
+
+      if (aceito) {
+        await this.notaFiscalRepo.update(
+          { id_nota_fiscal: nota.id_nota_fiscal },
+          {
+            total_cartas_correcao: sequencia,
+            ultima_carta_correcao_em: agora,
+          }
+        );
+      }
+
+      const [notaAtualizada, histEvt] = await Promise.all([
+        this.notaFiscalRepo.findOne({
+          where: { id_nota_fiscal: nota.id_nota_fiscal },
+          relations: ['itens'],
+        }),
+        this.listarEventosDoPedido(id_pedido),
+      ]);
+
+      return {
+        sucesso: !chamada.indisponivel,
+        indisponivel: chamada.indisponivel,
+        registrado: aceito,
+        mensagem: chamada.indisponivel
+          ? 'SEFAZ temporariamente indisponível ao registrar CC-e. Tente novamente em instantes.'
+          : aceito
+            ? `Carta de Correção #${sequencia} registrada com sucesso! Protocolo: ${chamada.nProt || '—'}`
+            : `Carta de Correção rejeitada pela SEFAZ (${chamada.cStat}): ${chamada.interpretacao.mensagemAmigavel}`,
+        nota_fiscal: notaAtualizada,
+        evento: this.serializarEventoResumo(eventoSalvo),
+        eventos: histEvt.eventos,
+        interpretacao: chamada.interpretacao,
+      };
+    } finally {
+      pfxBuffer.fill(0);
+    }
+  }
+
+  async obterXmlEventoParaDownload(id_evento: number) {
+    const evt = await this.eventoRepo.findOne({ where: { id_evento } });
+    if (!evt || (!evt.xml_evento_autorizado && !evt.xml_envio)) {
+      throw Object.assign(new Error(`XML do evento fiscal #${id_evento} não encontrado.`), {
+        statusCode: 404,
+      });
+    }
+    const conteudoXml = evt.xml_evento_autorizado || evt.xml_envio!;
+    const sufixo = evt.xml_evento_autorizado ? '-procEventoNFe' : '';
+    return {
+      evento: evt,
+      conteudoXml,
+      nomeArquivo: `Evento-${evt.codigo_tipo_evento}-seq${evt.sequencia}${sufixo}.xml`,
+    };
+  }
+
+  async listarInutilizacoesELacunas() {
+    const emitente = await this.emitenteRepo.findOne({ where: {} });
+    const registros = await this.inutilizacaoRepo.find({
+      order: { id_inutilizacao: 'DESC' },
+      take: 100,
+    });
+
+    const lacunasSugeridas: Array<{ numero_inicial: number; numero_final: number }> = [];
+    if (emitente) {
+      const limiteSup = Math.max(1, Number(emitente.proximo_numero_nfe || 1)) - 1;
+      if (limiteSup >= 1) {
+        const notasNaSerie = await this.notaFiscalRepo.find({
+          where: { ambiente: emitente.ambiente, serie: emitente.serie_nfe },
+        });
+        const usados = new Set<number>();
+        for (const nf of notasNaSerie) {
+          if (nf.status === 'autorizada' || nf.status === 'denegada' || nf.status === 'cancelada' || nf.status === 'em_processamento') {
+            usados.add(Number(nf.numero));
+          }
+        }
+        for (const inut of registros) {
+          if (
+            inut.status === 'autorizada' &&
+            inut.ambiente === emitente.ambiente &&
+            Number(inut.serie) === Number(emitente.serie_nfe)
+          ) {
+            for (let n = Number(inut.numero_inicial); n <= Number(inut.numero_final); n++) {
+              usados.add(n);
+            }
+          }
+        }
+
+        let iniLacuna: number | null = null;
+        for (let n = 1; n <= limiteSup; n++) {
+          if (!usados.has(n)) {
+            if (iniLacuna === null) iniLacuna = n;
+          } else if (iniLacuna !== null) {
+            lacunasSugeridas.push({ numero_inicial: iniLacuna, numero_final: n - 1 });
+            iniLacuna = null;
+          }
+        }
+        if (iniLacuna !== null) {
+          lacunasSugeridas.push({ numero_inicial: iniLacuna, numero_final: limiteSup });
+        }
+      }
+    }
+
+    return {
+      sucesso: true,
+      serie_atual: emitente ? Number(emitente.serie_nfe) : 1,
+      ambiente_atual: emitente ? emitente.ambiente : 'homologacao',
+      proximo_numero_atual: emitente ? Number(emitente.proximo_numero_nfe) : 1,
+      lacunas_sugeridas: lacunasSugeridas,
+      inutilizacoes: registros.map((i) => ({
+        id_inutilizacao: i.id_inutilizacao,
+        ambiente: i.ambiente,
+        modo_transporte: i.modo_transporte,
+        uf: i.uf,
+        ano: i.ano,
+        cnpj: i.cnpj,
+        serie: i.serie,
+        numero_inicial: i.numero_inicial,
+        numero_final: i.numero_final,
+        justificativa: i.justificativa,
+        status: i.status,
+        codigo_sefaz: i.codigo_sefaz,
+        motivo_sefaz: i.motivo_sefaz,
+        mensagem_amigavel: i.mensagem_amigavel,
+        protocolo: i.protocolo,
+        tem_xml: Boolean(i.xml_inutilizacao_autorizada || i.xml_envio),
+        xml_inutilizacao_path: i.xml_inutilizacao_path,
+        created_at: i.created_at,
+      })),
+    };
+  }
+
+  async inutilizarNumeracao(
+    payload: {
+      serie?: number;
+      numero_inicial?: number;
+      numero_final?: number;
+      justificativa?: string;
+      ano?: string;
+      cenario_teste?: CenarioSimulacaoSefaz;
+      cstat_simulado?: string;
+      xmotivo_simulado?: string;
+      modo_transporte?: ModoTransporteSefaz;
+    } = {},
+    id_usuario?: number
+  ) {
+    const emitente = await this.emitenteRepo
+      .createQueryBuilder('e')
+      .addSelect(['e.certificado_arquivo_enc', 'e.senha_certificado_enc'])
+      .getOne();
+
+    if (!emitente) {
+      throw Object.assign(new Error('Emitente fiscal não cadastrado.'), { statusCode: 400 });
+    }
+
+    const modo = this.validarGuardrailProducaoESelecionarModo(emitente.ambiente, payload);
+
+    const serie = Number(payload.serie ?? emitente.serie_nfe);
+    const numIni = Number(payload.numero_inicial);
+    const numFim = Number(payload.numero_final ?? payload.numero_inicial);
+    const justificativa = String(payload.justificativa || '').trim();
+
+    if (!Number.isInteger(serie) || serie < 1 || serie > 999) {
+      throw Object.assign(new Error('Série NF-e inválida (1 a 999).'), { statusCode: 400 });
+    }
+    if (!Number.isInteger(numIni) || !Number.isInteger(numFim) || numIni < 1 || numFim < numIni) {
+      throw Object.assign(
+        new Error('Faixa de numeração inválida: informe número inicial e final válidos (>= 1).'),
+        { statusCode: 400 }
+      );
+    }
+    if (numFim - numIni + 1 > 1000) {
+      throw Object.assign(
+        new Error('A inutilização por chamada deve abranger no máximo 1.000 números.'),
+        { statusCode: 400 }
+      );
+    }
+    if (justificativa.length < 15 || justificativa.length > 255) {
+      throw Object.assign(
+        new Error('Justificativa da inutilização obrigatória entre 15 e 255 caracteres.'),
+        { statusCode: 400 }
+      );
+    }
+
+    const conflitantes = await this.notaFiscalRepo
+      .createQueryBuilder('nf')
+      .where('nf.ambiente = :amb AND nf.serie = :ser AND nf.numero BETWEEN :ini AND :fim', {
+        amb: emitente.ambiente,
+        ser: serie,
+        ini: numIni,
+        fim: numFim,
+      })
+      .andWhere('nf.status IN (:...ativos)', {
+        ativos: ['autorizada', 'denegada', 'cancelada', 'em_processamento'],
+      })
+      .getMany();
+
+    if (conflitantes.length > 0) {
+      const lista = conflitantes.map((n) => `Nº ${n.numero} (${n.status})`).join(', ');
+      throw Object.assign(
+        new Error(`Não é possível inutilizar faixa com NF-e ativa ou consumida na SEFAZ: ${lista}.`),
+        { statusCode: 422 }
+      );
+    }
+
+    const sobrepostas = await this.inutilizacaoRepo
+      .createQueryBuilder('inut')
+      .where('inut.ambiente = :amb AND inut.serie = :ser AND inut.status = :st', {
+        amb: emitente.ambiente,
+        ser: serie,
+        st: 'autorizada',
+      })
+      .andWhere('inut.numero_inicial <= :fim AND inut.numero_final >= :ini', {
+        ini: numIni,
+        fim: numFim,
+      })
+      .getMany();
+
+    if (sobrepostas.length > 0) {
+      throw Object.assign(
+        new Error(`Já existe inutilização homologada sobreposta à faixa ${numIni}–${numFim}.`),
+        { statusCode: 422 }
+      );
+    }
+
+    const ano = String(payload.ano || String(new Date().getFullYear()).slice(-2)).padStart(2, '0');
+    const { pfxBuffer, senha } = this.carregarPfxESenhaDeEmitente(emitente);
+    try {
+      const { idInfInut, xmlInut } = montarXmlInutilizacaoNFe({
+        ambiente: emitente.ambiente,
+        uf: emitente.uf,
+        ano,
+        cnpj: emitente.cnpj,
+        serie,
+        numeroInicial: numIni,
+        numeroFinal: numFim,
+        justificativa,
+      });
+
+      const assinado = assinarXmlInutilizacaoNFe(xmlInut, idInfInut, pfxBuffer, senha);
+      const chamada = await enviarInutilizacaoSefaz({
+        uf: emitente.uf,
+        ambiente: emitente.ambiente,
+        xmlInutAssinado: assinado.xml_assinado,
+        pfxBuffer,
+        senha,
+        cenarioTeste: payload.cenario_teste,
+        cStatSimulado: payload.cstat_simulado,
+        xMotivoSimulado: payload.xmotivo_simulado,
+        modoTransporte: modo,
+      });
+
+      const aceita = !chamada.indisponivel && chamada.interpretacao.categoria === 'autorizada';
+      const agora = new Date();
+      let xmlInutPath: string | null = null;
+      if (aceita && chamada.xmlProcAutorizado) {
+        const yyyy = String(agora.getUTCFullYear());
+        const mm = String(agora.getUTCMonth() + 1).padStart(2, '0');
+        xmlInutPath = this.arquivarXmlComplementarEmDisco(
+          `inutilizacoes/${emitente.ambiente}/${yyyy}/${mm}/${idInfInut}-procInutNFe.xml`,
+          chamada.xmlProcAutorizado
+        );
+      }
+
+      const salvo = await this.inutilizacaoRepo.save(
+        this.inutilizacaoRepo.create({
+          id_usuario: id_usuario ?? null,
+          ambiente: emitente.ambiente,
+          modo_transporte: modo,
+          uf: emitente.uf,
+          ano,
+          cnpj: emitente.cnpj,
+          serie,
+          numero_inicial: numIni,
+          numero_final: numFim,
+          justificativa,
+          status: chamada.indisponivel ? 'indisponivel' : aceita ? 'autorizada' : 'rejeitada',
+          codigo_sefaz: chamada.cStat,
+          motivo_sefaz: chamada.xMotivo,
+          mensagem_amigavel: chamada.interpretacao.mensagemAmigavel,
+          protocolo: chamada.nProt,
+          xml_envio: assinado.xml_assinado,
+          xml_retorno: chamada.xmlResposta,
+          xml_inutilizacao_autorizada: chamada.xmlProcAutorizado,
+          xml_inutilizacao_path: xmlInutPath,
+        })
+      );
+
+      if (aceita && serie === Number(emitente.serie_nfe) && numFim >= Number(emitente.proximo_numero_nfe)) {
+        await this.emitenteRepo.update(
+          { id_emitente: emitente.id_emitente },
+          { proximo_numero_nfe: numFim + 1 }
+        );
+      }
+
+      return {
+        sucesso: !chamada.indisponivel,
+        indisponivel: chamada.indisponivel,
+        autorizada: aceita,
+        mensagem: chamada.indisponivel
+          ? 'SEFAZ indisponível ao solicitar inutilização. Tente novamente em instantes.'
+          : aceita
+            ? `Inutilização da Série ${serie} (${numIni} a ${numFim}) homologada! Protocolo: ${chamada.nProt || '—'}`
+            : `Inutilização rejeitada pela SEFAZ (${chamada.cStat}): ${chamada.interpretacao.mensagemAmigavel}`,
+        inutilizacao: salvo,
+        interpretacao: chamada.interpretacao,
+      };
+    } finally {
+      pfxBuffer.fill(0);
+    }
+  }
+
+  async obterXmlInutilizacaoParaDownload(id_inutilizacao: number) {
+    const inut = await this.inutilizacaoRepo.findOne({ where: { id_inutilizacao } });
+    if (!inut || (!inut.xml_inutilizacao_autorizada && !inut.xml_envio)) {
+      throw Object.assign(new Error(`XML da inutilização #${id_inutilizacao} não encontrado.`), {
+        statusCode: 404,
+      });
+    }
+    const conteudoXml = inut.xml_inutilizacao_autorizada || inut.xml_envio!;
+    const sufixo = inut.xml_inutilizacao_autorizada ? '-procInutNFe' : '';
+    return {
+      inutilizacao: inut,
+      conteudoXml,
+      nomeArquivo: `Inutilizacao-S${inut.serie}-${inut.numero_inicial}-${inut.numero_final}${sufixo}.xml`,
+    };
   }
 }
 

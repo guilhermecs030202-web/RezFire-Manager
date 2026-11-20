@@ -1099,3 +1099,559 @@ export async function consultarStatusServicoSefaz(params: {
   };
 }
 
+// ─── Eventos (Cancelamento / Carta de Correção) e Inutilização (Story 33f) ─────
+
+export const CONDICAO_USO_CCE_OFICIAL =
+  'A Carta de Correcao destina-se a regularizar erro em campos especificos da NF-e, vedada alteracao de variaveis de calculo do imposto, dados cadastrais que mudem remetente ou destinatario, ou data de emissao e saida.';
+
+export function resolverUrlEventoOuInutilizacao(
+  ufInput: string | null | undefined,
+  ambiente: AmbienteSefaz,
+  tipo: 'evento' | 'inutilizacao'
+): string {
+  const statusUrl = resolverUrlSefaz(ufInput, ambiente, 'NFeStatusServico4');
+  if (statusUrl.includes('nfestatusservico4')) {
+    return statusUrl.replace(
+      'nfestatusservico4',
+      tipo === 'evento' ? 'nferecepcaoevento4' : 'nfeinutilizacao4'
+    );
+  }
+  if (statusUrl.includes('/NfeStatusServico/')) {
+    return statusUrl.replace(
+      '/NfeStatusServico/NFeStatusServico4.asmx',
+      tipo === 'evento'
+        ? '/recepcaoEvento/recepcaoEvento4.asmx'
+        : '/NfeInutilizacao/NFeInutilizacao4.asmx'
+    );
+  }
+  return statusUrl.replace(
+    /NFeStatusServico4/g,
+    tipo === 'evento' ? 'NFeRecepcaoEvento4' : 'NFeInutilizacao4'
+  );
+}
+
+export function montarXmlEventoNFe(params: {
+  ambiente: AmbienteSefaz;
+  uf: string;
+  cnpj: string;
+  chaveAcesso: string;
+  tpEvento: '110111' | '110110';
+  nSeqEvento: number;
+  descEvento: string;
+  protocoloNFe?: string | null;
+  justificativa?: string | null;
+  textoCorrecao?: string | null;
+}): { idInfEvento: string; xmlEvento: string } {
+  const tpAmb = params.ambiente === 'producao' ? '1' : '2';
+  const cOrgao = obterCodigoIbgeUf(params.uf);
+  const cnpj = params.cnpj.replace(/\D/g, '').padStart(14, '0').slice(-14);
+  const chNFe = params.chaveAcesso.replace(/\D/g, '');
+  const seqStr = String(params.nSeqEvento).padStart(2, '0');
+  const idInfEvento = `ID${params.tpEvento}${chNFe}${seqStr}`;
+  const dhEvento = formatarDataHoraSefaz();
+
+  const detInterno =
+    params.tpEvento === '110111'
+      ? `<nProt>${escaparXml(params.protocoloNFe || '')}</nProt>` +
+        `<xJust>${escaparXml((params.justificativa || '').trim())}</xJust>`
+      : `<xCorrecao>${escaparXml((params.textoCorrecao || '').trim())}</xCorrecao>` +
+        `<xCondUso>${escaparXml(CONDICAO_USO_CCE_OFICIAL)}</xCondUso>`;
+
+  const xmlEvento =
+    `<evento xmlns="http://www.portalfiscal.inf.br/nfe" versao="1.00">` +
+      `<infEvento Id="${idInfEvento}">` +
+        `<cOrgao>${cOrgao}</cOrgao>` +
+        `<tpAmb>${tpAmb}</tpAmb>` +
+        `<CNPJ>${cnpj}</CNPJ>` +
+        `<chNFe>${chNFe}</chNFe>` +
+        `<dhEvento>${dhEvento}</dhEvento>` +
+        `<tpEvento>${params.tpEvento}</tpEvento>` +
+        `<nSeqEvento>${params.nSeqEvento}</nSeqEvento>` +
+        `<verEvento>1.00</verEvento>` +
+        `<detEvento versao="1.00">` +
+          `<descEvento>${escaparXml(params.descEvento)}</descEvento>` +
+          `${detInterno}` +
+        `</detEvento>` +
+      `</infEvento>` +
+    `</evento>`;
+
+  return { idInfEvento, xmlEvento };
+}
+
+export function montarXmlInutilizacaoNFe(params: {
+  ambiente: AmbienteSefaz;
+  uf: string;
+  ano: string;
+  cnpj: string;
+  serie: number;
+  numeroInicial: number;
+  numeroFinal: number;
+  justificativa: string;
+}): { idInfInut: string; xmlInut: string } {
+  const tpAmb = params.ambiente === 'producao' ? '1' : '2';
+  const cUF = obterCodigoIbgeUf(params.uf);
+  const ano = String(params.ano).replace(/\D/g, '').slice(-2).padStart(2, '0');
+  const cnpj = params.cnpj.replace(/\D/g, '').padStart(14, '0').slice(-14);
+  const seriePad = String(params.serie).padStart(3, '0');
+  const iniPad = String(params.numeroInicial).padStart(9, '0');
+  const fimPad = String(params.numeroFinal).padStart(9, '0');
+  const idInfInut = `ID${cUF}${ano}${cnpj}55${seriePad}${iniPad}${fimPad}`;
+
+  const xmlInut =
+    `<inutNFe xmlns="http://www.portalfiscal.inf.br/nfe" versao="4.00">` +
+      `<infInut Id="${idInfInut}">` +
+        `<tpAmb>${tpAmb}</tpAmb>` +
+        `<xServ>INUTILIZAR</xServ>` +
+        `<cUF>${cUF}</cUF>` +
+        `<ano>${ano}</ano>` +
+        `<CNPJ>${cnpj}</CNPJ>` +
+        `<mod>55</mod>` +
+        `<serie>${params.serie}</serie>` +
+        `<nNFIni>${params.numeroInicial}</nNFIni>` +
+        `<nNFFin>${params.numeroFinal}</nNFFin>` +
+        `<xJust>${escaparXml(params.justificativa.trim())}</xJust>` +
+      `</infInut>` +
+    `</inutNFe>`;
+
+  return { idInfInut, xmlInut };
+}
+
+function montarEnvelopeSoapRecepcaoEvento(xmlEventoAssinado: string, idLote?: string): string {
+  const eventoSemDecl = removerDeclaracaoXml(xmlEventoAssinado);
+  const lote = (idLote || String(Date.now()).slice(-15)).replace(/\D/g, '').slice(0, 15) || '1';
+  return (
+    `<?xml version="1.0" encoding="utf-8"?>` +
+    `<soap12:Envelope xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:soap12="http://www.w3.org/2003/05/soap-envelope">` +
+    `<soap12:Body>` +
+    `<nfeDadosMsg xmlns="http://www.portalfiscal.inf.br/nfe/wsdl/NFeRecepcaoEvento4">` +
+    `<envEvento xmlns="http://www.portalfiscal.inf.br/nfe" versao="1.00">` +
+    `<idLote>${lote}</idLote>` +
+    `${eventoSemDecl}` +
+    `</envEvento>` +
+    `</nfeDadosMsg>` +
+    `</soap12:Body>` +
+    `</soap12:Envelope>`
+  );
+}
+
+function montarEnvelopeSoapInutilizacao(xmlInutAssinado: string): string {
+  const inutSemDecl = removerDeclaracaoXml(xmlInutAssinado);
+  return (
+    `<?xml version="1.0" encoding="utf-8"?>` +
+    `<soap12:Envelope xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:soap12="http://www.w3.org/2003/05/soap-envelope">` +
+    `<soap12:Body>` +
+    `<nfeDadosMsg xmlns="http://www.portalfiscal.inf.br/nfe/wsdl/NFeInutilizacao4">` +
+    `${inutSemDecl}` +
+    `</nfeDadosMsg>` +
+    `</soap12:Body>` +
+    `</soap12:Envelope>`
+  );
+}
+
+function montarXmlProcEventoNFe(xmlEventoAssinado: string, xmlRetEvento: string): string {
+  return (
+    `<?xml version="1.0" encoding="UTF-8"?>` +
+    `<procEventoNFe xmlns="http://www.portalfiscal.inf.br/nfe" versao="1.00">` +
+    `${removerDeclaracaoXml(xmlEventoAssinado)}` +
+    `${removerDeclaracaoXml(xmlRetEvento)}` +
+    `</procEventoNFe>`
+  );
+}
+
+function montarXmlProcInutNFe(xmlInutAssinado: string, xmlRetInutNFe: string): string {
+  return (
+    `<?xml version="1.0" encoding="UTF-8"?>` +
+    `<procInutNFe xmlns="http://www.portalfiscal.inf.br/nfe" versao="4.00">` +
+    `${removerDeclaracaoXml(xmlInutAssinado)}` +
+    `${removerDeclaracaoXml(xmlRetInutNFe)}` +
+    `</procInutNFe>`
+  );
+}
+
+export function parsearRetornoEventoSefazXml(xmlResposta: string) {
+  const xmlRetEvento = extrairBlocoCompleto(xmlResposta, 'retEvento');
+  const blocoInf = xmlRetEvento ? extrairBlocoCompleto(xmlRetEvento, 'infEvento') : xmlResposta;
+  const target = blocoInf || xmlResposta;
+  const cStat = extrairTagSimples(target, 'cStat') || extrairTagSimples(xmlResposta, 'cStat');
+  const xMotivo = extrairTagSimples(target, 'xMotivo') || extrairTagSimples(xmlResposta, 'xMotivo');
+  const nProt = extrairTagSimples(target, 'nProt');
+  const dhRegEvento = extrairTagSimples(target, 'dhRegEvento');
+  const chNFe = extrairTagSimples(target, 'chNFe');
+
+  return {
+    cStat,
+    xMotivo,
+    nProt,
+    dhRegEvento,
+    chNFe,
+    xmlRetEvento,
+    interpretacao: interpretarCodigoSefaz(cStat || '000', xMotivo),
+  };
+}
+
+export function parsearRetornoInutilizacaoSefazXml(xmlResposta: string) {
+  const xmlRetInut = extrairBlocoCompleto(xmlResposta, 'retInutNFe');
+  const blocoInf = xmlRetInut ? extrairBlocoCompleto(xmlRetInut, 'infInut') : xmlResposta;
+  const target = blocoInf || xmlResposta;
+  const cStat = extrairTagSimples(target, 'cStat') || extrairTagSimples(xmlResposta, 'cStat');
+  const xMotivo = extrairTagSimples(target, 'xMotivo') || extrairTagSimples(xmlResposta, 'xMotivo');
+  const nProt = extrairTagSimples(target, 'nProt');
+  const dhRecbto = extrairTagSimples(target, 'dhRecbto');
+
+  return {
+    cStat,
+    xMotivo,
+    nProt,
+    dhRecbto,
+    xmlRetInut,
+    interpretacao: interpretarCodigoSefaz(cStat || '000', xMotivo),
+  };
+}
+
+export interface ResultadoEventoOuInutSefaz {
+  modoTransporte: ModoTransporteSefaz;
+  endpointUrl: string;
+  httpStatus: number | null;
+  indisponivel: boolean;
+  duracaoMs: number;
+  xmlRequisicao: string;
+  xmlResposta: string | null;
+  xmlProcAutorizado: string | null;
+  erroRede: string | null;
+  cStat: string | null;
+  xMotivo: string | null;
+  nProt: string | null;
+  interpretacao: ReturnType<typeof interpretarCodigoSefaz>;
+}
+
+export async function enviarEventoSefaz(params: {
+  uf: string;
+  ambiente: AmbienteSefaz;
+  chaveAcesso: string;
+  tpEvento: '110111' | '110110';
+  nSeqEvento: number;
+  xmlEventoAssinado: string;
+  pfxBuffer?: Buffer;
+  senha?: string;
+  cenarioTeste?: CenarioSimulacaoSefaz;
+  cStatSimulado?: string;
+  xMotivoSimulado?: string;
+  modoTransporte?: ModoTransporteSefaz;
+}): Promise<ResultadoEventoOuInutSefaz> {
+  const modo = resolverModoTransporte(params.ambiente, params.cenarioTeste, params.modoTransporte);
+  const endpointUrl = resolverUrlEventoOuInutilizacao(params.uf, params.ambiente, 'evento');
+  const soapXml = montarEnvelopeSoapRecepcaoEvento(params.xmlEventoAssinado);
+
+  if (modo === 'simulado') {
+    const inicio = Date.now();
+    const dhRegEvento = formatarDataHoraSefaz();
+    const cOrgao = obterCodigoIbgeUf(params.uf);
+
+    if (params.cenarioTeste === 'indisponivel') {
+      const errMsg = 'SEFAZ Recepção Evento indisponível (Simulado HTTP 503).';
+      return {
+        modoTransporte: 'simulado',
+        endpointUrl,
+        httpStatus: 503,
+        indisponivel: true,
+        duracaoMs: Date.now() - inicio,
+        xmlRequisicao: soapXml,
+        xmlResposta: null,
+        xmlProcAutorizado: null,
+        erroRede: errMsg,
+        cStat: '108',
+        xMotivo: errMsg,
+        nProt: null,
+        interpretacao: interpretarCodigoSefaz('108', errMsg),
+      };
+    }
+
+    if (params.cenarioTeste === 'rejeitada') {
+      const cStat = params.cStatSimulado || (params.tpEvento === '110111' ? '501' : '573');
+      const xMotivo =
+        params.xMotivoSimulado ||
+        (cStat === '501'
+          ? 'Rejeicao: Prazo de Cancelamento Superior ao Previsto na Legislacao [Simulado]'
+          : 'Rejeicao: Duplicidade de Evento [Simulado]');
+      const retEvt =
+        `<retEvento versao="1.00"><infEvento>` +
+        `<tpAmb>2</tpAmb><verAplic>SP_EVENTOS_V1</verAplic><cOrgao>${cOrgao}</cOrgao>` +
+        `<cStat>${cStat}</cStat><xMotivo>${escaparXml(xMotivo)}</xMotivo>` +
+        `<chNFe>${params.chaveAcesso}</chNFe><tpEvento>${params.tpEvento}</tpEvento>` +
+        `<nSeqEvento>${params.nSeqEvento}</nSeqEvento><dhRegEvento>${dhRegEvento}</dhRegEvento>` +
+        `</infEvento></retEvento>`;
+      const xmlResposta =
+        `<?xml version="1.0" encoding="utf-8"?><soap12:Envelope xmlns:soap12="http://www.w3.org/2003/05/soap-envelope"><soap12:Body>` +
+        `<nfeResultMsg xmlns="http://www.portalfiscal.inf.br/nfe/wsdl/NFeRecepcaoEvento4">` +
+        `<retEnvEvento xmlns="http://www.portalfiscal.inf.br/nfe" versao="1.00"><cStat>128</cStat><xMotivo>Lote de Evento Processado</xMotivo>${retEvt}</retEnvEvento>` +
+        `</nfeResultMsg></soap12:Body></soap12:Envelope>`;
+      const parsed = parsearRetornoEventoSefazXml(xmlResposta);
+      return {
+        modoTransporte: 'simulado',
+        endpointUrl,
+        httpStatus: 200,
+        indisponivel: false,
+        duracaoMs: Date.now() - inicio,
+        xmlRequisicao: soapXml,
+        xmlResposta,
+        xmlProcAutorizado: null,
+        erroRede: null,
+        cStat: parsed.cStat,
+        xMotivo: parsed.xMotivo,
+        nProt: null,
+        interpretacao: parsed.interpretacao,
+      };
+    }
+
+    const nProt = gerarNumeroProtocoloSimulado(params.uf);
+    const cStat = params.cStatSimulado || '135';
+    const xMotivo = params.xMotivoSimulado || 'Evento registrado e vinculado a NF-e';
+    const retEvt =
+      `<retEvento xmlns="http://www.portalfiscal.inf.br/nfe" versao="1.00"><infEvento>` +
+      `<tpAmb>2</tpAmb><verAplic>SP_EVENTOS_V1</verAplic><cOrgao>${cOrgao}</cOrgao>` +
+      `<cStat>${cStat}</cStat><xMotivo>${escaparXml(xMotivo)}</xMotivo>` +
+      `<chNFe>${params.chaveAcesso}</chNFe><tpEvento>${params.tpEvento}</tpEvento>` +
+      `<nSeqEvento>${params.nSeqEvento}</nSeqEvento><dhRegEvento>${dhRegEvento}</dhRegEvento>` +
+      `<nProt>${nProt}</nProt></infEvento></retEvento>`;
+    const xmlResposta =
+      `<?xml version="1.0" encoding="utf-8"?><soap12:Envelope xmlns:soap12="http://www.w3.org/2003/05/soap-envelope"><soap12:Body>` +
+      `<nfeResultMsg xmlns="http://www.portalfiscal.inf.br/nfe/wsdl/NFeRecepcaoEvento4">` +
+      `<retEnvEvento xmlns="http://www.portalfiscal.inf.br/nfe" versao="1.00"><cStat>128</cStat><xMotivo>Lote de Evento Processado</xMotivo>${retEvt}</retEnvEvento>` +
+      `</nfeResultMsg></soap12:Body></soap12:Envelope>`;
+    const parsed = parsearRetornoEventoSefazXml(xmlResposta);
+
+    return {
+      modoTransporte: 'simulado',
+      endpointUrl,
+      httpStatus: 200,
+      indisponivel: false,
+      duracaoMs: Date.now() - inicio,
+      xmlRequisicao: soapXml,
+      xmlResposta,
+      xmlProcAutorizado: montarXmlProcEventoNFe(params.xmlEventoAssinado, retEvt),
+      erroRede: null,
+      cStat: parsed.cStat,
+      xMotivo: parsed.xMotivo,
+      nProt: parsed.nProt,
+      interpretacao: parsed.interpretacao,
+    };
+  }
+
+  if (!params.pfxBuffer || !params.senha) {
+    throw Object.assign(
+      new Error('Certificado A1 (PFX e senha) obrigatório para enviar eventos à SEFAZ.'),
+      { statusCode: 400 }
+    );
+  }
+
+  const inicio = Date.now();
+  const resp = await enviarSoapMtls({
+    endpointUrl,
+    soapXml,
+    pfxBuffer: params.pfxBuffer,
+    senha: params.senha,
+  });
+  const duracaoMs = Date.now() - inicio;
+
+  if (resp.indisponivel || !resp.body) {
+    return {
+      modoTransporte: 'sefaz_soap',
+      endpointUrl,
+      httpStatus: resp.httpStatus,
+      indisponivel: true,
+      duracaoMs,
+      xmlRequisicao: soapXml,
+      xmlResposta: resp.body,
+      xmlProcAutorizado: null,
+      erroRede: resp.erroRede,
+      cStat: '108',
+      xMotivo: resp.erroRede || 'SEFAZ indisponível',
+      nProt: null,
+      interpretacao: interpretarCodigoSefaz('108', resp.erroRede),
+    };
+  }
+
+  const parsed = parsearRetornoEventoSefazXml(resp.body);
+  const ehIndisponivel = parsed.interpretacao.categoria === 'indisponivel';
+  const ehAutorizada = parsed.interpretacao.categoria === 'autorizada';
+
+  return {
+    modoTransporte: 'sefaz_soap',
+    endpointUrl,
+    httpStatus: resp.httpStatus,
+    indisponivel: ehIndisponivel,
+    duracaoMs,
+    xmlRequisicao: soapXml,
+    xmlResposta: resp.body,
+    xmlProcAutorizado:
+      ehAutorizada && parsed.xmlRetEvento
+        ? montarXmlProcEventoNFe(params.xmlEventoAssinado, parsed.xmlRetEvento)
+        : null,
+    erroRede: ehIndisponivel ? parsed.xMotivo || 'SEFAZ indisponível' : null,
+    cStat: parsed.cStat,
+    xMotivo: parsed.xMotivo,
+    nProt: parsed.nProt,
+    interpretacao: parsed.interpretacao,
+  };
+}
+
+export async function enviarInutilizacaoSefaz(params: {
+  uf: string;
+  ambiente: AmbienteSefaz;
+  xmlInutAssinado: string;
+  pfxBuffer?: Buffer;
+  senha?: string;
+  cenarioTeste?: CenarioSimulacaoSefaz;
+  cStatSimulado?: string;
+  xMotivoSimulado?: string;
+  modoTransporte?: ModoTransporteSefaz;
+}): Promise<ResultadoEventoOuInutSefaz> {
+  const modo = resolverModoTransporte(params.ambiente, params.cenarioTeste, params.modoTransporte);
+  const endpointUrl = resolverUrlEventoOuInutilizacao(params.uf, params.ambiente, 'inutilizacao');
+  const soapXml = montarEnvelopeSoapInutilizacao(params.xmlInutAssinado);
+
+  if (modo === 'simulado') {
+    const inicio = Date.now();
+    const dhRecbto = formatarDataHoraSefaz();
+    const cUF = obterCodigoIbgeUf(params.uf);
+
+    if (params.cenarioTeste === 'indisponivel') {
+      const errMsg = 'SEFAZ Inutilização indisponível (Simulado HTTP 503).';
+      return {
+        modoTransporte: 'simulado',
+        endpointUrl,
+        httpStatus: 503,
+        indisponivel: true,
+        duracaoMs: Date.now() - inicio,
+        xmlRequisicao: soapXml,
+        xmlResposta: null,
+        xmlProcAutorizado: null,
+        erroRede: errMsg,
+        cStat: '108',
+        xMotivo: errMsg,
+        nProt: null,
+        interpretacao: interpretarCodigoSefaz('108', errMsg),
+      };
+    }
+
+    if (params.cenarioTeste === 'rejeitada') {
+      const cStat = params.cStatSimulado || '563';
+      const xMotivo =
+        params.xMotivoSimulado ||
+        'Rejeicao: Ja existe pedido de Inutilizacao com a mesma faixa de inutilizacao [Simulado]';
+      const retInut =
+        `<retInutNFe xmlns="http://www.portalfiscal.inf.br/nfe" versao="4.00"><infInut>` +
+        `<tpAmb>2</tpAmb><verAplic>SP_NFE_V4</verAplic><cStat>${cStat}</cStat>` +
+        `<xMotivo>${escaparXml(xMotivo)}</xMotivo><cUF>${cUF}</cUF><dhRecbto>${dhRecbto}</dhRecbto>` +
+        `</infInut></retInutNFe>`;
+      const xmlResposta =
+        `<?xml version="1.0" encoding="utf-8"?><soap12:Envelope xmlns:soap12="http://www.w3.org/2003/05/soap-envelope"><soap12:Body>` +
+        `<nfeResultMsg xmlns="http://www.portalfiscal.inf.br/nfe/wsdl/NFeInutilizacao4">${retInut}</nfeResultMsg>` +
+        `</soap12:Body></soap12:Envelope>`;
+      const parsed = parsearRetornoInutilizacaoSefazXml(xmlResposta);
+      return {
+        modoTransporte: 'simulado',
+        endpointUrl,
+        httpStatus: 200,
+        indisponivel: false,
+        duracaoMs: Date.now() - inicio,
+        xmlRequisicao: soapXml,
+        xmlResposta,
+        xmlProcAutorizado: null,
+        erroRede: null,
+        cStat: parsed.cStat,
+        xMotivo: parsed.xMotivo,
+        nProt: null,
+        interpretacao: parsed.interpretacao,
+      };
+    }
+
+    const nProt = gerarNumeroProtocoloSimulado(params.uf);
+    const cStat = params.cStatSimulado || '102';
+    const xMotivo = params.xMotivoSimulado || 'Inutilizacao de numero homologado';
+    const retInut =
+      `<retInutNFe xmlns="http://www.portalfiscal.inf.br/nfe" versao="4.00"><infInut>` +
+      `<tpAmb>2</tpAmb><verAplic>SP_NFE_V4</verAplic><cStat>${cStat}</cStat>` +
+      `<xMotivo>${escaparXml(xMotivo)}</xMotivo><cUF>${cUF}</cUF><dhRecbto>${dhRecbto}</dhRecbto>` +
+      `<nProt>${nProt}</nProt></infInut></retInutNFe>`;
+    const xmlResposta =
+      `<?xml version="1.0" encoding="utf-8"?><soap12:Envelope xmlns:soap12="http://www.w3.org/2003/05/soap-envelope"><soap12:Body>` +
+      `<nfeResultMsg xmlns="http://www.portalfiscal.inf.br/nfe/wsdl/NFeInutilizacao4">${retInut}</nfeResultMsg>` +
+      `</soap12:Body></soap12:Envelope>`;
+    const parsed = parsearRetornoInutilizacaoSefazXml(xmlResposta);
+
+    return {
+      modoTransporte: 'simulado',
+      endpointUrl,
+      httpStatus: 200,
+      indisponivel: false,
+      duracaoMs: Date.now() - inicio,
+      xmlRequisicao: soapXml,
+      xmlResposta,
+      xmlProcAutorizado: montarXmlProcInutNFe(params.xmlInutAssinado, retInut),
+      erroRede: null,
+      cStat: parsed.cStat,
+      xMotivo: parsed.xMotivo,
+      nProt: parsed.nProt,
+      interpretacao: parsed.interpretacao,
+    };
+  }
+
+  if (!params.pfxBuffer || !params.senha) {
+    throw Object.assign(
+      new Error('Certificado A1 (PFX e senha) obrigatório para inutilizar numeração na SEFAZ.'),
+      { statusCode: 400 }
+    );
+  }
+
+  const inicio = Date.now();
+  const resp = await enviarSoapMtls({
+    endpointUrl,
+    soapXml,
+    pfxBuffer: params.pfxBuffer,
+    senha: params.senha,
+  });
+  const duracaoMs = Date.now() - inicio;
+
+  if (resp.indisponivel || !resp.body) {
+    return {
+      modoTransporte: 'sefaz_soap',
+      endpointUrl,
+      httpStatus: resp.httpStatus,
+      indisponivel: true,
+      duracaoMs,
+      xmlRequisicao: soapXml,
+      xmlResposta: resp.body,
+      xmlProcAutorizado: null,
+      erroRede: resp.erroRede,
+      cStat: '108',
+      xMotivo: resp.erroRede || 'SEFAZ indisponível',
+      nProt: null,
+      interpretacao: interpretarCodigoSefaz('108', resp.erroRede),
+    };
+  }
+
+  const parsed = parsearRetornoInutilizacaoSefazXml(resp.body);
+  const ehIndisponivel = parsed.interpretacao.categoria === 'indisponivel';
+  const ehAutorizada = parsed.interpretacao.categoria === 'autorizada';
+
+  return {
+    modoTransporte: 'sefaz_soap',
+    endpointUrl,
+    httpStatus: resp.httpStatus,
+    indisponivel: ehIndisponivel,
+    duracaoMs,
+    xmlRequisicao: soapXml,
+    xmlResposta: resp.body,
+    xmlProcAutorizado:
+      ehAutorizada && parsed.xmlRetInut
+        ? montarXmlProcInutNFe(params.xmlInutAssinado, parsed.xmlRetInut)
+        : null,
+    erroRede: ehIndisponivel ? parsed.xMotivo || 'SEFAZ indisponível' : null,
+    cStat: parsed.cStat,
+    xMotivo: parsed.xMotivo,
+    nProt: parsed.nProt,
+    interpretacao: parsed.interpretacao,
+  };
+}
+

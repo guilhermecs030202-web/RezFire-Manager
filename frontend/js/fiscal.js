@@ -157,29 +157,68 @@
     const kpiCertHint = document.getElementById('kpi-cert-hint');
     const badgeCert = document.getElementById('badge-certificado');
     const boxMeta = document.getElementById('certificado-metadados');
+    const boxAlertaCert = document.getElementById('certificado-alerta-vencimento');
+    const alertaCertTitulo = document.getElementById('cert-alerta-titulo');
+    const alertaCertMsg = document.getElementById('cert-alerta-mensagem');
 
     if (emitente && emitente.certificado_configurado) {
       const dias = emitente.certificado_dias_restantes;
       const vencido = emitente.certificado_status === 'vencido';
       const vencendo = emitente.certificado_status === 'vencendo';
+      const antecedencia = emitente.certificado_antecedencia_alerta_dias || 30;
 
       kpiCert.textContent = vencido ? 'VENCIDO' : vencendo ? `Vence em ${dias}d` : 'Válido (A1)';
       kpiCert.style.color = vencido ? '#dc2626' : vencendo ? '#d97706' : '#15803d';
       kpiCertHint.textContent = `Válido até ${formatarData(emitente.certificado_valido_ate)}`;
 
-      badgeCert.textContent = vencido ? 'Vencido' : vencendo ? 'Vencendo' : 'Instalado';
+      badgeCert.textContent = vencido ? 'Vencido (Bloqueado)' : vencendo ? `Vence em ${dias}d` : 'Instalado';
       badgeCert.className = vencido
-        ? 'inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold bg-red-100 text-red-800'
+        ? 'inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold bg-red-100 text-red-800 border border-red-300'
         : vencendo
-        ? 'inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold bg-amber-100 text-amber-800'
+        ? 'inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold bg-amber-100 text-amber-800 border border-amber-300'
         : 'inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800';
 
+      if (boxAlertaCert && alertaCertTitulo && alertaCertMsg) {
+        if (vencido) {
+          boxAlertaCert.style.display = 'block';
+          boxAlertaCert.className = 'p-3 rounded-xl text-xs space-y-1.5 mb-3 border bg-red-50 border-red-300 text-red-900';
+          alertaCertTitulo.textContent = '🚨 Certificado Digital A1 VENCIDO — Emissão Bloqueada';
+          alertaCertMsg.textContent =
+            emitente.certificado_mensagem_alerta ||
+            `O certificado digital venceu em ${formatarData(emitente.certificado_valido_ate)}. Envie um novo arquivo .pfx/.p12 válido abaixo para desbloquear a emissão de NF-e.`;
+        } else if (vencendo) {
+          boxAlertaCert.style.display = 'block';
+          boxAlertaCert.className = 'p-3 rounded-xl text-xs space-y-1.5 mb-3 border bg-amber-50 border-amber-300 text-amber-900';
+          alertaCertTitulo.textContent = `⚠️ Alerta de Vencimento (${dias} dia(s) restante(s) · aviso ${antecedencia}d)`;
+          alertaCertMsg.textContent =
+            emitente.certificado_mensagem_alerta ||
+            `O certificado digital expira em ${formatarData(emitente.certificado_valido_ate)}. Providencie a renovação a tempo para evitar interrupção na emissão de NF-e.`;
+        } else {
+          boxAlertaCert.style.display = 'none';
+        }
+      }
+
       boxMeta.style.display = 'block';
+      boxMeta.className = vencido
+        ? 'p-3 bg-red-50 border border-red-200 rounded-xl text-xs space-y-1.5 mb-4'
+        : vencendo
+        ? 'p-3 bg-amber-50 border border-amber-200 rounded-xl text-xs space-y-1.5 mb-4'
+        : 'p-3 bg-emerald-50 border border-emerald-200 rounded-xl text-xs space-y-1.5 mb-4';
       document.getElementById('cert-meta-titular').textContent = emitente.certificado_titular || '—';
       document.getElementById('cert-meta-emissor').textContent = emitente.certificado_emissor || '—';
       document.getElementById('cert-meta-cnpj').textContent = formatarCnpj(emitente.certificado_cnpj || '');
       document.getElementById('cert-meta-validade').textContent = `${formatarData(emitente.certificado_valido_de)} até ${formatarData(emitente.certificado_valido_ate)}`;
-      document.getElementById('cert-meta-dias').textContent = vencido ? 'EXPIRADO' : `${dias} dias restantes`;
+      const diasEl = document.getElementById('cert-meta-dias');
+      if (diasEl) {
+        diasEl.textContent = vencido
+          ? `EXPIRADO (${Math.abs(dias || 0)}d atrás)`
+          : `${dias} dias restantes`;
+        diasEl.className = vencido
+          ? 'font-bold text-red-700'
+          : vencendo
+          ? 'font-bold text-amber-800'
+          : 'font-bold text-emerald-700';
+      }
     } else {
       kpiCert.textContent = 'Não instalado';
       kpiCert.style.color = '#78716c';
@@ -187,6 +226,7 @@
       badgeCert.textContent = 'Não instalado';
       badgeCert.className = 'inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold bg-stone-100 text-stone-700';
       boxMeta.style.display = 'none';
+      if (boxAlertaCert) boxAlertaCert.style.display = 'none';
     }
   }
 

@@ -60,6 +60,7 @@ import {
   validarInscricaoEstadual,
 } from '../utils/fiscalValidator';
 import { ProdutoService } from './produto.service';
+import { NotificacaoService } from './notificacao.service';
 
 export interface SalvarEmitenteDTO {
   razao_social: string;
@@ -85,6 +86,7 @@ export interface SalvarEmitenteDTO {
 
 export class FiscalService {
   private produtoService = new ProdutoService();
+  private notificacaoService = new NotificacaoService();
 
   private get emitenteRepo() {
     return AppDataSource.getRepository(EmitenteFiscal);
@@ -129,16 +131,26 @@ export class FiscalService {
     let diasRestantes: number | null = null;
     let certificadoStatus: 'nao_configurado' | 'valido' | 'vencendo' | 'vencido' =
       'nao_configurado';
+    const antecedenciaAlertaDias = Number(env.FISCAL_ALERTA_CERTIFICADO_DIAS || 30);
+    let certificadoMensagemAlerta: string | null = null;
 
     if (possuiCertificado && emitente.certificado_valido_ate) {
-      const diffMs = new Date(emitente.certificado_valido_ate).getTime() - agora.getTime();
-      diasRestantes = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
-      if (diasRestantes < 0) {
+      const dataValidade = new Date(emitente.certificado_valido_ate);
+      const dataValidadeBr = dataValidade.toLocaleDateString('pt-BR', { timeZone: 'UTC' });
+      const diffMs = dataValidade.getTime() - agora.getTime();
+      if (diffMs <= 0) {
+        const diasVencidos = Math.max(1, Math.ceil(Math.abs(diffMs) / (1000 * 60 * 60 * 24)));
+        diasRestantes = -diasVencidos;
         certificadoStatus = 'vencido';
-      } else if (diasRestantes <= 30) {
-        certificadoStatus = 'vencendo';
+        certificadoMensagemAlerta = `O certificado digital A1 venceu em ${dataValidadeBr} (há ${diasVencidos} dia(s)). A emissão e transmissão de NF-e estão bloqueadas até a substituição por um novo certificado válido.`;
       } else {
-        certificadoStatus = 'valido';
+        diasRestantes = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
+        if (diasRestantes <= antecedenciaAlertaDias) {
+          certificadoStatus = 'vencendo';
+          certificadoMensagemAlerta = `Atenção: o certificado digital A1 vence em ${diasRestantes} dia(s) (${dataValidadeBr}). Providencie a renovação antes do vencimento para evitar bloqueio na emissão de NF-e.`;
+        } else {
+          certificadoStatus = 'valido';
+        }
       }
     }
 
@@ -146,7 +158,12 @@ export class FiscalService {
     if (!possuiCertificado) {
       pendencias.push('Certificado digital A1 (.pfx / .p12) não instalado.');
     } else if (certificadoStatus === 'vencido') {
-      pendencias.push('Certificado digital A1 está vencido. Envie um novo certificado válido.');
+      const dataExpBr = new Date(emitente.certificado_valido_ate!).toLocaleDateString('pt-BR', {
+        timeZone: 'UTC',
+      });
+      pendencias.push(
+        `Certificado digital A1 está vencido desde ${dataExpBr}. Substitua por um novo certificado válido.`
+      );
     } else if (emitente.certificado_cnpj !== emitente.cnpj) {
       pendencias.push('CNPJ do certificado A1 diverge do CNPJ do emitente.');
     }
@@ -178,6 +195,10 @@ export class FiscalService {
       certificado_configurado: possuiCertificado,
       certificado_status: certificadoStatus,
       certificado_dias_restantes: diasRestantes,
+      certificado_antecedencia_alerta_dias: antecedenciaAlertaDias,
+      certificado_alerta_ativo:
+        certificadoStatus === 'vencendo' || certificadoStatus === 'vencido',
+      certificado_mensagem_alerta: certificadoMensagemAlerta,
       certificado_titular: emitente.certificado_titular,
       certificado_emissor: emitente.certificado_emissor,
       certificado_cnpj: emitente.certificado_cnpj,
@@ -412,6 +433,8 @@ export class FiscalService {
     const novoNomeArquivo = `emitente-${emitente.id_emitente}-${Date.now()}-${randomUUID().slice(0, 8)}.pfx.enc`;
     const novoCaminho = path.join(env.FISCAL_VAULT_DIR, novoNomeArquivo);
     const arquivoAnterior = emitente.certificado_arquivo_enc;
+    const serialAnterior = emitente.certificado_serial || null;
+    const validoAteAnterior = emitente.certificado_valido_ate || null;
 
     fs.writeFileSync(novoCaminho, encryptedPfx, { mode: 0o600 });
 
@@ -437,7 +460,36 @@ export class FiscalService {
         }
       }
 
-      return this.toEmitentePublicDTO(salvo);
+      // Critério 4 da Story 33g: substituir o certificado preserva integralmente o histórico de notas emitidas
+      const totalNotasHistorico = await this.notaFiscalRepo.count();
+      const dto = this.toEmitentePublicDTO(salvo)!;
+
+      if (
+        (dto.certificado_status === 'vencendo' || dto.certificado_status === 'vencido') &&
+        salvo.certificado_valido_ate
+      ) {
+        await this.notificacaoService
+          .notificarGestorVencimentoCertificado({
+            id_emitente: salvo.id_emitente,
+            razao_social: salvo.razao_social,
+            cnpj: salvo.cnpj,
+            titular: salvo.certificado_titular || salvo.razao_social,
+            serial: salvo.certificado_serial,
+            valido_ate: salvo.certificado_valido_ate,
+            dias_restantes: dto.certificado_dias_restantes ?? 0,
+            status: dto.certificado_status,
+            antecedencia_dias: dto.certificado_antecedencia_alerta_dias,
+          })
+          .catch(() => null);
+      }
+
+      return {
+        ...dto,
+        substituicao_certificado: Boolean(serialAnterior),
+        certificado_anterior_serial: serialAnterior,
+        certificado_anterior_valido_ate: validoAteAnterior,
+        total_notas_historico_preservadas: totalNotasHistorico,
+      };
     } catch (error) {
       // Rollback do arquivo recém-gravado em caso de falha na persistência
       if (fs.existsSync(novoCaminho)) {
@@ -483,6 +535,141 @@ export class FiscalService {
 
     const salvo = await this.emitenteRepo.save(emitente);
     return this.toEmitentePublicDTO(salvo);
+  }
+
+  /**
+   * Story 33g: Inspeciona a validade do certificado digital A1 cadastrado, calcula a antecedência
+   * configurada, gera o alerta correspondente e confirma a preservação do histórico de NF-es.
+   */
+  async obterStatusValidadeCertificado(antecedenciaCustomDias?: number) {
+    const emitente = await this.emitenteRepo.findOne({ where: {} });
+    const totalNotasHistorico = await this.notaFiscalRepo.count();
+    const antecedenciaPadrao = Number(env.FISCAL_ALERTA_CERTIFICADO_DIAS || 30);
+    const antecedenciaDias =
+      typeof antecedenciaCustomDias === 'number' &&
+      Number.isFinite(antecedenciaCustomDias) &&
+      antecedenciaCustomDias >= 1
+        ? Math.floor(antecedenciaCustomDias)
+        : antecedenciaPadrao;
+
+    if (!emitente || !emitente.certificado_cnpj || !emitente.certificado_valido_ate) {
+      return {
+        configurado: false,
+        status: 'nao_configurado' as const,
+        titular: null,
+        emissor: null,
+        cnpj: null,
+        serial: null,
+        valido_de: null,
+        valido_ate: null,
+        dias_restantes: null,
+        antecedencia_alerta_dias: antecedenciaDias,
+        alerta_ativo: false,
+        criticidade_alerta: null,
+        bloqueia_emissao: true,
+        mensagem:
+          'Nenhum certificado digital A1 (.pfx/.p12) instalado. Instale um certificado válido para emitir NF-e.',
+        total_notas_historico: totalNotasHistorico,
+      };
+    }
+
+    const agora = new Date();
+    const validoAte = new Date(emitente.certificado_valido_ate);
+    const dataValidadeBr = validoAte.toLocaleDateString('pt-BR', { timeZone: 'UTC' });
+    const diffMs = validoAte.getTime() - agora.getTime();
+    const titular = emitente.certificado_titular || emitente.razao_social;
+
+    let status: 'valido' | 'vencendo' | 'vencido' = 'valido';
+    let diasRestantes: number;
+    let alertaAtivo = false;
+    let criticidadeAlerta: 'critico' | 'atencao' | null = null;
+    let bloqueiaEmissao = false;
+    let mensagem: string;
+
+    if (diffMs <= 0) {
+      const diasVencidos = Math.max(1, Math.ceil(Math.abs(diffMs) / (1000 * 60 * 60 * 24)));
+      diasRestantes = -diasVencidos;
+      status = 'vencido';
+      alertaAtivo = true;
+      criticidadeAlerta = 'critico';
+      bloqueiaEmissao = true;
+      mensagem = `Certificado digital A1 VENCIDO em ${dataValidadeBr} (há ${diasVencidos} dia(s)). A emissão e transmissão de NF-e estão bloqueadas até a substituição por um novo certificado válido.`;
+    } else {
+      diasRestantes = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
+      if (diasRestantes <= antecedenciaDias) {
+        status = 'vencendo';
+        alertaAtivo = true;
+        criticidadeAlerta = diasRestantes <= 7 ? 'critico' : 'atencao';
+        bloqueiaEmissao = false;
+        mensagem = `Certificado digital A1 vence em ${diasRestantes} dia(s) (${dataValidadeBr}) — dentro da antecedência de alerta de ${antecedenciaDias} dias. Providencie a renovação para não interromper a emissão de notas.`;
+      } else {
+        status = 'valido';
+        alertaAtivo = false;
+        criticidadeAlerta = null;
+        bloqueiaEmissao = false;
+        mensagem = `Certificado digital A1 válido até ${dataValidadeBr} (${diasRestantes} dias restantes).`;
+      }
+    }
+
+    if (status === 'vencendo' || status === 'vencido') {
+      await this.notificacaoService
+        .notificarGestorVencimentoCertificado({
+          id_emitente: emitente.id_emitente,
+          razao_social: emitente.razao_social,
+          cnpj: emitente.cnpj,
+          titular,
+          serial: emitente.certificado_serial,
+          valido_ate: validoAte,
+          dias_restantes: diasRestantes,
+          status,
+          antecedencia_dias: antecedenciaDias,
+        })
+        .catch(() => null);
+    }
+
+    return {
+      configurado: true,
+      status,
+      titular,
+      emissor: emitente.certificado_emissor,
+      cnpj: emitente.certificado_cnpj,
+      serial: emitente.certificado_serial,
+      valido_de: emitente.certificado_valido_de,
+      valido_ate: emitente.certificado_valido_ate,
+      dias_restantes: diasRestantes,
+      antecedencia_alerta_dias: antecedenciaDias,
+      alerta_ativo: alertaAtivo,
+      criticidade_alerta: criticidadeAlerta,
+      bloqueia_emissao: bloqueiaEmissao,
+      mensagem,
+      total_notas_historico: totalNotasHistorico,
+    };
+  }
+
+  private validarCertificadoAtivoParaOperacaoSefaz(
+    emitente: EmitenteFiscal,
+    operacaoLabel: string
+  ): void {
+    if (!emitente.certificado_cnpj || !emitente.certificado_valido_ate) {
+      throw Object.assign(
+        new Error(
+          `${operacaoLabel} bloqueada: Certificado digital A1 (.pfx/.p12) não instalado no emitente fiscal.`
+        ),
+        { statusCode: 422 }
+      );
+    }
+
+    const validoAte = new Date(emitente.certificado_valido_ate);
+    if (Date.now() >= validoAte.getTime()) {
+      const dataExpBr = validoAte.toLocaleDateString('pt-BR', { timeZone: 'UTC' });
+      const titular = emitente.certificado_titular || emitente.razao_social;
+      throw Object.assign(
+        new Error(
+          `${operacaoLabel} bloqueada: o certificado digital A1 (${titular}) venceu em ${dataExpBr}. Substitua o certificado (.pfx/.p12) na tela Fiscal & NF-e para continuar emitindo ou transmitindo documentos fiscais.`
+        ),
+        { statusCode: 422 }
+      );
+    }
   }
 
   /**
@@ -718,10 +905,15 @@ export class FiscalService {
     const emitenteCheck = await this.emitenteRepo.findOne({ where: {} });
     const erros = validarDadosParaNFe(emitenteCheck, pedido);
     if (erros.length > 0) {
+      const erroCert = erros.find((e) => e.secao === 'certificado');
+      const mensagemBloqueio = erroCert
+        ? `Emissão da NF-e bloqueada: ${erroCert.motivo}`
+        : `Preparação da NF-e bloqueada: ${erros.length} pendência(s) encontrada(s).`;
       return {
         sucesso: false,
         bloqueado: true,
-        mensagem: `Preparação da NF-e bloqueada: ${erros.length} pendência(s) encontrada(s).`,
+        bloqueado_certificado: Boolean(erroCert),
+        mensagem: mensagemBloqueio,
         erros_validacao: erros,
       };
     }
@@ -1139,6 +1331,8 @@ export class FiscalService {
     if (!emitente) {
       throw Object.assign(new Error('Emitente fiscal não cadastrado.'), { statusCode: 400 });
     }
+
+    this.validarCertificadoAtivoParaOperacaoSefaz(emitente, 'Transmissão da NF-e à SEFAZ');
 
     const modo = this.validarGuardrailProducaoESelecionarModo(emitente.ambiente, opcoes);
 
@@ -1863,6 +2057,8 @@ export class FiscalService {
       throw Object.assign(new Error('Emitente fiscal não cadastrado.'), { statusCode: 400 });
     }
 
+    this.validarCertificadoAtivoParaOperacaoSefaz(emitente, 'Cancelamento da NF-e');
+
     const modo = this.validarGuardrailProducaoESelecionarModo(emitente.ambiente, payload);
 
     const nota = await this.notaFiscalRepo.findOne({
@@ -2064,6 +2260,8 @@ export class FiscalService {
     if (!emitente) {
       throw Object.assign(new Error('Emitente fiscal não cadastrado.'), { statusCode: 400 });
     }
+
+    this.validarCertificadoAtivoParaOperacaoSefaz(emitente, 'Carta de Correção Eletrônica (CC-e)');
 
     const modo = this.validarGuardrailProducaoESelecionarModo(emitente.ambiente, payload);
 
@@ -2379,6 +2577,8 @@ export class FiscalService {
     if (!emitente) {
       throw Object.assign(new Error('Emitente fiscal não cadastrado.'), { statusCode: 400 });
     }
+
+    this.validarCertificadoAtivoParaOperacaoSefaz(emitente, 'Inutilização de numeração NF-e');
 
     const modo = this.validarGuardrailProducaoESelecionarModo(emitente.ambiente, payload);
 

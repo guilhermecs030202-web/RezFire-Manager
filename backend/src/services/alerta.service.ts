@@ -1,9 +1,11 @@
 import { AppDataSource } from '../config/database';
+import { env } from '../config/env';
 import { PedidoService } from './pedido.service';
+import { NotificacaoService } from './notificacao.service';
 
 export interface AlertaItem {
   id: string;
-  categoria: 'postagem' | 'estoque' | 'validade' | 'anuncio';
+  categoria: 'postagem' | 'estoque' | 'validade' | 'anuncio' | 'fiscal';
   criticidade: 'critico' | 'atencao';
   titulo: string;
   descricao: string;
@@ -16,10 +18,11 @@ export interface AlertaItem {
 
 export class AlertaService {
   private pedidoService = new PedidoService();
+  private notificacaoService = new NotificacaoService();
 
   /**
    * Consolida todos os alertas operacionais do sistema em um painel único (SCRUM-24 / #19)
-   * Agrega Stories: #4 (Estoque Mínimo), #8 (Validade FEFO), #10 (Prazo Postagem) e #13 (Anúncios ML)
+   * Agrega Stories: #4 (Estoque Mínimo), #8 (Validade FEFO), #10 (Prazo Postagem), #13 (Anúncios ML) e 33g (Certificado Digital A1)
    */
   async obterCentralAlertas(): Promise<{
     resumo: {
@@ -31,6 +34,7 @@ export class AlertaService {
         estoque: number;
         validade: number;
         anuncio: number;
+        fiscal: number;
       };
     };
     alertas: AlertaItem[];
@@ -272,9 +276,128 @@ export class AlertaService {
     }
 
     // ─────────────────────────────────────────────────────────────────────────
+    // 5. Alertas de Vencimento do Certificado Digital A1 (Story 33g)
+    // ─────────────────────────────────────────────────────────────────────────
+    try {
+      const emitentesQuery = await AppDataSource.query(`
+        SELECT
+          id_emitente,
+          razao_social,
+          cnpj,
+          ambiente,
+          certificado_titular,
+          certificado_emissor,
+          certificado_cnpj,
+          certificado_serial,
+          certificado_valido_de,
+          certificado_valido_ate
+        FROM emitente_fiscal
+        LIMIT 1
+      `);
+
+      if (Array.isArray(emitentesQuery) && emitentesQuery.length > 0) {
+        const em = emitentesQuery[0];
+        if (em.certificado_cnpj && em.certificado_valido_ate) {
+          const validoAte = new Date(em.certificado_valido_ate);
+          const diffMs = validoAte.getTime() - agora.getTime();
+          const antecedenciaDias = Number(env.FISCAL_ALERTA_CERTIFICADO_DIAS || 30);
+          const dataValidadeBr = validoAte.toLocaleDateString('pt-BR', { timeZone: 'UTC' });
+          const titular = em.certificado_titular || em.razao_social;
+
+          if (diffMs <= 0) {
+            const diasVencidos = Math.max(1, Math.ceil(Math.abs(diffMs) / (1000 * 60 * 60 * 24)));
+            const diasRestantes = -diasVencidos;
+
+            alertas.push({
+              id: `fiscal-certificado-vencido-${em.id_emitente}`,
+              categoria: 'fiscal',
+              criticidade: 'critico',
+              titulo: `Certificado Digital A1 VENCIDO (${dataValidadeBr})`,
+              descricao: `O certificado digital A1 de "${titular}" (CNPJ ${em.certificado_cnpj}, Série ${em.certificado_serial || 'N/A'}) expirou há ${diasVencidos} dia(s) em ${dataValidadeBr}.`,
+              impacto:
+                'Emissão, assinatura, transmissão, cancelamento e Carta de Correção de NF-e na SEFAZ estão bloqueados até a substituição por um novo certificado A1 válido.',
+              acao_label: 'Substituir Certificado A1',
+              acao_url: 'fiscal.html',
+              dados_origem: {
+                id_emitente: em.id_emitente,
+                certificado_status: 'vencido',
+                certificado_titular: titular,
+                certificado_cnpj: em.certificado_cnpj,
+                certificado_serial: em.certificado_serial,
+                certificado_valido_ate: validoAte.toISOString(),
+                dias_restantes: diasRestantes,
+                antecedencia_alerta_dias: antecedenciaDias,
+                bloqueia_emissao: true,
+              },
+              criado_em: validoAte.toISOString(),
+            });
+
+            await this.notificacaoService
+              .notificarGestorVencimentoCertificado({
+                id_emitente: em.id_emitente,
+                razao_social: em.razao_social,
+                cnpj: em.cnpj,
+                titular,
+                serial: em.certificado_serial,
+                valido_ate: validoAte,
+                dias_restantes: diasRestantes,
+                status: 'vencido',
+                antecedencia_dias: antecedenciaDias,
+              })
+              .catch(() => null);
+          } else {
+            const diasRestantes = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
+            if (diasRestantes <= antecedenciaDias) {
+              const isUrgente = diasRestantes <= 7;
+              alertas.push({
+                id: `fiscal-certificado-vencendo-${em.id_emitente}`,
+                categoria: 'fiscal',
+                criticidade: isUrgente ? 'critico' : 'atencao',
+                titulo: `Certificado Digital A1 vence em ${diasRestantes} dia(s) (${dataValidadeBr})`,
+                descricao: `O certificado digital A1 de "${titular}" (CNPJ ${em.certificado_cnpj}, Série ${em.certificado_serial || 'N/A'}) expira em ${dataValidadeBr} (alerta configurado com ${antecedenciaDias} dias de antecedência).`,
+                impacto:
+                  'Providencie a renovação do certificado digital A1 (.pfx/.p12) antes do vencimento para evitar bloqueio na emissão de NF-e.',
+                acao_label: 'Renovar / Substituir A1',
+                acao_url: 'fiscal.html',
+                dados_origem: {
+                  id_emitente: em.id_emitente,
+                  certificado_status: 'vencendo',
+                  certificado_titular: titular,
+                  certificado_cnpj: em.certificado_cnpj,
+                  certificado_serial: em.certificado_serial,
+                  certificado_valido_ate: validoAte.toISOString(),
+                  dias_restantes: diasRestantes,
+                  antecedencia_alerta_dias: antecedenciaDias,
+                  bloqueia_emissao: false,
+                },
+                criado_em: agora.toISOString(),
+              });
+
+              await this.notificacaoService
+                .notificarGestorVencimentoCertificado({
+                  id_emitente: em.id_emitente,
+                  razao_social: em.razao_social,
+                  cnpj: em.cnpj,
+                  titular,
+                  serial: em.certificado_serial,
+                  valido_ate: validoAte,
+                  dias_restantes: diasRestantes,
+                  status: 'vencendo',
+                  antecedencia_dias: antecedenciaDias,
+                })
+                .catch(() => null);
+            }
+          }
+        }
+      }
+    } catch (err) {
+      console.warn('Aviso ao consultar alerta de validade do certificado digital A1:', err);
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
     // Ordenação por Prioridade Operacional:
-    // 1º Críticos (postagem atrasada, ruptura, vencidos/bloqueados, pausados)
-    // 2º Atenção (postar hoje, estoque baixo, alerta FEFO, divergência)
+    // 1º Críticos (postagem atrasada, ruptura, vencidos/bloqueados, pausados, cert A1 vencido)
+    // 2º Atenção (postar hoje, estoque baixo, alerta FEFO, divergência, cert A1 vencendo)
     // ─────────────────────────────────────────────────────────────────────────
     alertas.sort((a, b) => {
       if (a.criticidade === 'critico' && b.criticidade !== 'critico') return -1;
@@ -291,6 +414,7 @@ export class AlertaService {
         estoque: alertas.filter((a) => a.categoria === 'estoque').length,
         validade: alertas.filter((a) => a.categoria === 'validade').length,
         anuncio: alertas.filter((a) => a.categoria === 'anuncio').length,
+        fiscal: alertas.filter((a) => a.categoria === 'fiscal').length,
       },
     };
 

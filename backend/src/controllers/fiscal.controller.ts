@@ -74,7 +74,12 @@ export class FiscalController {
 
       return res.json({
         sucesso: true,
-        mensagem: 'Certificado digital A1 validado e armazenado com criptografia AES-256-GCM.',
+        mensagem: emitente.substituicao_certificado
+          ? `Certificado digital A1 substituído com sucesso! O histórico de ${emitente.total_notas_historico_preservadas} nota(s) fiscal(is) emitida(s) foi integralmente preservado.`
+          : 'Certificado digital A1 validado e armazenado com criptografia AES-256-GCM.',
+        substituicao_certificado: emitente.substituicao_certificado,
+        certificado_anterior_serial: emitente.certificado_anterior_serial,
+        total_notas_historico_preservadas: emitente.total_notas_historico_preservadas,
         emitente,
       });
     } catch (error: any) {
@@ -98,6 +103,21 @@ export class FiscalController {
       });
     } catch (error: any) {
       return res.status(400).json({ sucesso: false, mensagem: error.message });
+    }
+  }
+
+  async obterStatusCertificado(req: Request, res: Response) {
+    try {
+      const antecedenciaParam = req.query.antecedencia_dias
+        ? Number(req.query.antecedencia_dias)
+        : undefined;
+      const statusCert = await fiscalService.obterStatusValidadeCertificado(antecedenciaParam);
+      return res.json({
+        sucesso: true,
+        ...statusCert,
+      });
+    } catch (error: any) {
+      return res.status(500).json({ sucesso: false, mensagem: error.message });
     }
   }
 

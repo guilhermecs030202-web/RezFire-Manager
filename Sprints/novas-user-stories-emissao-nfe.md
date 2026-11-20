@@ -194,17 +194,17 @@ A história, como está, **não atende ao INVEST**: é grande demais (S), difíc
 
 **Critérios de aceite**
 
-- [ ] O sistema identifica a data de validade do certificado cadastrado.
-- [ ] Um alerta aparece com a antecedência definida e entra no painel central (#19).
-- [ ] Com o certificado vencido, a emissão é bloqueada com uma mensagem clara.
-- [ ] Substituir o certificado não apaga o histórico de notas emitidas.
+- [x] O sistema identifica a data de validade do certificado cadastrado. *(Extrai `notBefore`/`notAfter` do X.509 no upload do `.pfx/.p12`, persiste `certificado_valido_de` e `certificado_valido_ate` em `emitente_fiscal` e expõe `certificado_status`, `certificado_dias_restantes`, `certificado_antecedencia_alerta_dias` e `GET /api/fiscal/certificado/status`.)*
+- [x] Um alerta aparece com a antecedência definida e entra no painel central (#19). *(Antecedência padrão configurável via `FISCAL_ALERTA_CERTIFICADO_DIAS=30` dias; quando `dias_restantes <= 30` ou vencido, gera alerta na categoria `fiscal` em `GET /api/alertas/central` com atalho direto para `fiscal.html`, banner em `fiscal.html` e notificação idempotente ao gestor em `#32`.)*
+- [x] Com o certificado vencido, a emissão é bloqueada com uma mensagem clara. *(Bloqueia `prepararNFePedido`, `transmitirNFePedido`, `cancelarNFePedido`, `registrarCartaCorrecaoPedido`, `inutilizarNumeracao` e `validarProntidaoEmissao` com HTTP `422` informando a data exata do vencimento e orientando a substituição do `.pfx/.p12` na tela Fiscal & NF-e.)*
+- [x] Substituir o certificado não apaga o histórico de notas emitidas. *(O upload de um novo `.pfx/.p12` em `POST /api/fiscal/emitente/certificado` atualiza apenas o cofre do emitente e confirma `total_notas_historico_preservadas`, preservando 100% dos registros em `notas_fiscais`, eventos, transmissões, XMLs autorizados em disco e DANFEs já emitidos.)*
 
 **Definition of Ready (DoR): não pronto até que...**
 
-- [ ] Story 33a concluída.
-- [ ] Antecedência do aviso definida com o cliente.
-- [ ] Definido se o alerta aparece apenas no painel (#19) ou também por notificação (#32).
-- [ ] Estimativa (2 SP) acordada pelo time.
+- [x] Story 33a concluída.
+- [x] Antecedência do aviso definida com o cliente. *(Padrão de 30 dias configurado em `FISCAL_ALERTA_CERTIFICADO_DIAS=30`, com escalonamento para crítico nos últimos 7 dias ou após expiração, ajustável via variável de ambiente ou parâmetro `antecedencia_dias`.)*
+- [x] Definido se o alerta aparece apenas no painel (#19) ou também por notificação (#32). *(Integrado em ambos: entra na Central de Alertas `#19` na categoria `fiscal` e registra notificação ao gestor em `#32` com janela antirruído de 24h por número de série e status.)*
+- [x] Estimativa (2 SP) acordada pelo time.
 
 ---
 

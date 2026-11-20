@@ -159,12 +159,14 @@ export function validarDadosParaNFe(
       });
     } else {
       const agora = new Date();
-      if (agora > new Date(emitente.certificado_valido_ate)) {
+      const dataValidade = new Date(emitente.certificado_valido_ate);
+      if (agora.getTime() >= dataValidade.getTime()) {
+        const dataExpBr = dataValidade.toLocaleDateString('pt-BR', { timeZone: 'UTC' });
         erros.push({
           secao: 'certificado',
           campo: 'certificado_valido_ate',
           label: 'Validade do Certificado A1',
-          motivo: 'O certificado digital A1 está vencido. Instale um certificado válido.',
+          motivo: `O certificado digital A1 (${emitente.certificado_titular || emitente.razao_social}) venceu em ${dataExpBr}. Substitua o certificado (.pfx/.p12) na tela Fiscal & NF-e para desbloquear a emissão de notas.`,
         });
       }
       if (limparDigitos(emitente.certificado_cnpj) !== limparDigitos(emitente.cnpj)) {

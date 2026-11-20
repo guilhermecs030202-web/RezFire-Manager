@@ -37,6 +37,7 @@ router.get('/sefaz/status', requerPerfil(['GESTOR']), controller.verificarStatus
 router.get('/emitente', requerPerfil(['GESTOR']), controller.obterEmitente);
 router.put('/emitente', requerPerfil(['GESTOR']), controller.salvarEmitente);
 router.patch('/emitente/ambiente', requerPerfil(['GESTOR']), controller.alterarAmbiente);
+router.get('/certificado/status', requerPerfil(['GESTOR']), controller.obterStatusCertificado);
 router.post(
   '/emitente/certificado',
   requerPerfil(['GESTOR']),

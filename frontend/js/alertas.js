@@ -25,6 +25,7 @@
         estoque: 0,
         validade: 0,
         anuncio: 0,
+        fiscal: 0,
       },
     },
     filtros: {
@@ -281,6 +282,7 @@
         estoque: alertas.filter((a) => a.categoria === "estoque").length,
         validade: alertas.filter((a) => a.categoria === "validade").length,
         anuncio: alertas.filter((a) => a.categoria === "anuncio").length,
+        fiscal: alertas.filter((a) => a.categoria === "fiscal").length,
       },
     };
   }
@@ -486,6 +488,7 @@
         case "estoque":  return `<span class="badge-categoria-tag cat-estoque">📦 Estoque & Ruptura (#4)</span>`;
         case "validade": return `<span class="badge-categoria-tag cat-validade">🛡️ Validade FEFO (#8)</span>`;
         case "anuncio":  return `<span class="badge-categoria-tag cat-anuncio">📢 Mercado Livre (#13)</span>`;
+        case "fiscal":   return `<span class="badge-categoria-tag cat-fiscal">🔐 Fiscal & Certificado A1 (33g)</span>`;
         default:         return `<span class="badge-categoria-tag cat-postagem">Geral</span>`;
       }
     };

@@ -341,6 +341,10 @@ window.RezFireAPI = {
         method: 'DELETE',
       });
     },
+    async obterStatusCertificado(antecedenciaDias) {
+      const qs = antecedenciaDias ? `?antecedencia_dias=${encodeURIComponent(antecedenciaDias)}` : '';
+      return window.RezFireAPI.request(`/fiscal/certificado/status${qs}`);
+    },
     async obterReferencias() {
       return window.RezFireAPI.request('/fiscal/referencias');
     },

@@ -30,10 +30,11 @@ export const env = {
   FISCAL_XML_ARCHIVE_DIR:
     process.env.FISCAL_XML_ARCHIVE_DIR || path.resolve(__dirname, '../../uploads/fiscal-xmls'),
 
-  // Comunicação SEFAZ NF-e v4.00 (Stories 33d / 33f)
+  // Comunicação SEFAZ NF-e v4.00 (Stories 33d / 33f / 33g)
   SEFAZ_MODO_TRANSPORTE: (process.env.SEFAZ_MODO_TRANSPORTE || 'simulado') as 'simulado' | 'sefaz_soap',
   SEFAZ_TIMEOUT_MS: parseInt(process.env.SEFAZ_TIMEOUT_MS || '15000', 10),
   SEFAZ_PRAZO_CANCELAMENTO_HORAS: parseInt(process.env.SEFAZ_PRAZO_CANCELAMENTO_HORAS || '24', 10),
   SEFAZ_PRAZO_CCE_DIAS: parseInt(process.env.SEFAZ_PRAZO_CCE_DIAS || '30', 10),
+  FISCAL_ALERTA_CERTIFICADO_DIAS: parseInt(process.env.FISCAL_ALERTA_CERTIFICADO_DIAS || '30', 10),
 };
 

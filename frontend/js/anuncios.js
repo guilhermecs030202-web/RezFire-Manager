@@ -82,6 +82,8 @@
             anunciosCarregados = resAnuncios.anuncios.map((a) => ({
               id_anuncio: a.id_anuncio,
               ml_item_id: a.ml_item_id,
+              origem_dado: a.origem_dado || (String(a.ml_item_id || "").startsWith("MAN-") ? "manual" : "mercado_livre"),
+              codigo_externo_ml: a.codigo_externo_ml || null,
               titulo: a.titulo,
               preco: Number(a.preco || 0),
               status: a.status || "Ativo",
@@ -96,14 +98,14 @@
               taxa_conversao: a.taxa_conversao || "5.2%",
               produtos_vinculados: a.produto_anuncios && a.produto_anuncios.length > 0
                 ? a.produto_anuncios.map((pa) => ({
-                    id_produto: pa.id_produto,
-                    sku: pa.produto?.sku || "EXT",
-                    nome: pa.produto?.nome || "Produto",
-                    quantidade_anunciada: pa.quantidade_anunciada || 1,
-                  }))
+                  id_produto: pa.id_produto,
+                  sku: pa.produto?.sku || "EXT",
+                  nome: pa.produto?.nome || "Produto",
+                  quantidade_anunciada: pa.quantidade_anunciada || 1,
+                }))
                 : a.id_produto_vinculado
-                ? [{ id_produto: a.id_produto_vinculado, sku: a.produto_vinculado_sku, nome: a.produto_vinculado_nome, quantidade_anunciada: 1 }]
-                : [],
+                  ? [{ id_produto: a.id_produto_vinculado, sku: a.produto_vinculado_sku, nome: a.produto_vinculado_nome, quantidade_anunciada: 1 }]
+                  : [],
             }));
           }
           if (resStatus && resStatus.sucesso) {
@@ -126,11 +128,15 @@
 
       if (statusConexaoCarregado) {
         state.syncMeta = {
-          status_conexao: statusConexaoCarregado.status || "Conectado",
-          ml_user_id: statusConexaoCarregado.ml_user_id || "789102450",
-          ultima_sincronizacao: statusConexaoCarregado.ultima_sincronizacao_sucesso || statusConexaoCarregado.ultima_atualizacao || new Date().toISOString(),
-          ultima_sincronizacao_sucesso: statusConexaoCarregado.ultima_sincronizacao_sucesso || statusConexaoCarregado.ultima_atualizacao || new Date().toISOString(),
-          ultima_falha: statusConexaoCarregado.ultima_falha || null,
+          status_conexao: statusConexaoCarregado.status || "Desconectado",
+          estado_integracao: statusConexaoCarregado.estado_integracao || "desconectado",
+          modo_operacao: statusConexaoCarregado.modo_operacao || "manual",
+          convite_conexao: statusConexaoCarregado.convite_conexao || null,
+          resumo_origem_dados: statusConexaoCarregado.resumo_origem_dados || null,
+          ml_user_id: statusConexaoCarregado.ml_user_id || null,
+          ultima_sincronizacao: statusConexaoCarregado.ultima_sincronizacao_sucesso || null,
+          ultima_sincronizacao_sucesso: statusConexaoCarregado.ultima_sincronizacao_sucesso || null,
+          ultima_falha: statusConexaoCarregado.ultima_falha || statusConexaoCarregado.ultima_falha_pedidos || null,
           seller_nickname: "REZFIRE_EXTINTORES",
         };
       } else {
@@ -152,13 +158,57 @@
 
   function renderSyncHeader() {
     const meta = state.syncMeta || {};
+    const isConectado = (meta.status_conexao || "").toLowerCase() === "conectado";
+    const temErro = meta.estado_integracao === "erro" || Boolean(meta.ultima_falha && meta.ultima_falha.mensagem);
     const syncTimeEl = document.getElementById("sync-last-time");
     if (syncTimeEl) {
       const dataSucesso = meta.ultima_sincronizacao_sucesso || meta.ultima_sincronizacao;
-      syncTimeEl.textContent = `Última sincronização com sucesso: ${formatData(dataSucesso || new Date().toISOString())}`;
+      if (dataSucesso) {
+        syncTimeEl.textContent = `Última sincronização com sucesso: ${formatData(dataSucesso)}`;
+      } else if (isConectado) {
+        syncTimeEl.textContent = "Conectado · aguardando primeira sincronização";
+      } else {
+        syncTimeEl.textContent = "Modo Manual ativo (integração opcional)";
+      }
     }
 
-    // Exibe aviso visível de falha na sincronização (Critério 4 da US #29)
+    // Banner não bloqueante do Modo Manual / Estado da Integração
+    const bannerModoManual = document.getElementById("modo-manual-ml-banner");
+    if (bannerModoManual) {
+      if (temErro) {
+        bannerModoManual.style.display = "block";
+        bannerModoManual.innerHTML = `
+          <div class="p-3 bg-amber-50 border border-amber-300 rounded-xl text-xs text-amber-950 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+            <div>
+              <strong>⚠️ Integração com Erro · Modo Manual 100% Liberado:</strong>
+              <span>${meta.ultima_falha?.mensagem || "Falha de comunicação com a API do Mercado Livre."} Você pode continuar cadastrando e atualizando anúncios, pedidos, estoque e NF-e manualmente sem bloqueio.</span>
+            </div>
+            <div class="flex items-center gap-2 self-end sm:self-center">
+              <button type="button" class="btn-ghost text-xs px-2.5 py-1 bg-white" id="btn-banner-reconectar-ml">Verificar Conexão</button>
+            </div>
+          </div>
+        `;
+        document.getElementById("btn-banner-reconectar-ml")?.addEventListener("click", openModalOAuth);
+      } else if (!isConectado) {
+        bannerModoManual.style.display = "block";
+        bannerModoManual.innerHTML = `
+          <div class="p-3 bg-stone-100 border border-stone-300 rounded-xl text-xs text-stone-800 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+            <div>
+              <strong>🛠️ Modo Manual Ativo (Mercado Livre Não Conectado):</strong>
+              <span>Todos os módulos (Estoque, Pedidos, Anúncios, Painel, Alertas e NF-e) funcionam sem exigir conta vinculada. Conectar a conta depois preserva todos os seus registros manuais.</span>
+            </div>
+            <div class="flex items-center gap-2 self-end sm:self-center">
+              <button type="button" class="btn-ghost text-xs px-2.5 py-1 bg-white" id="btn-banner-conectar-ml">Conectar Conta (Opcional)</button>
+            </div>
+          </div>
+        `;
+        document.getElementById("btn-banner-conectar-ml")?.addEventListener("click", openModalOAuth);
+      } else {
+        bannerModoManual.style.display = "none";
+      }
+    }
+
+    // Exibe aviso visível de falha na sincronização
     let failureAlertEl = document.getElementById("sync-failure-alert");
     if (meta.ultima_falha && meta.ultima_falha.mensagem) {
       if (!failureAlertEl) {
@@ -170,7 +220,7 @@
       }
       failureAlertEl.innerHTML = `
         <span class="inline-block w-2 h-2 rounded-full bg-red-600 animate-pulse"></span>
-        <span title="${meta.ultima_falha.mensagem}">Falha na sincronização: ${meta.ultima_falha.mensagem} (Último sucesso: ${formatData(meta.ultima_sincronizacao_sucesso || meta.ultima_sincronizacao)})</span>
+        <span title="${meta.ultima_falha.mensagem}">Falha na sincronização: ${meta.ultima_falha.mensagem}</span>
       `;
       failureAlertEl.style.display = "inline-flex";
     } else if (failureAlertEl) {
@@ -178,14 +228,18 @@
     }
 
     const ind = document.getElementById("sync-status-indicator");
-    const txt = document.getElementById("sync-status-text");
     if (ind) {
-      const isConectado = (meta.status_conexao || "Conectado").toLowerCase() === "conectado";
       if (state.sincronizando) {
         ind.className = "sync-badge syncing cursor-pointer hover:opacity-90";
         ind.innerHTML = `
           <span class="inline-block w-2 h-2 rounded-full bg-blue-500 animate-spin"></span>
           <span id="sync-status-text">Sincronizando com API ML...</span>
+        `;
+      } else if (temErro) {
+        ind.className = "sync-badge cursor-pointer hover:opacity-90 bg-red-50 border-red-300 text-red-800";
+        ind.innerHTML = `
+          <span class="inline-block w-2 h-2 rounded-full bg-red-600"></span>
+          <span id="sync-status-text">Integração com Erro (Modo Manual)</span>
         `;
       } else if (isConectado) {
         ind.className = "sync-badge cursor-pointer hover:opacity-90";
@@ -197,7 +251,7 @@
         ind.className = "sync-badge cursor-pointer hover:opacity-90 bg-amber-50 border-amber-300 text-amber-800";
         ind.innerHTML = `
           <span class="inline-block w-2 h-2 rounded-full bg-amber-500"></span>
-          <span id="sync-status-text">Conta Desconectada (Clique p/ Conectar)</span>
+          <span id="sync-status-text">Não Conectado · Modo Manual</span>
         `;
       }
     }
@@ -648,7 +702,10 @@
             </div>
           </td>
           <td>
-            <span class="font-mono text-xs font-semibold text-stone-700">${a.ml_item_id}</span>
+            <span class="font-mono text-xs font-semibold text-stone-700 block">${a.ml_item_id}</span>
+            <span class="inline-flex items-center text-[10px] font-bold px-1.5 py-0.2 rounded mt-0.5 ${a.origem_dado === 'manual' ? 'bg-stone-100 text-stone-700 border border-stone-300' : 'bg-amber-50 text-amber-800 border border-amber-200'}">
+              ${a.origem_dado === 'manual' ? '🛠️ Manual' : '⚡ Mercado Livre'}
+            </span>
           </td>
           <td>${prodHtml}</td>
           <td>
@@ -819,6 +876,19 @@
     if (anuncio.status === "Ativo") statusCls = "ativo";
     else if (anuncio.status === "Pausado") statusCls = "pausado";
     document.getElementById("drawer-status-badge").innerHTML = `<span class="badge-anuncio-status ${statusCls}">${anuncio.status}</span>`;
+
+    const selStatusManual = document.getElementById("drawer-select-status-manual");
+    if (selStatusManual) {
+      selStatusManual.value = anuncio.status || "Ativo";
+    }
+    const badgeOrigemDrawer = document.getElementById("drawer-origem-badge");
+    if (badgeOrigemDrawer) {
+      const isManual = anuncio.origem_dado === "manual";
+      badgeOrigemDrawer.textContent = isManual ? "Origem: Manual" : "Origem: Mercado Livre";
+      badgeOrigemDrawer.className = isManual
+        ? "text-[11px] font-bold px-2 py-0.5 rounded-full bg-stone-100 text-stone-700 border border-stone-300"
+        : "text-[11px] font-bold px-2 py-0.5 rounded-full bg-amber-50 text-amber-800 border border-amber-200";
+    }
 
     // Informações Comerciais
     document.getElementById("drawer-preco").textContent = money(anuncio.preco);
@@ -1222,16 +1292,16 @@
     container.innerHTML = `
       <div class="grid grid-cols-2 gap-2">
         ${midiasOrdenadas.map((m) => {
-          const isVideo = (m.tipo || "").toUpperCase() === "VIDEO";
-          const iconBadge = isVideo
-            ? `<span class="bg-red-600 text-white text-[10px] font-bold px-1.5 py-0.5 rounded shadow">▶ VÍDEO</span>`
-            : `<span class="bg-emerald-600 text-white text-[10px] font-bold px-1.5 py-0.5 rounded shadow">📷 FOTO</span>`;
+      const isVideo = (m.tipo || "").toUpperCase() === "VIDEO";
+      const iconBadge = isVideo
+        ? `<span class="bg-red-600 text-white text-[10px] font-bold px-1.5 py-0.5 rounded shadow">▶ VÍDEO</span>`
+        : `<span class="bg-emerald-600 text-white text-[10px] font-bold px-1.5 py-0.5 rounded shadow">📷 FOTO</span>`;
 
-          const thumbSrc = isVideo
-            ? "https://images.unsplash.com/photo-1574717024653-61fd2cf4d44d?w=300&auto=format&fit=crop&q=60"
-            : m.url;
+      const thumbSrc = isVideo
+        ? "https://images.unsplash.com/photo-1574717024653-61fd2cf4d44d?w=300&auto=format&fit=crop&q=60"
+        : m.url;
 
-          return `
+      return `
             <div class="card p-2 bg-stone-50 border border-stone-200 rounded flex flex-col justify-between hover:border-amber-400 transition-colors">
               <div class="relative w-full h-24 bg-stone-900 rounded overflow-hidden flex items-center justify-center mb-1.5 cursor-pointer btn-ver-midia" data-id="${m.id_midia}">
                 <img src="${thumbSrc}" alt="${m.rotulo}" class="w-full h-full object-cover opacity-90 hover:opacity-100 transition-opacity" onerror="this.src='https://placehold.co/120x80/292524/fafaf9?text=Midia'" />
@@ -1251,7 +1321,7 @@
               </div>
             </div>
           `;
-        }).join("")}
+    }).join("")}
       </div>
     `;
 
@@ -2049,6 +2119,117 @@
     showFeedbackBanner("success", msg);
   }
 
+  function abrirModalAnuncioManual(anuncio = null) {
+    const modal = document.getElementById("modal-anuncio-manual");
+    const titleEl = document.getElementById("modal-anuncio-manual-title");
+    const errEl = document.getElementById("manual-anuncio-error");
+    const selProd = document.getElementById("manual-anuncio-produto");
+    if (!modal) return;
+    if (errEl) errEl.textContent = "";
+
+    if (selProd) {
+      selProd.innerHTML =
+        `<option value="">Sem vínculo inicial</option>` +
+        state.produtos.map((p) => `<option value="${p.id_produto}">${p.sku} — ${p.nome}</option>`).join("");
+    }
+
+    if (anuncio) {
+      if (titleEl) titleEl.textContent = `Editar Anúncio (${anuncio.ml_item_id})`;
+      document.getElementById("manual-anuncio-id").value = String(anuncio.id_anuncio);
+      document.getElementById("manual-anuncio-titulo").value = anuncio.titulo || "";
+      document.getElementById("manual-anuncio-codigo").value = anuncio.ml_item_id || "";
+      document.getElementById("manual-anuncio-status").value = anuncio.status || "Ativo";
+      document.getElementById("manual-anuncio-preco").value = Number(anuncio.preco || 0).toFixed(2);
+      document.getElementById("manual-anuncio-qtd").value = String(anuncio.quantidade_disponivel ?? 0);
+      document.getElementById("manual-anuncio-vendidos").value = String(anuncio.quantidade_vendida ?? 0);
+      const primeiroVinc = (anuncio.produtos_vinculados || [])[0];
+      if (selProd) selProd.value = primeiroVinc ? String(primeiroVinc.id_produto) : "";
+    } else {
+      if (titleEl) titleEl.textContent = "Cadastrar Anúncio (Modo Manual)";
+      document.getElementById("manual-anuncio-id").value = "";
+      document.getElementById("manual-anuncio-titulo").value = "";
+      document.getElementById("manual-anuncio-codigo").value = "";
+      document.getElementById("manual-anuncio-status").value = "Ativo";
+      document.getElementById("manual-anuncio-preco").value = "";
+      document.getElementById("manual-anuncio-qtd").value = "10";
+      document.getElementById("manual-anuncio-vendidos").value = "0";
+      if (selProd) selProd.value = "";
+    }
+
+    modal.classList.add("is-open");
+    modal.style.display = "flex";
+  }
+
+  function fecharModalAnuncioManual() {
+    const modal = document.getElementById("modal-anuncio-manual");
+    if (modal) {
+      modal.classList.remove("is-open");
+      modal.style.display = "none";
+    }
+  }
+
+  async function salvarFormularioAnuncioManual(e) {
+    e.preventDefault();
+    const errEl = document.getElementById("manual-anuncio-error");
+    const btn = document.getElementById("btn-salvar-anuncio-manual");
+    if (errEl) errEl.textContent = "";
+
+    const idEdicao = Number(document.getElementById("manual-anuncio-id").value) || null;
+    const payload = {
+      titulo: document.getElementById("manual-anuncio-titulo").value.trim(),
+      ml_item_id: document.getElementById("manual-anuncio-codigo").value.trim() || undefined,
+      status: document.getElementById("manual-anuncio-status").value,
+      preco: Number(document.getElementById("manual-anuncio-preco").value),
+      quantidade_disponivel: Number(document.getElementById("manual-anuncio-qtd").value),
+      quantidade_vendida: Number(document.getElementById("manual-anuncio-vendidos").value || 0),
+      id_produto: Number(document.getElementById("manual-anuncio-produto").value) || undefined,
+    };
+
+    if (btn) btn.disabled = true;
+    try {
+      if (idEdicao) {
+        await window.RezFireAPI.anuncios.atualizar(idEdicao, payload);
+        showToast("Anúncio atualizado manualmente com sucesso!");
+      } else {
+        await window.RezFireAPI.anuncios.criar(payload);
+        showToast("Anúncio cadastrado em modo manual com sucesso!");
+      }
+      fecharModalAnuncioManual();
+      await carregarDados();
+      if (idEdicao && state.anuncioSelecionado?.id_anuncio === idEdicao) {
+        const atualizado = state.anuncios.find((a) => a.id_anuncio === idEdicao);
+        if (atualizado) abrirDrawer(atualizado);
+      }
+    } catch (err) {
+      if (errEl) errEl.textContent = err.message || "Não foi possível salvar o anúncio.";
+    } finally {
+      if (btn) btn.disabled = false;
+    }
+  }
+
+  async function atualizarStatusAnuncioDrawerManual() {
+    if (!state.anuncioSelecionado) return;
+    const sel = document.getElementById("drawer-select-status-manual");
+    const btn = document.getElementById("btn-salvar-status-manual");
+    const novoStatus = sel ? sel.value : null;
+    if (!novoStatus) return;
+
+    if (btn) btn.disabled = true;
+    try {
+      await window.RezFireAPI.anuncios.atualizarStatus(state.anuncioSelecionado.id_anuncio, {
+        status: novoStatus,
+      });
+      await carregarDados();
+      const atualizado = state.anuncios.find((a) => a.id_anuncio === state.anuncioSelecionado.id_anuncio);
+      if (atualizado) abrirDrawer(atualizado);
+      showToast(`Status do anúncio atualizado manualmente para "${novoStatus}".`);
+    } catch (err) {
+      showFeedbackBanner("error", err.message || "Erro ao atualizar status do anúncio.");
+    } finally {
+      if (btn) btn.disabled = false;
+    }
+  }
+
   function limparFiltros() {
     state.filtros = {
       busca: "",
@@ -2198,6 +2379,19 @@
     document.getElementById("modal-oauth-ml")?.addEventListener("click", (e) => {
       if (e.target.id === "modal-oauth-ml") closeModalOAuth();
     });
+
+    // Modo Manual: Cadastro e Edição de Anúncio e Status
+    document.getElementById("btn-novo-anuncio-manual")?.addEventListener("click", () => abrirModalAnuncioManual(null));
+    document.getElementById("btn-editar-anuncio-manual")?.addEventListener("click", () => {
+      if (state.anuncioSelecionado) abrirModalAnuncioManual(state.anuncioSelecionado);
+    });
+    document.getElementById("btn-fechar-modal-anuncio-manual")?.addEventListener("click", fecharModalAnuncioManual);
+    document.getElementById("btn-cancelar-anuncio-manual")?.addEventListener("click", fecharModalAnuncioManual);
+    document.getElementById("modal-anuncio-manual")?.addEventListener("click", (e) => {
+      if (e.target.id === "modal-anuncio-manual") fecharModalAnuncioManual();
+    });
+    document.getElementById("form-anuncio-manual")?.addEventListener("submit", salvarFormularioAnuncioManual);
+    document.getElementById("btn-salvar-status-manual")?.addEventListener("click", atualizarStatusAnuncioDrawerManual);
 
     document.addEventListener("keydown", (e) => {
       if (e.key === "Escape") {

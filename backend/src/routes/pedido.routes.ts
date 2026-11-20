@@ -16,6 +16,8 @@ router.get('/:id', controller.buscarPorId);
 router.get('/:id/lucro', controller.obterLucroPedido);
 router.put('/:id/lucro', controller.calcularLucroPedido);
 router.post('/', controller.criar);
+router.put('/:id', controller.atualizarPedidoManual);
+router.post('/:id/baixar-estoque', controller.executarBaixaManual);
 router.post('/:id/devolucao', controller.registrarDevolucao);
 router.patch('/:id/destinatario', controller.atualizarDestinatario);
 router.patch('/:id/modalidade', controller.atualizarModalidade);

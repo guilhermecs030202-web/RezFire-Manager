@@ -129,6 +129,9 @@ function normalizarPedido(p) {
     cliente_nome: p.cliente_nome || p.cliente || "Cliente",
     canal: p.origem || p.canal || "Venda Direta",
     origem: p.origem || p.canal || "Venda Direta",
+    origem_dado: p.origem_dado || (String(p.codigo_pedido || "").startsWith("MLB-") && p.origem === "Mercado Livre" ? "mercado_livre" : "manual"),
+    codigo_externo_ml: p.codigo_externo_ml || null,
+    baixa_estoque_realizada: p.baixa_estoque_realizada !== undefined ? Boolean(p.baixa_estoque_realizada) : true,
     uf: p.uf || "SP",
     status: statusMapeado,
     status_entrega: p.status_entrega || "A separar",
@@ -489,7 +492,9 @@ function renderTable() {
               ? `<span style="width:8px;height:8px;border-radius:50%;background:#eab308"></span> Mercado Livre` 
               : `<span style="width:8px;height:8px;border-radius:50%;background:#3b82f6"></span> Venda Direta`}
           </span>
-          <span style="display:block;font-size:0.72rem;color:var(--muted)">${escapeHtml(p.tipo_envio || "Padrão")}</span>
+          <span style="display:block;font-size:0.68rem;font-weight:700;color:${p.origem_dado === 'mercado_livre' ? '#b45309' : '#475569'}">
+            Origem: ${p.origem_dado === 'mercado_livre' ? 'API Mercado Livre' : 'Cadastro Manual'}
+          </span>
           <div>${getBadgeModalidadeEnvio(p.modalidade_envio)}</div>
         </td>
         <td style="text-align:center">

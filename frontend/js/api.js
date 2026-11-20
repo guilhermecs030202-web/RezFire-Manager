@@ -170,6 +170,17 @@ window.RezFireAPI = {
         body: JSON.stringify(dados),
       });
     },
+    async atualizar(id, dados) {
+      return window.RezFireAPI.request(`/pedidos/${id}`, {
+        method: 'PUT',
+        body: JSON.stringify(dados),
+      });
+    },
+    async baixarEstoqueManual(id) {
+      return window.RezFireAPI.request(`/pedidos/${id}/baixar-estoque`, {
+        method: 'POST',
+      });
+    },
     async atualizarStatus(id, status, status_entrega, dadosDevolucao = null) {
       const payload = { status, status_entrega };
       if (dadosDevolucao) {
@@ -614,6 +625,24 @@ window.RezFireAPI = {
     async listar(params = {}) {
       const query = new URLSearchParams(params).toString();
       return window.RezFireAPI.request(`/anuncios${query ? '?' + query : ''}`);
+    },
+    async criar(dados) {
+      return window.RezFireAPI.request('/anuncios', {
+        method: 'POST',
+        body: JSON.stringify(dados),
+      });
+    },
+    async atualizar(id, dados) {
+      return window.RezFireAPI.request(`/anuncios/${id}`, {
+        method: 'PUT',
+        body: JSON.stringify(dados),
+      });
+    },
+    async atualizarStatus(id, dados) {
+      return window.RezFireAPI.request(`/anuncios/${id}/status`, {
+        method: 'PATCH',
+        body: JSON.stringify(dados),
+      });
     },
     async buscarPorId(id) {
       return window.RezFireAPI.request(`/anuncios/${id}`);

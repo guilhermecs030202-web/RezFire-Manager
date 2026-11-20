@@ -40,6 +40,9 @@ export interface CriarPedidoDTO extends DadosDestinatarioDTO {
   codigo_pedido?: string;
   cliente_nome: string;
   origem?: string;
+  origem_dado?: 'manual' | 'mercado_livre';
+  codigo_externo_ml?: string | null;
+  baixar_estoque_agora?: boolean;
   itens: CriarItemPedidoDTO[];
   exibir_na_entrega?: boolean;
   prazo_despacho?: Date | string;
@@ -215,6 +218,7 @@ export class PedidoService {
   async listar(filtros: {
     status?: 'Confirmado' | 'Concluido' | 'Cancelado';
     status_entrega?: 'A separar' | 'Pronto p/ despacho' | 'Despachado' | 'Entregue';
+    origem_dado?: 'manual' | 'mercado_livre';
     exibir_na_entrega?: boolean;
     busca?: string;
     limite?: number;
@@ -232,6 +236,12 @@ export class PedidoService {
     if (filtros.status_entrega) {
       qb.andWhere('p.status_entrega = :status_entrega', {
         status_entrega: filtros.status_entrega,
+      });
+    }
+
+    if (filtros.origem_dado) {
+      qb.andWhere('p.origem_dado = :origem_dado', {
+        origem_dado: filtros.origem_dado,
       });
     }
 
@@ -293,10 +303,33 @@ export class PedidoService {
       const itemRepoTx = queryRunner.manager.getRepository(ItemPedido);
 
       const codigoPedido = dados.codigo_pedido?.trim() || `PED-${Date.now()}`;
+      const origemDado: 'manual' | 'mercado_livre' =
+        dados.origem_dado === 'mercado_livre' ? 'mercado_livre' : 'manual';
+      const codigoExternoRaw = dados.codigo_externo_ml
+        ? String(dados.codigo_externo_ml).trim().replace(/^MLB-/i, '')
+        : codigoPedido.toUpperCase().startsWith('MLB-')
+        ? codigoPedido.slice(4)
+        : null;
+      const codigoExternoMl = codigoExternoRaw && codigoExternoRaw.length > 0 ? codigoExternoRaw : null;
 
       const pedidoExistente = await pedRepoTx.findOne({ where: { codigo_pedido: codigoPedido } });
       if (pedidoExistente) {
         throw new Error(`Código de pedido "${codigoPedido}" já cadastrado.`);
+      }
+
+      if (codigoExternoMl) {
+        const conflitoExterno = await pedRepoTx
+          .createQueryBuilder('p')
+          .where('p.codigo_externo_ml = :ext OR p.codigo_pedido = :codMl', {
+            ext: codigoExternoMl,
+            codMl: `MLB-${codigoExternoMl}`,
+          })
+          .getOne();
+        if (conflitoExterno) {
+          throw new Error(
+            `Já existe um pedido vinculado ao código Mercado Livre "${codigoExternoMl}" (${conflitoExterno.codigo_pedido}).`
+          );
+        }
       }
 
       let valorTotal = 0;
@@ -352,62 +385,75 @@ export class PedidoService {
       }
 
       // 2. Executa a baixa transacional e controle FEFO para cada item físico
+      // Critério 6 da Story #34: verifica se a baixa deve ocorrer agora e se já não houve baixa manual prévia para o mesmo pedido
       const agora = new Date();
-      for (const [idProd, { produto, quantidade }] of baixasFisicas.entries()) {
-        const estoque = await estRepoTx.findOne({ where: { id_produto: idProd } });
-        if (!estoque || estoque.quantidade_atual < quantidade) {
-          throw new Error(
-            `Saldo insuficiente para expedir "${produto.nome}". Disponível: ${estoque?.quantidade_atual || 0}, Necessário: ${quantidade}.`
-          );
-        }
+      const movPreviaPedido = await movRepoTx
+        .createQueryBuilder('m')
+        .where("m.tipo = 'Saída' AND m.motivo LIKE :motivoBusca", {
+          motivoBusca: `%Pedido #${codigoPedido}%`,
+        })
+        .getOne();
 
-        // Debita do estoque físico
-        estoque.quantidade_atual -= quantidade;
-        await estRepoTx.save(estoque);
+      const deveBaixarEstoque = dados.baixar_estoque_agora !== false && !movPreviaPedido;
+      const baixaEstoqueRealizada = deveBaixarEstoque || Boolean(movPreviaPedido);
 
-        // Se o produto tiver lotes (extintores), aloca pelo método FEFO (validade mais próxima e não bloqueada)
-        const lotes = await loteRepoTx
-          .createQueryBuilder('l')
-          .where('l.id_produto = :idProd', { idProd })
-          .andWhere('l.quantidade_disponivel > 0')
-          .andWhere('l.status = :status', { status: 'Ativo' })
-          .orderBy('l.data_validade', 'ASC')
-          .getMany();
+      if (deveBaixarEstoque) {
+        for (const [idProd, { produto, quantidade }] of baixasFisicas.entries()) {
+          const estoque = await estRepoTx.findOne({ where: { id_produto: idProd } });
+          if (!estoque || estoque.quantidade_atual < quantidade) {
+            throw new Error(
+              `Saldo insuficiente para expedir "${produto.nome}". Disponível: ${estoque?.quantidade_atual || 0}, Necessário: ${quantidade}.`
+            );
+          }
 
-        let qtdRestanteParaBaixar = quantidade;
-        for (const lote of lotes) {
-          if (qtdRestanteParaBaixar <= 0) break;
+          // Debita do estoque físico
+          estoque.quantidade_atual -= quantidade;
+          await estRepoTx.save(estoque);
 
-          // Valida se o lote não está no prazo de bloqueio de 6 meses
-          const diasParaVencer = Math.ceil(
-            (new Date(lote.data_validade).getTime() - agora.getTime()) / (1000 * 60 * 60 * 24)
-          );
-          if (diasParaVencer <= 180) {
-            // Lote bloqueado conforme AGENTS.md (prazo mínimo útil ao cliente)
-            lote.status = 'Bloqueado';
+          // Se o produto tiver lotes (extintores), aloca pelo método FEFO (validade mais próxima e não bloqueada)
+          const lotes = await loteRepoTx
+            .createQueryBuilder('l')
+            .where('l.id_produto = :idProd', { idProd })
+            .andWhere('l.quantidade_disponivel > 0')
+            .andWhere('l.status = :status', { status: 'Ativo' })
+            .orderBy('l.data_validade', 'ASC')
+            .getMany();
+
+          let qtdRestanteParaBaixar = quantidade;
+          for (const lote of lotes) {
+            if (qtdRestanteParaBaixar <= 0) break;
+
+            // Valida se o lote não está no prazo de bloqueio de 6 meses
+            const diasParaVencer = Math.ceil(
+              (new Date(lote.data_validade).getTime() - agora.getTime()) / (1000 * 60 * 60 * 24)
+            );
+            if (diasParaVencer <= 180) {
+              // Lote bloqueado conforme AGENTS.md (prazo mínimo útil ao cliente)
+              lote.status = 'Bloqueado';
+              await loteRepoTx.save(lote);
+              continue;
+            }
+
+            const baixarDoLote = Math.min(lote.quantidade_disponivel, qtdRestanteParaBaixar);
+            lote.quantidade_disponivel -= baixarDoLote;
+            if (lote.quantidade_disponivel === 0) {
+              lote.status = 'Esgotado';
+            }
             await loteRepoTx.save(lote);
-            continue;
+            qtdRestanteParaBaixar -= baixarDoLote;
           }
 
-          const baixarDoLote = Math.min(lote.quantidade_disponivel, qtdRestanteParaBaixar);
-          lote.quantidade_disponivel -= baixarDoLote;
-          if (lote.quantidade_disponivel === 0) {
-            lote.status = 'Esgotado';
-          }
-          await loteRepoTx.save(lote);
-          qtdRestanteParaBaixar -= baixarDoLote;
+          // Regra de Ouro: Registra movimentação de saída para o pedido
+          const mov = movRepoTx.create({
+            id_produto: idProd,
+            id_usuario: id_usuario || null,
+            tipo: 'Saída',
+            quantidade,
+            motivo: `Venda - Pedido #${codigoPedido}`,
+            data_movimentacao: agora,
+          });
+          await movRepoTx.save(mov);
         }
-
-        // Regra de Ouro: Registra movimentação de saída para o pedido
-        const mov = movRepoTx.create({
-          id_produto: idProd,
-          id_usuario: id_usuario || null,
-          tipo: 'Saída',
-          quantidade,
-          motivo: `Venda - Pedido #${codigoPedido}`,
-          data_movimentacao: agora,
-        });
-        await movRepoTx.save(mov);
       }
 
       // 3. Apuração financeira de Lucro Real inicial (SCRUM-23 / #18abc)
@@ -464,6 +510,9 @@ export class PedidoService {
         codigo_pedido: codigoPedido,
         cliente_nome: dados.cliente_nome.trim(),
         origem: origemPedido,
+        origem_dado: origemDado,
+        codigo_externo_ml: codigoExternoMl,
+        baixa_estoque_realizada: baixaEstoqueRealizada,
         status: 'Confirmado',
         valor_total: valorTotal,
         valor_desconto: valorDesconto,
@@ -539,8 +588,8 @@ export class PedidoService {
         throw new Error(`Pedido #${id_pedido} não encontrado.`);
       }
 
-      // Se estiver cancelando um pedido que estava Confirmado ou Concluído -> ESTORNO AUTOMÁTICO
-      if (novoStatus === 'Cancelado' && pedido.status !== 'Cancelado') {
+      // Se estiver cancelando um pedido que estava Confirmado ou Concluído -> ESTORNO AUTOMÁTICO (apenas se a baixa já foi realizada)
+      if (novoStatus === 'Cancelado' && pedido.status !== 'Cancelado' && pedido.baixa_estoque_realizada !== false) {
         const agora = new Date();
         const rotuloOcorrencia = dadosDevolucao?.tipo_ocorrencia || 'Cancelamento';
         const motivoFormatado = dadosDevolucao?.motivo_devolucao
@@ -590,6 +639,7 @@ export class PedidoService {
             await movRepoTx.save(mov);
           }
         }
+        pedido.baixa_estoque_realizada = false;
       }
 
       if (dadosDevolucao) {
@@ -1240,6 +1290,260 @@ export class PedidoService {
     await this.pedidoRepo.save(pedido);
 
     return this.buscarPorId(id_pedido);
+  }
+
+  /**
+   * Story #34 (Critério 2 & DoR 4): Atualiza dados cadastrais e operacionais de um pedido em modo manual
+   * (cliente, canal/origem, código externo ML para conciliação, prazo de despacho, modalidade e destinatário).
+   */
+  async atualizarPedidoManual(
+    id_pedido: number,
+    dados: Partial<CriarPedidoDTO> & { status?: 'Confirmado' | 'Concluido' | 'Cancelado'; status_entrega?: 'A separar' | 'Pronto p/ despacho' | 'Despachado' | 'Entregue' },
+    id_usuario?: number
+  ) {
+    const pedido = await this.pedidoRepo.findOne({
+      where: { id_pedido },
+      relations: ['itens', 'itens.produto'],
+    });
+    if (!pedido) {
+      throw new Error(`Pedido #${id_pedido} não encontrado.`);
+    }
+
+    if (dados.cliente_nome !== undefined) {
+      const nome = String(dados.cliente_nome).trim();
+      if (nome.length < 2) {
+        throw new Error('Nome do cliente deve ter ao menos 2 caracteres.');
+      }
+      pedido.cliente_nome = nome;
+    }
+
+    if (dados.origem !== undefined) {
+      pedido.origem = String(dados.origem).trim() || pedido.origem;
+    }
+
+    if (dados.codigo_externo_ml !== undefined) {
+      const extClean = dados.codigo_externo_ml
+        ? String(dados.codigo_externo_ml).trim().replace(/^MLB-/i, '')
+        : null;
+      pedido.codigo_externo_ml = extClean && extClean.length > 0 ? extClean : null;
+    }
+
+    if (dados.prazo_despacho !== undefined) {
+      pedido.prazo_despacho = dados.prazo_despacho ? new Date(dados.prazo_despacho) : null;
+    }
+
+    if (dados.modalidade_envio !== undefined && dados.modalidade_envio) {
+      pedido.modalidade_envio = dados.modalidade_envio;
+    }
+
+    if (dados.prazo_dias_estimado !== undefined) {
+      pedido.prazo_dias_estimado = Number(dados.prazo_dias_estimado || pedido.prazo_dias_estimado);
+    }
+
+    if (dados.valor_desconto !== undefined) {
+      const subtotalItens = (pedido.itens || []).reduce(
+        (acc, it) => acc + Number(it.subtotal || Number(it.preco_unitario) * Number(it.quantidade)),
+        0
+      );
+      const novoDesconto = Math.max(0, Number(dados.valor_desconto || 0));
+      pedido.valor_desconto = novoDesconto;
+      pedido.valor_total = Math.max(0, Number((subtotalItens - novoDesconto).toFixed(2)));
+    }
+
+    const possuiCamposDest =
+      dados.destinatario_documento !== undefined ||
+      dados.destinatario_ie !== undefined ||
+      dados.destinatario_cep !== undefined ||
+      dados.destinatario_logradouro !== undefined ||
+      dados.destinatario_numero !== undefined ||
+      dados.destinatario_complemento !== undefined ||
+      dados.destinatario_bairro !== undefined ||
+      dados.destinatario_municipio !== undefined ||
+      dados.destinatario_codigo_municipio_ibge !== undefined ||
+      dados.destinatario_uf !== undefined ||
+      dados.destinatario_email !== undefined;
+
+    if (possuiCamposDest) {
+      const destNorm = this.normalizarEValidarDestinatario({
+        destinatario_documento:
+          dados.destinatario_documento !== undefined
+            ? dados.destinatario_documento
+            : pedido.destinatario_documento,
+        destinatario_ie:
+          dados.destinatario_ie !== undefined ? dados.destinatario_ie : pedido.destinatario_ie,
+        destinatario_cep:
+          dados.destinatario_cep !== undefined ? dados.destinatario_cep : pedido.destinatario_cep,
+        destinatario_logradouro:
+          dados.destinatario_logradouro !== undefined
+            ? dados.destinatario_logradouro
+            : pedido.destinatario_logradouro,
+        destinatario_numero:
+          dados.destinatario_numero !== undefined
+            ? dados.destinatario_numero
+            : pedido.destinatario_numero,
+        destinatario_complemento:
+          dados.destinatario_complemento !== undefined
+            ? dados.destinatario_complemento
+            : pedido.destinatario_complemento,
+        destinatario_bairro:
+          dados.destinatario_bairro !== undefined
+            ? dados.destinatario_bairro
+            : pedido.destinatario_bairro,
+        destinatario_municipio:
+          dados.destinatario_municipio !== undefined
+            ? dados.destinatario_municipio
+            : pedido.destinatario_municipio,
+        destinatario_codigo_municipio_ibge:
+          dados.destinatario_codigo_municipio_ibge !== undefined
+            ? dados.destinatario_codigo_municipio_ibge
+            : pedido.destinatario_codigo_municipio_ibge,
+        destinatario_uf:
+          dados.destinatario_uf !== undefined ? dados.destinatario_uf : pedido.destinatario_uf,
+        destinatario_email:
+          dados.destinatario_email !== undefined
+            ? dados.destinatario_email
+            : pedido.destinatario_email,
+      });
+      Object.assign(pedido, destNorm);
+    }
+
+    await this.pedidoRepo.save(pedido);
+
+    if (dados.status || dados.status_entrega) {
+      return this.atualizarStatus(
+        id_pedido,
+        dados.status || pedido.status,
+        dados.status_entrega,
+        id_usuario
+      );
+    }
+
+    return this.buscarPorId(id_pedido);
+  }
+
+  /**
+   * Story #34 (Critério 6): Executa a baixa manual de estoque para um pedido manual criado
+   * com baixa posterior (`baixa_estoque_realizada = false`), bloqueando estritamente qualquer
+   * baixa em duplicidade.
+   */
+  async executarBaixaManualPedido(id_pedido: number, id_usuario?: number) {
+    const queryRunner = AppDataSource.createQueryRunner();
+    await queryRunner.connect();
+    await queryRunner.startTransaction();
+
+    try {
+      const pedRepoTx = queryRunner.manager.getRepository(Pedido);
+      const prodRepoTx = queryRunner.manager.getRepository(Produto);
+      const estRepoTx = queryRunner.manager.getRepository(Estoque);
+      const loteRepoTx = queryRunner.manager.getRepository(LoteEstoque);
+      const movRepoTx = queryRunner.manager.getRepository(MovimentacaoEstoque);
+
+      const pedido = await pedRepoTx.findOne({
+        where: { id_pedido },
+        relations: ['itens', 'itens.produto'],
+      });
+
+      if (!pedido) {
+        throw new Error(`Pedido #${id_pedido} não encontrado.`);
+      }
+
+      if (pedido.status === 'Cancelado') {
+        throw new Error('Não é permitido baixar estoque de um pedido cancelado.');
+      }
+
+      const movExistente = await movRepoTx
+        .createQueryBuilder('m')
+        .where("m.tipo = 'Saída' AND m.motivo LIKE :motivoBusca", {
+          motivoBusca: `%Pedido #${pedido.codigo_pedido}%`,
+        })
+        .getOne();
+
+      if (pedido.baixa_estoque_realizada || movExistente) {
+        if (!pedido.baixa_estoque_realizada) {
+          pedido.baixa_estoque_realizada = true;
+          await pedRepoTx.save(pedido);
+          await queryRunner.commitTransaction();
+        }
+        throw Object.assign(
+          new Error(
+            `A baixa de estoque do pedido #${pedido.codigo_pedido} já foi realizada anteriormente. Operação bloqueada para impedir baixa em duplicidade.`
+          ),
+          { statusCode: 409 }
+        );
+      }
+
+      const agora = new Date();
+      for (const item of pedido.itens || []) {
+        const produto =
+          item.produto || (await prodRepoTx.findOne({ where: { id_produto: item.id_produto } }));
+        if (!produto) continue;
+
+        const componentes =
+          produto.tipo === 'Combo' && produto.combo_items && produto.combo_items.length > 0
+            ? produto.combo_items.map((ci) => ({
+                id_produto: ci.id_produto,
+                quantidade: ci.quantidade * item.quantidade,
+              }))
+            : [{ id_produto: produto.id_produto, quantidade: item.quantidade }];
+
+        for (const comp of componentes) {
+          const estoque = await estRepoTx.findOne({ where: { id_produto: comp.id_produto } });
+          if (!estoque || estoque.quantidade_atual < comp.quantidade) {
+            throw new Error(
+              `Saldo insuficiente para baixa manual do produto #${comp.id_produto}. Disponível: ${estoque?.quantidade_atual || 0}, Necessário: ${comp.quantidade}.`
+            );
+          }
+
+          estoque.quantidade_atual -= comp.quantidade;
+          await estRepoTx.save(estoque);
+
+          const lotes = await loteRepoTx
+            .createQueryBuilder('l')
+            .where('l.id_produto = :idProd', { idProd: comp.id_produto })
+            .andWhere('l.quantidade_disponivel > 0')
+            .andWhere('l.status = :status', { status: 'Ativo' })
+            .orderBy('l.data_validade', 'ASC')
+            .getMany();
+
+          let restante = comp.quantidade;
+          for (const lote of lotes) {
+            if (restante <= 0) break;
+            const dias = Math.ceil(
+              (new Date(lote.data_validade).getTime() - agora.getTime()) / (1000 * 60 * 60 * 24)
+            );
+            if (dias <= 180) continue;
+            const deb = Math.min(lote.quantidade_disponivel, restante);
+            lote.quantidade_disponivel -= deb;
+            if (lote.quantidade_disponivel === 0) lote.status = 'Esgotado';
+            await loteRepoTx.save(lote);
+            restante -= deb;
+          }
+
+          const mov = movRepoTx.create({
+            id_produto: comp.id_produto,
+            id_usuario: id_usuario || null,
+            tipo: 'Saída',
+            quantidade: comp.quantidade,
+            motivo: `Baixa Manual - Pedido #${pedido.codigo_pedido}`,
+            data_movimentacao: agora,
+          });
+          await movRepoTx.save(mov);
+        }
+      }
+
+      pedido.baixa_estoque_realizada = true;
+      await pedRepoTx.save(pedido);
+      await queryRunner.commitTransaction();
+
+      return this.buscarPorId(id_pedido);
+    } catch (err) {
+      if (queryRunner.isTransactionActive) {
+        await queryRunner.rollbackTransaction();
+      }
+      throw err;
+    } finally {
+      await queryRunner.release();
+    }
   }
 }
 

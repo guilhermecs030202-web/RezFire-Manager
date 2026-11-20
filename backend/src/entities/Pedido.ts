@@ -31,6 +31,19 @@ export class Pedido {
   @Column({ type: 'varchar', length: 50, default: 'Mercado Livre' })
   origem: string;
 
+  @Column({
+    type: 'enum',
+    enum: ['manual', 'mercado_livre'],
+    default: 'manual',
+  })
+  origem_dado: 'manual' | 'mercado_livre';
+
+  @Column({ type: 'varchar', length: 64, nullable: true })
+  codigo_externo_ml: string | null;
+
+  @Column({ type: 'boolean', default: true })
+  baixa_estoque_realizada: boolean;
+
   @Column({ type: 'timestamp' })
   data_pedido: Date;
 

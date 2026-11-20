@@ -68,6 +68,22 @@ export const NCMS_SUGERIDOS_REZFIRE = [
 
 export const UNIDADES_COMERCIAIS_SUGERIDAS = ['UN', 'PC', 'KIT', 'CX', 'KG', 'LT', 'PAR'] as const;
 
+export const CODIGO_UF_IBGE: Record<string, string> = {
+  AC: '12', AL: '27', AP: '16', AM: '13', BA: '29', CE: '23', DF: '53',
+  ES: '32', GO: '52', MA: '21', MT: '51', MS: '50', MG: '31', PA: '15',
+  PB: '25', PR: '41', PE: '26', PI: '22', RJ: '33', RN: '24', RS: '43',
+  RO: '11', RR: '14', SC: '42', SP: '35', SE: '28', TO: '17',
+};
+
+export const CODIGO_MUNICIPIO_CAPITAL_UF: Record<string, string> = {
+  AC: '1200401', AL: '2704302', AM: '1302603', AP: '1600303', BA: '2927408',
+  CE: '2304400', DF: '5300108', ES: '3205309', GO: '5208707', MA: '2111300',
+  MG: '3106200', MS: '5002704', MT: '5103403', PA: '1501402', PB: '2507507',
+  PE: '2611606', PI: '2211001', PR: '4106902', RJ: '3304557', RN: '2408102',
+  RO: '1100205', RR: '1400100', RS: '4314902', SC: '4205407', SE: '2800308',
+  SP: '3550308', TO: '1721000',
+};
+
 const CSOSN_SET = new Set<string>(CSOSN_LISTA.map((item) => item.codigo));
 const CST_SET = new Set<string>(CST_LISTA.map((item) => item.codigo));
 const ORIGEM_SET = new Set<string>(ORIGENS_MERCADORIA.map((item) => item.codigo));
@@ -81,6 +97,55 @@ export function formatarCnpj(cnpj: string): string {
   const digits = limparDigitos(cnpj);
   if (digits.length !== 14) return cnpj;
   return digits.replace(/^(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})$/, '$1.$2.$3/$4-$5');
+}
+
+export function formatarCpf(cpf: string): string {
+  const digits = limparDigitos(cpf);
+  if (digits.length !== 11) return cpf;
+  return digits.replace(/^(\d{3})(\d{3})(\d{3})(\d{2})$/, '$1.$2.$3-$4');
+}
+
+export function formatarCpfOuCnpj(doc: string): string {
+  const digits = limparDigitos(doc);
+  if (digits.length === 11) return formatarCpf(digits);
+  if (digits.length === 14) return formatarCnpj(digits);
+  return doc;
+}
+
+export function validarCpf(cpf: string): boolean {
+  const digits = limparDigitos(cpf);
+  if (digits.length !== 11) return false;
+  if (/^(\d)\1{10}$/.test(digits)) return false;
+
+  const calcDigito = (base: string, fatorInicial: number) => {
+    let soma = 0;
+    for (let i = 0; i < base.length; i++) {
+      soma += Number(base[i]) * (fatorInicial - i);
+    }
+    const resto = (soma * 10) % 11;
+    return resto === 10 || resto === 11 ? 0 : resto;
+  };
+
+  const d1 = calcDigito(digits.slice(0, 9), 10);
+  if (d1 !== Number(digits[9])) return false;
+
+  const d2 = calcDigito(digits.slice(0, 10), 11);
+  return d2 === Number(digits[10]);
+}
+
+export function validarCpfOuCnpj(doc: string): {
+  valido: boolean;
+  tipo: 'CPF' | 'CNPJ' | null;
+  digitos: string;
+} {
+  const digitos = limparDigitos(doc);
+  if (digitos.length === 11) {
+    return { valido: validarCpf(digitos), tipo: 'CPF', digitos };
+  }
+  if (digitos.length === 14) {
+    return { valido: validarCnpj(digitos), tipo: 'CNPJ', digitos };
+  }
+  return { valido: false, tipo: null, digitos };
 }
 
 export function validarCnpj(cnpj: string): boolean {

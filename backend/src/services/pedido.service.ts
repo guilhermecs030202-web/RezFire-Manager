@@ -5,6 +5,14 @@ import { Produto } from '../entities/Produto';
 import { Estoque } from '../entities/Estoque';
 import { LoteEstoque } from '../entities/LoteEstoque';
 import { MovimentacaoEstoque } from '../entities/MovimentacaoEstoque';
+import { NotaFiscal } from '../entities/NotaFiscal';
+import {
+  UFS_VALIDAS,
+  limparDigitos,
+  validarCep,
+  validarCpfOuCnpj,
+  validarInscricaoEstadual,
+} from '../utils/fiscalValidator';
 
 export interface CriarItemPedidoDTO {
   id_produto: number;
@@ -12,7 +20,23 @@ export interface CriarItemPedidoDTO {
   preco_unitario?: number;
 }
 
-export interface CriarPedidoDTO {
+export interface DadosDestinatarioDTO {
+  cliente_nome?: string;
+  destinatario_documento?: string | null;
+  destinatario_ie?: string | null;
+  destinatario_cep?: string | null;
+  destinatario_logradouro?: string | null;
+  destinatario_numero?: string | null;
+  destinatario_complemento?: string | null;
+  destinatario_bairro?: string | null;
+  destinatario_municipio?: string | null;
+  destinatario_codigo_municipio_ibge?: string | null;
+  destinatario_uf?: string | null;
+  destinatario_email?: string | null;
+  valor_desconto?: number;
+}
+
+export interface CriarPedidoDTO extends DadosDestinatarioDTO {
   codigo_pedido?: string;
   cliente_nome: string;
   origem?: string;
@@ -44,6 +68,120 @@ export interface ParametrosCalculoLucroDTO {
 export class PedidoService {
   private get pedidoRepo() {
     return AppDataSource.getRepository(Pedido);
+  }
+
+  private get notaFiscalRepo() {
+    return AppDataSource.getRepository(NotaFiscal);
+  }
+
+  private normalizarEValidarDestinatario(dados: DadosDestinatarioDTO) {
+    const cleanOpt = (v: unknown) => {
+      if (v === null || v === undefined) return null;
+      const t = String(v).trim();
+      return t.length > 0 ? t : null;
+    };
+
+    const docRaw = cleanOpt(dados.destinatario_documento);
+    let docLimpo: string | null = null;
+    if (docRaw !== null) {
+      const check = validarCpfOuCnpj(docRaw);
+      if (!check.valido) {
+        throw new Error('CPF ou CNPJ do destinatário inválido.');
+      }
+      docLimpo = check.digitos;
+    }
+
+    const ieRaw = cleanOpt(dados.destinatario_ie);
+    let ieNorm: string | null = null;
+    if (ieRaw !== null) {
+      const upper = ieRaw.toUpperCase();
+      if (!validarInscricaoEstadual(upper)) {
+        throw new Error('Inscrição Estadual do destinatário inválida.');
+      }
+      ieNorm = upper;
+    }
+
+    const cepRaw = cleanOpt(dados.destinatario_cep);
+    let cepLimpo: string | null = null;
+    if (cepRaw !== null) {
+      const digits = limparDigitos(cepRaw);
+      if (!validarCep(digits)) {
+        throw new Error('CEP do destinatário inválido: informe 8 dígitos.');
+      }
+      cepLimpo = digits;
+    }
+
+    const ufRaw = cleanOpt(dados.destinatario_uf);
+    let ufUpper: string | null = null;
+    if (ufRaw !== null) {
+      const u = ufRaw.toUpperCase();
+      if (!(UFS_VALIDAS as readonly string[]).includes(u)) {
+        throw new Error(`UF do destinatário inválida ("${ufRaw}").`);
+      }
+      ufUpper = u;
+    }
+
+    const ibgeRaw = cleanOpt(dados.destinatario_codigo_municipio_ibge);
+    let ibgeLimpo: string | null = null;
+    if (ibgeRaw !== null) {
+      const digits = limparDigitos(ibgeRaw);
+      if (digits.length !== 7) {
+        throw new Error('Código IBGE do município do destinatário deve conter 7 dígitos.');
+      }
+      ibgeLimpo = digits;
+    }
+
+    return {
+      destinatario_documento: docLimpo,
+      destinatario_ie: ieNorm,
+      destinatario_cep: cepLimpo,
+      destinatario_logradouro: cleanOpt(dados.destinatario_logradouro),
+      destinatario_numero: cleanOpt(dados.destinatario_numero),
+      destinatario_complemento: cleanOpt(dados.destinatario_complemento),
+      destinatario_bairro: cleanOpt(dados.destinatario_bairro),
+      destinatario_municipio: cleanOpt(dados.destinatario_municipio),
+      destinatario_codigo_municipio_ibge: ibgeLimpo,
+      destinatario_uf: ufUpper,
+      destinatario_email: cleanOpt(dados.destinatario_email),
+    };
+  }
+
+  private async anexarResumoNotasFiscais(pedidos: Pedido[]) {
+    if (!pedidos || pedidos.length === 0) return pedidos;
+    try {
+      const ids = pedidos.map((p) => p.id_pedido);
+      const notas = await this.notaFiscalRepo
+        .createQueryBuilder('nf')
+        .select([
+          'nf.id_nota_fiscal',
+          'nf.id_pedido',
+          'nf.status',
+          'nf.ambiente',
+          'nf.serie',
+          'nf.numero',
+          'nf.chave_acesso',
+          'nf.assinatura_valida',
+          'nf.assinada_em',
+          'nf.digest_value',
+        ])
+        .where('nf.id_pedido IN (:...ids)', { ids })
+        .orderBy('nf.id_nota_fiscal', 'DESC')
+        .getMany();
+
+      const mapaPorPedido = new Map<number, NotaFiscal>();
+      for (const nf of notas) {
+        if (nf.id_pedido && !mapaPorPedido.has(nf.id_pedido)) {
+          mapaPorPedido.set(nf.id_pedido, nf);
+        }
+      }
+
+      return pedidos.map((p) => ({
+        ...p,
+        nota_fiscal_resumo: mapaPorPedido.get(p.id_pedido) || null,
+      }));
+    } catch {
+      return pedidos;
+    }
   }
 
   /**
@@ -88,7 +226,8 @@ export class PedidoService {
       qb.take(filtros.limite);
     }
 
-    return qb.getMany();
+    const lista = await qb.getMany();
+    return this.anexarResumoNotasFiscais(lista);
   }
 
   /**
@@ -104,7 +243,8 @@ export class PedidoService {
       throw new Error(`Pedido #${id_pedido} não encontrado.`);
     }
 
-    return pedido;
+    const comResumo = await this.anexarResumoNotasFiscais([pedido]);
+    return comResumo[0];
   }
 
   /**
@@ -286,6 +426,10 @@ export class PedidoService {
       const lucroLiquido = Number((valorTotal - totalCustosFixos - totalTarifasPlataforma).toFixed(2));
       const margemLiquidaPercentual = valorTotal > 0 ? Number(((lucroLiquido / valorTotal) * 100).toFixed(2)) : 0.00;
 
+      const destNormalizado = this.normalizarEValidarDestinatario(dados);
+      const valorDesconto = Math.max(0, Number(dados.valor_desconto || 0));
+      valorTotal = Math.max(0, Number((valorTotal - valorDesconto).toFixed(2)));
+
       // 4. Salva o Pedido
       const prazoDespachoCalculado = dados.prazo_despacho
         ? new Date(dados.prazo_despacho)
@@ -297,6 +441,7 @@ export class PedidoService {
         origem: origemPedido,
         status: 'Confirmado',
         valor_total: valorTotal,
+        valor_desconto: valorDesconto,
         data_pedido: agora,
         prazo_despacho: prazoDespachoCalculado,
         data_despacho: null,
@@ -319,6 +464,7 @@ export class PedidoService {
         total_tarifas_plataforma: totalTarifasPlataforma,
         lucro_liquido: lucroLiquido,
         margem_liquida_percentual: margemLiquidaPercentual,
+        ...destNormalizado,
       });
       const pedidoSalvo = await pedRepoTx.save(pedido);
 
@@ -999,6 +1145,76 @@ export class PedidoService {
       total_pedidos_geral: pedidos.length,
       comparativo,
     };
+  }
+
+  /**
+   * Atualiza os dados fiscais do destinatário vinculados a um pedido (Story 33c).
+   */
+  async atualizarDestinatario(id_pedido: number, dados: DadosDestinatarioDTO) {
+    const pedido = await this.pedidoRepo.findOne({ where: { id_pedido } });
+    if (!pedido) {
+      throw new Error(`Pedido #${id_pedido} não encontrado.`);
+    }
+
+    const mesclado: DadosDestinatarioDTO = {
+      destinatario_documento:
+        dados.destinatario_documento !== undefined
+          ? dados.destinatario_documento
+          : pedido.destinatario_documento,
+      destinatario_ie:
+        dados.destinatario_ie !== undefined ? dados.destinatario_ie : pedido.destinatario_ie,
+      destinatario_cep:
+        dados.destinatario_cep !== undefined ? dados.destinatario_cep : pedido.destinatario_cep,
+      destinatario_logradouro:
+        dados.destinatario_logradouro !== undefined
+          ? dados.destinatario_logradouro
+          : pedido.destinatario_logradouro,
+      destinatario_numero:
+        dados.destinatario_numero !== undefined
+          ? dados.destinatario_numero
+          : pedido.destinatario_numero,
+      destinatario_complemento:
+        dados.destinatario_complemento !== undefined
+          ? dados.destinatario_complemento
+          : pedido.destinatario_complemento,
+      destinatario_bairro:
+        dados.destinatario_bairro !== undefined
+          ? dados.destinatario_bairro
+          : pedido.destinatario_bairro,
+      destinatario_municipio:
+        dados.destinatario_municipio !== undefined
+          ? dados.destinatario_municipio
+          : pedido.destinatario_municipio,
+      destinatario_codigo_municipio_ibge:
+        dados.destinatario_codigo_municipio_ibge !== undefined
+          ? dados.destinatario_codigo_municipio_ibge
+          : pedido.destinatario_codigo_municipio_ibge,
+      destinatario_uf:
+        dados.destinatario_uf !== undefined ? dados.destinatario_uf : pedido.destinatario_uf,
+      destinatario_email:
+        dados.destinatario_email !== undefined
+          ? dados.destinatario_email
+          : pedido.destinatario_email,
+    };
+
+    const destNorm = this.normalizarEValidarDestinatario(mesclado);
+
+    if (dados.cliente_nome !== undefined) {
+      const nome = String(dados.cliente_nome).trim();
+      if (nome.length < 2) {
+        throw new Error('Nome do destinatário deve ter ao menos 2 caracteres.');
+      }
+      pedido.cliente_nome = nome;
+    }
+
+    if (dados.valor_desconto !== undefined) {
+      pedido.valor_desconto = Math.max(0, Number(dados.valor_desconto || 0));
+    }
+
+    Object.assign(pedido, destNorm);
+    await this.pedidoRepo.save(pedido);
+
+    return this.buscarPorId(id_pedido);
   }
 }
 

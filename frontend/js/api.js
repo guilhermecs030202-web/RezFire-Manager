@@ -48,7 +48,10 @@ window.RezFireAPI = {
       const data = await response.json();
 
       if (!response.ok) {
-        throw new Error(data.mensagem || `Erro HTTP ${response.status}`);
+        const err = new Error(data.mensagem || `Erro HTTP ${response.status}`);
+        err.status = response.status;
+        err.data = data;
+        throw err;
       }
 
       return data;
@@ -209,6 +212,12 @@ window.RezFireAPI = {
         body: JSON.stringify(dados),
       });
     },
+    async atualizarDestinatario(id, dados) {
+      return window.RezFireAPI.request(`/pedidos/${id}/destinatario`, {
+        method: 'PATCH',
+        body: JSON.stringify(dados),
+      });
+    },
   },
 
   // Módulo de Dashboard & KPIs (Cálculos Diretos no MySQL)
@@ -343,6 +352,19 @@ window.RezFireAPI = {
         method: 'POST',
         body: JSON.stringify(payload || {}),
       });
+    },
+    async obterNFePedido(idPedido) {
+      return window.RezFireAPI.request(`/fiscal/pedidos/${idPedido}/nfe`);
+    },
+    async prepararNFe(idPedido, opcoes = {}) {
+      return window.RezFireAPI.request(`/fiscal/pedidos/${idPedido}/preparar-nfe`, {
+        method: 'POST',
+        body: JSON.stringify(opcoes),
+      });
+    },
+    urlXmlNFe(idNota) {
+      const baseUrl = (typeof API_BASE_URL !== 'undefined') ? API_BASE_URL : '/api';
+      return `${baseUrl}/fiscal/notas/${idNota}/xml`;
     },
   },
 

@@ -12,6 +12,11 @@ router.use(authMiddleware);
 router.get('/referencias', controller.obterReferencias);
 router.get('/produtos/pendencias', controller.listarPendenciasProdutos);
 router.post('/validar-emissao', controller.validarEmissao);
+router.get('/pedidos/:id/nfe', controller.obterNFeDoPedido);
+
+// Preparação e assinatura da NF-e e download do XML assinado — restritas ao GESTOR
+router.post('/pedidos/:id/preparar-nfe', requerPerfil(['GESTOR']), controller.prepararNFePedido);
+router.get('/notas/:id/xml', requerPerfil(['GESTOR']), controller.baixarXmlNota);
 
 // Configuração do emitente, certificado A1 e ambiente SEFAZ — estritamente restrita ao GESTOR (DoR 33a + #20)
 router.get('/emitente', requerPerfil(['GESTOR']), controller.obterEmitente);

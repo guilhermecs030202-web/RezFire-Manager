@@ -1,10 +1,12 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
+
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Pedidos · RezFire Manager</title>
-  <meta name="description" content="Gerencie os pedidos, registre vendas e acompanhe o andamento comercial — RezFire Manager." />
+  <meta name="description"
+    content="Gerencie os pedidos, registre vendas e acompanhe o andamento comercial — RezFire Manager." />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
@@ -37,15 +39,31 @@
       letter-spacing: 0.02em;
       white-space: nowrap;
     }
+
     .status-dot {
       width: 6px;
       height: 6px;
       border-radius: 50%;
       background: currentColor;
     }
-    .badge-confirmado  { background: #dbeafe; color: #1e40af; border: 1px solid #bfdbfe; }
-    .badge-concluido   { background: #e8f8ee; color: #1f9d5c; border: 1px solid #a7f3d0; }
-    .badge-cancelado   { background: #f3f4f6; color: #6b7280; border: 1px solid #d1d5db; }
+
+    .badge-confirmado {
+      background: #dbeafe;
+      color: #1e40af;
+      border: 1px solid #bfdbfe;
+    }
+
+    .badge-concluido {
+      background: #e8f8ee;
+      color: #1f9d5c;
+      border: 1px solid #a7f3d0;
+    }
+
+    .badge-cancelado {
+      background: #f3f4f6;
+      color: #6b7280;
+      border: 1px solid #d1d5db;
+    }
 
     /* ── Painel lateral (Slideover Drawer) ───────────────────── */
     #detalhe-panel {
@@ -62,7 +80,10 @@
       transition: right 0.26s cubic-bezier(0.16, 1, 0.3, 1);
       overflow-y: auto;
     }
-    #detalhe-panel.is-open { right: 0; }
+
+    #detalhe-panel.is-open {
+      right: 0;
+    }
 
     #detalhe-overlay {
       position: fixed;
@@ -72,7 +93,10 @@
       display: none;
       backdrop-filter: blur(2px);
     }
-    #detalhe-overlay.is-open { display: block; }
+
+    #detalhe-overlay.is-open {
+      display: block;
+    }
 
     .detalhe-head {
       padding: 20px 24px 14px;
@@ -82,10 +106,12 @@
       background: #fff;
       z-index: 2;
     }
+
     .detalhe-body {
       padding: 20px 24px;
       flex: 1;
     }
+
     .detalhe-foot {
       padding: 16px 24px 20px;
       border-top: 1px solid var(--line);
@@ -95,7 +121,10 @@
       flex-wrap: wrap;
     }
 
-    .detalhe-section { margin-bottom: 22px; }
+    .detalhe-section {
+      margin-bottom: 22px;
+    }
+
     .detalhe-section-title {
       margin: 0 0 10px;
       font-size: 0.78rem;
@@ -104,16 +133,19 @@
       color: var(--muted);
       text-transform: uppercase;
     }
+
     .detalhe-grid {
       display: grid;
       grid-template-columns: 1fr 1fr;
       gap: 10px 16px;
     }
+
     .detalhe-field {
       display: flex;
       flex-direction: column;
       gap: 2px;
     }
+
     .detalhe-label {
       font-size: 0.72rem;
       font-weight: 700;
@@ -129,6 +161,7 @@
       flex-direction: column;
       gap: 14px;
     }
+
     .timeline::before {
       content: "";
       position: absolute;
@@ -138,10 +171,12 @@
       width: 2px;
       background: var(--line);
     }
+
     .timeline-item {
       position: relative;
       font-size: 0.84rem;
     }
+
     .timeline-dot {
       position: absolute;
       left: -20px;
@@ -152,18 +187,43 @@
       background: #fff;
       border: 2px solid var(--accent);
     }
-    .timeline-dot.info    { border-color: #3b82f6; }
-    .timeline-dot.sucesso { border-color: #10b981; }
-    .timeline-dot.erro    { border-color: var(--down); }
-    .timeline-title { font-weight: 700; color: var(--ink); }
-    .timeline-desc  { margin: 2px 0 0; color: var(--muted); font-size: 0.8rem; line-height: 1.4; }
-    .timeline-date  { margin: 2px 0 0; font-size: 0.72rem; color: #a09890; }
+
+    .timeline-dot.info {
+      border-color: #3b82f6;
+    }
+
+    .timeline-dot.sucesso {
+      border-color: #10b981;
+    }
+
+    .timeline-dot.erro {
+      border-color: var(--down);
+    }
+
+    .timeline-title {
+      font-weight: 700;
+      color: var(--ink);
+    }
+
+    .timeline-desc {
+      margin: 2px 0 0;
+      color: var(--muted);
+      font-size: 0.8rem;
+      line-height: 1.4;
+    }
+
+    .timeline-date {
+      margin: 2px 0 0;
+      font-size: 0.72rem;
+      color: #a09890;
+    }
 
     /* ── Modal de Pedido (Formulário Amplo) ─────────────────── */
     #modal-pedido .modal {
       width: min(840px, 96vw);
       max-height: 92vh;
     }
+
     .form-group-title {
       font-size: 0.82rem;
       font-weight: 800;
@@ -175,6 +235,7 @@
       align-items: center;
       gap: 8px;
     }
+
     .form-group-title::after {
       content: "";
       flex: 1;
@@ -193,14 +254,30 @@
       gap: 12px;
       margin-top: 14px;
     }
+
     .finance-item {
       display: flex;
       flex-direction: column;
       gap: 2px;
     }
-    .finance-item span { font-size: 0.72rem; color: var(--muted); font-weight: 700; text-transform: uppercase; }
-    .finance-item strong { font-size: 1.15rem; color: var(--ink); }
-    .finance-item.highlight strong { color: var(--accent); font-weight: 800; font-size: 1.3rem; }
+
+    .finance-item span {
+      font-size: 0.72rem;
+      color: var(--muted);
+      font-weight: 700;
+      text-transform: uppercase;
+    }
+
+    .finance-item strong {
+      font-size: 1.15rem;
+      color: var(--ink);
+    }
+
+    .finance-item.highlight strong {
+      color: var(--accent);
+      font-weight: 800;
+      font-size: 1.3rem;
+    }
 
     /* ── Toasts ─────────────────────────────────────────────── */
     #toast-container {
@@ -213,6 +290,7 @@
       gap: 8px;
       pointer-events: none;
     }
+
     .toast {
       background: var(--ink);
       color: #fff;
@@ -223,14 +301,27 @@
       opacity: 0;
       transform: translateY(10px);
       transition: opacity 0.22s, transform 0.22s;
-      box-shadow: 0 4px 16px rgba(0,0,0,0.18);
+      box-shadow: 0 4px 16px rgba(0, 0, 0, 0.18);
       max-width: 360px;
       word-break: break-word;
     }
-    .toast.toast-show { opacity: 1; transform: translateY(0); }
-    .toast.toast-sucesso { background: #1f9d5c; }
-    .toast.toast-erro    { background: var(--down); }
-    .toast.toast-aviso   { background: #d97706; }
+
+    .toast.toast-show {
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    .toast.toast-sucesso {
+      background: #1f9d5c;
+    }
+
+    .toast.toast-erro {
+      background: var(--down);
+    }
+
+    .toast.toast-aviso {
+      background: #d97706;
+    }
   </style>
 </head>
 
@@ -247,37 +338,49 @@
           </p>
         </div>
         <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
-          <button class="btn-ghost" id="btn-ver-padroes-devolucoes" style="font-size:0.84rem;padding:8px 14px;display:inline-flex;align-items:center;gap:6px;border-color:#fca5a5;color:var(--down)">
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
-              <line x1="12" y1="9" x2="12" y2="13"/>
-              <line x1="12" y1="17" x2="12.01" y2="17"/>
+          <button class="btn-ghost" id="btn-ver-padroes-devolucoes"
+            style="font-size:0.84rem;padding:8px 14px;display:inline-flex;align-items:center;gap:6px;border-color:#fca5a5;color:var(--down)">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+              stroke-linecap="round" stroke-linejoin="round">
+              <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
+              <line x1="12" y1="9" x2="12" y2="13" />
+              <line x1="12" y1="17" x2="12.01" y2="17" />
             </svg>
             Padrões de Devoluções
           </button>
-          <button class="btn-ghost" id="btn-abrir-respostas-padrao" type="button" style="font-size:0.84rem;padding:8px 14px;display:inline-flex;align-items:center;gap:6px;border-color:#cbd5e1;color:var(--ink)" title="Consultar base de respostas padrão técnicas de pré-venda (#22)">
+          <button class="btn-ghost" id="btn-abrir-respostas-padrao" type="button"
+            style="font-size:0.84rem;padding:8px 14px;display:inline-flex;align-items:center;gap:6px;border-color:#cbd5e1;color:var(--ink)"
+            title="Consultar base de respostas padrão técnicas de pré-venda (#22)">
             <span>💬</span>
             <span>Respostas Pré-Venda</span>
           </button>
-          <button class="btn-ghost" id="btn-abrir-comparativo-modalidades" type="button" style="font-size:0.84rem;padding:8px 14px;display:inline-flex;align-items:center;gap:6px;border-color:#0d9488;color:#0f766e" title="Comparativo de Custos e Prazos por Modalidade de Envio (#24)">
+          <button class="btn-ghost" id="btn-abrir-comparativo-modalidades" type="button"
+            style="font-size:0.84rem;padding:8px 14px;display:inline-flex;align-items:center;gap:6px;border-color:#0d9488;color:#0f766e"
+            title="Comparativo de Custos e Prazos por Modalidade de Envio (#24)">
             <span>🚚</span>
             <span>Modalidades de Envio (#24)</span>
           </button>
-          <button class="btn-ghost" id="btn-sync-pedidos-ml" type="button" style="font-size:0.84rem;padding:8px 14px;display:inline-flex;align-items:center;gap:6px;border-color:#3b82f6;color:#1e40af" title="Sincronizar pedidos em tempo real do Mercado Livre (#30)">
-            <svg id="sync-pedidos-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <button class="btn-ghost" id="btn-sync-pedidos-ml" type="button"
+            style="font-size:0.84rem;padding:8px 14px;display:inline-flex;align-items:center;gap:6px;border-color:#3b82f6;color:#1e40af"
+            title="Sincronizar pedidos em tempo real do Mercado Livre (#30)">
+            <svg id="sync-pedidos-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+              stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
               <path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.2" />
             </svg>
             <span id="sync-pedidos-label">⚡ Sincronizar ML</span>
           </button>
-          <button class="btn-ghost" id="btn-atualizar" style="font-size:0.84rem;padding:8px 14px;display:inline-flex;align-items:center;gap:6px">
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8"/>
-              <path d="M21 3v5h-5"/>
+          <button class="btn-ghost" id="btn-atualizar"
+            style="font-size:0.84rem;padding:8px 14px;display:inline-flex;align-items:center;gap:6px">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+              stroke-linecap="round" stroke-linejoin="round">
+              <path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8" />
+              <path d="M21 3v5h-5" />
             </svg>
             Atualizar
           </button>
           <button class="btn-primary" id="btn-novo-pedido" style="display:inline-flex;align-items:center;gap:6px">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"
+              stroke-linecap="round" stroke-linejoin="round">
               <line x1="12" y1="5" x2="12" y2="19"></line>
               <line x1="5" y1="12" x2="19" y2="12"></line>
             </svg>
@@ -307,7 +410,8 @@
 
             <!-- Filtro de Status Comercial -->
             <div style="display:flex;align-items:center;gap:6px">
-              <label for="filtro-status" style="font-size:0.72rem;font-weight:700;color:var(--muted);letter-spacing:0.05em">Status:</label>
+              <label for="filtro-status"
+                style="font-size:0.72rem;font-weight:700;color:var(--muted);letter-spacing:0.05em">Status:</label>
               <select id="filtro-status" class="search-input" style="width:160px">
                 <option value="todos">Todos os status</option>
                 <option value="Confirmado">Confirmado</option>
@@ -318,7 +422,9 @@
 
             <!-- Filtro de Motivo / Devolução (SCRUM-22) -->
             <div style="display:flex;align-items:center;gap:6px">
-              <label for="filtro-motivo" style="font-size:0.72rem;font-weight:700;color:var(--muted);letter-spacing:0.05em;white-space:nowrap">Motivo / Devolução:</label>
+              <label for="filtro-motivo"
+                style="font-size:0.72rem;font-weight:700;color:var(--muted);letter-spacing:0.05em;white-space:nowrap">Motivo
+                / Devolução:</label>
               <select id="filtro-motivo" class="search-input" style="width:190px">
                 <option value="todos">Todos os motivos</option>
                 <option value="Avaria no Transporte">Avaria no Transporte</option>
@@ -332,7 +438,8 @@
 
             <!-- Filtro de Origem / Canal -->
             <div style="display:flex;align-items:center;gap:6px">
-              <label for="filtro-canal" style="font-size:0.72rem;font-weight:700;color:var(--muted);letter-spacing:0.05em;white-space:nowrap">Origem:</label>
+              <label for="filtro-canal"
+                style="font-size:0.72rem;font-weight:700;color:var(--muted);letter-spacing:0.05em;white-space:nowrap">Origem:</label>
               <select id="filtro-canal" class="search-input" style="width:160px">
                 <option value="todos">Todas origens</option>
                 <option value="Mercado Livre">Mercado Livre</option>
@@ -342,7 +449,8 @@
 
             <!-- Filtro de Período -->
             <div style="display:flex;align-items:center;gap:6px">
-              <label for="filtro-periodo" style="font-size:0.72rem;font-weight:700;color:var(--muted);letter-spacing:0.05em;white-space:nowrap">Período:</label>
+              <label for="filtro-periodo"
+                style="font-size:0.72rem;font-weight:700;color:var(--muted);letter-spacing:0.05em;white-space:nowrap">Período:</label>
               <select id="filtro-periodo" class="search-input" style="width:150px">
                 <option value="todos">Todo o período</option>
                 <option value="7">Últimos 7 dias</option>
@@ -353,7 +461,9 @@
 
             <!-- Ordenação -->
             <div style="display:flex;align-items:center;gap:6px">
-              <label for="ordem-pedidos" style="font-size:0.72rem;font-weight:700;color:var(--muted);letter-spacing:0.05em;white-space:nowrap">Ordenar por:</label>
+              <label for="ordem-pedidos"
+                style="font-size:0.72rem;font-weight:700;color:var(--muted);letter-spacing:0.05em;white-space:nowrap">Ordenar
+                por:</label>
               <select id="ordem-pedidos" class="search-input" style="width:180px">
                 <option value="data_desc">Data (mais recente)</option>
                 <option value="data_asc">Data (mais antiga)</option>
@@ -399,11 +509,13 @@
         </div>
 
         <!-- Paginação -->
-        <div style="display:flex;justify-content:space-between;align-items:center;padding:12px 20px;border-top:1px solid var(--line);font-size:0.84rem;color:var(--muted)">
+        <div
+          style="display:flex;justify-content:space-between;align-items:center;padding:12px 20px;border-top:1px solid var(--line);font-size:0.84rem;color:var(--muted)">
           <span id="pedidos-paginacao-info"></span>
           <div style="display:flex;gap:6px">
             <button class="btn-ghost" id="btn-pag-ant" style="padding:4px 10px;font-size:0.82rem">Anterior</button>
-            <span id="pedidos-pag-atual" style="align-self:center;font-weight:700;color:var(--ink);padding:0 8px">1</span>
+            <span id="pedidos-pag-atual"
+              style="align-self:center;font-weight:700;color:var(--ink);padding:0 8px">1</span>
             <button class="btn-ghost" id="btn-pag-prox" style="padding:4px 10px;font-size:0.82rem">Próxima</button>
           </div>
         </div>
@@ -426,7 +538,10 @@
       <div class="modal-header">
         <h2 id="modal-pedido-title">Novo pedido</h2>
         <button class="icon-btn" type="button" id="btn-fechar-modal-pedido" title="Fechar">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <line x1="18" y1="6" x2="6" y2="18"></line>
+            <line x1="6" y1="6" x2="18" y2="18"></line>
+          </svg>
         </button>
       </div>
 
@@ -438,7 +553,8 @@
         <div class="form-grid">
           <div class="form-field">
             <label for="pedido-numero">Número do Pedido</label>
-            <input id="pedido-numero" readonly style="background:#f8fafc;font-family:monospace;font-weight:700" title="Gerado automaticamente pelo sistema" />
+            <input id="pedido-numero" readonly style="background:#f8fafc;font-family:monospace;font-weight:700"
+              title="Gerado automaticamente pelo sistema" />
           </div>
           <div class="form-field">
             <label for="pedido-data">Data do Pedido *</label>
@@ -462,16 +578,33 @@
           <div class="form-field">
             <label for="pedido-uf">UF Destino</label>
             <select id="pedido-uf">
-              <option value="SP">SP - São Paulo</option>
-              <option value="RJ">RJ - Rio de Janeiro</option>
-              <option value="MG">MG - Minas Gerais</option>
-              <option value="PR">PR - Paraná</option>
-              <option value="SC">SC - Santa Catarina</option>
-              <option value="RS">RS - Rio Grande do Sul</option>
+              <option value="AC">AC - Acre</option>
+              <option value="AL">AL - Alagoas</option>
+              <option value="AP">AP - Amapá</option>
+              <option value="AM">AM - Amazonas</option>
               <option value="BA">BA - Bahia</option>
-              <option value="GO">GO - Goiás</option>
+              <option value="CE">CE - Ceará</option>
               <option value="DF">DF - Distrito Federal</option>
-              <option value="OUTRO">Outro Estado</option>
+              <option value="ES">ES - Espírito Santo</option>
+              <option value="GO">GO - Goiás</option>
+              <option value="MA">MA - Maranhão</option>
+              <option value="MT">MT - Mato Grosso</option>
+              <option value="MS">MS - Mato Grosso do Sul</option>
+              <option value="MG">MG - Minas Gerais</option>
+              <option value="PA">PA - Pará</option>
+              <option value="PB">PB - Paraíba</option>
+              <option value="PR">PR - Paraná</option>
+              <option value="PE">PE - Pernambuco</option>
+              <option value="PI">PI - Piauí</option>
+              <option value="RJ">RJ - Rio de Janeiro</option>
+              <option value="RN">RN - Rio Grande do Norte</option>
+              <option value="RS">RS - Rio Grande do Sul</option>
+              <option value="RO">RO - Rondônia</option>
+              <option value="RR">RR - Roraima</option>
+              <option value="SC">SC - Santa Catarina</option>
+              <option value="SP" selected>SP - São Paulo</option>
+              <option value="SE">SE - Sergipe</option>
+              <option value="TO">TO - Tocantins</option>
             </select>
           </div>
           <div class="form-field">
@@ -493,6 +626,52 @@
           </div>
         </div>
 
+        <!-- 8.1b Dados Fiscais do Destinatário (Story 33c) -->
+        <div class="form-group-title">1b. Dados Fiscais do Destinatário (NF-e · Story 33c — Opcional na criação,
+          obrigatório p/ NF-e)</div>
+        <div class="form-grid">
+          <div class="form-field">
+            <label for="pedido-dest-documento">CPF ou CNPJ do Destinatário</label>
+            <input id="pedido-dest-documento" maxlength="18" placeholder="000.000.000-00 ou 00.000.000/0001-00" />
+          </div>
+          <div class="form-field">
+            <label for="pedido-dest-ie">Inscrição Estadual (Opcional)</label>
+            <input id="pedido-dest-ie" maxlength="20" placeholder="Somente se CNPJ contribuinte ou ISENTO" />
+          </div>
+          <div class="form-field">
+            <label for="pedido-dest-cep">CEP</label>
+            <input id="pedido-dest-cep" maxlength="9" placeholder="00000-000" />
+          </div>
+          <div class="form-field">
+            <label for="pedido-dest-email">E-mail p/ XML/DANFE (Opcional)</label>
+            <input id="pedido-dest-email" type="email" maxlength="150" placeholder="cliente@empresa.com.br" />
+          </div>
+          <div class="form-field span-2">
+            <label for="pedido-dest-logradouro">Logradouro</label>
+            <input id="pedido-dest-logradouro" maxlength="255" placeholder="Rua, Avenida..." />
+          </div>
+          <div class="form-field">
+            <label for="pedido-dest-numero">Número</label>
+            <input id="pedido-dest-numero" maxlength="20" placeholder="Ex: 100 ou S/N" />
+          </div>
+          <div class="form-field">
+            <label for="pedido-dest-complemento">Complemento</label>
+            <input id="pedido-dest-complemento" maxlength="100" placeholder="Sala, Galpão..." />
+          </div>
+          <div class="form-field">
+            <label for="pedido-dest-bairro">Bairro</label>
+            <input id="pedido-dest-bairro" maxlength="100" placeholder="Ex: Centro" />
+          </div>
+          <div class="form-field">
+            <label for="pedido-dest-municipio">Município</label>
+            <input id="pedido-dest-municipio" maxlength="100" placeholder="Ex: São Paulo" />
+          </div>
+          <div class="form-field span-2">
+            <label for="pedido-dest-ibge">Código IBGE do Município (7 dígitos — opcional)</label>
+            <input id="pedido-dest-ibge" maxlength="7" placeholder="Ex: 3550308 (usa capital da UF se omitido)" />
+          </div>
+        </div>
+
         <!-- 8.2 Itens do Pedido -->
         <div class="form-group-title">2. Itens do Pedido (Catálogo RezFire)</div>
         <p style="font-size:0.8rem;color:var(--muted);margin-bottom:10px">
@@ -500,22 +679,30 @@
         </p>
 
         <!-- Barra de inserção de item -->
-        <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:12px;margin-bottom:12px;display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end">
+        <div
+          style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:12px;margin-bottom:12px;display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end">
           <div style="flex:2;min-width:220px">
-            <label for="select-item-produto" style="font-size:0.75rem;font-weight:700;color:var(--muted);display:block;margin-bottom:4px">Produto *</label>
+            <label for="select-item-produto"
+              style="font-size:0.75rem;font-weight:700;color:var(--muted);display:block;margin-bottom:4px">Produto
+              *</label>
             <select id="select-item-produto" class="search-input" style="width:100%">
               <option value="">— Selecione um produto —</option>
             </select>
           </div>
           <div style="width:90px">
-            <label for="input-item-qtd" style="font-size:0.75rem;font-weight:700;color:var(--muted);display:block;margin-bottom:4px">Qtd *</label>
-            <input id="input-item-qtd" type="number" min="1" step="1" value="1" class="search-input" style="width:100%;text-align:center" />
+            <label for="input-item-qtd"
+              style="font-size:0.75rem;font-weight:700;color:var(--muted);display:block;margin-bottom:4px">Qtd *</label>
+            <input id="input-item-qtd" type="number" min="1" step="1" value="1" class="search-input"
+              style="width:100%;text-align:center" />
           </div>
           <div style="width:120px">
-            <label for="input-item-preco" style="font-size:0.75rem;font-weight:700;color:var(--muted);display:block;margin-bottom:4px">Preço Un. (R$)</label>
+            <label for="input-item-preco"
+              style="font-size:0.75rem;font-weight:700;color:var(--muted);display:block;margin-bottom:4px">Preço Un.
+              (R$)</label>
             <input id="input-item-preco" type="number" min="0" step="0.01" class="search-input" style="width:100%" />
           </div>
-          <button type="button" id="btn-adicionar-item" class="btn-primary" style="padding:8px 16px;height:38px;display:inline-flex;align-items:center;gap:4px">
+          <button type="button" id="btn-adicionar-item" class="btn-primary"
+            style="padding:8px 16px;height:38px;display:inline-flex;align-items:center;gap:4px">
             + Adicionar Item
           </button>
         </div>
@@ -574,7 +761,8 @@
         <!-- 8.4 Observações -->
         <div class="form-group-title">4. Observações Comerciais</div>
         <div class="form-field" style="margin-bottom:10px">
-          <textarea id="pedido-observacoes" rows="2" maxlength="500" placeholder="Informações adicionais da venda, faturamento ou instruções específicas..."></textarea>
+          <textarea id="pedido-observacoes" rows="2" maxlength="500"
+            placeholder="Informações adicionais da venda, faturamento ou instruções específicas..."></textarea>
         </div>
 
         <p class="form-error" id="form-pedido-error" style="color:var(--down);font-weight:600;margin:10px 0 0"></p>
@@ -592,7 +780,8 @@
     <div class="modal" style="width:min(520px, 96vw)">
       <div class="modal-header">
         <h2 id="cancel-title" style="color:var(--down);font-size:1.05rem;display:flex;align-items:center;gap:6px">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+            stroke-linecap="round" stroke-linejoin="round">
             <circle cx="12" cy="12" r="10"></circle>
             <line x1="15" y1="9" x2="9" y2="15"></line>
             <line x1="9" y1="9" x2="15" y2="15"></line>
@@ -603,7 +792,8 @@
       <p style="font-size:0.88rem;color:var(--ink);line-height:1.5;margin-bottom:12px">
         Pedido: <strong id="cancel-pedido-codigo"></strong>
         <span style="display:block;margin-top:4px;color:var(--muted);font-size:0.8rem">
-          Conforme a regra de negócio (AGENTS.md Seção 7), pedidos aprovados que são devolvidos ou cancelados geram estorno automático de entrada no estoque e registro em movimentações.
+          Conforme a regra de negócio (AGENTS.md Seção 7), pedidos aprovados que são devolvidos ou cancelados geram
+          estorno automático de entrada no estoque e registro em movimentações.
         </span>
       </p>
 
@@ -618,7 +808,8 @@
         </div>
 
         <div class="form-field" style="margin-bottom:12px">
-          <label for="cancel-motivo-padronizado">Motivo Padronizado * <span style="font-size:0.72rem;color:var(--muted);font-weight:400">(Taxonomia SCRUM-22)</span></label>
+          <label for="cancel-motivo-padronizado">Motivo Padronizado * <span
+              style="font-size:0.72rem;color:var(--muted);font-weight:400">(Taxonomia SCRUM-22)</span></label>
           <select id="cancel-motivo-padronizado" class="search-input" style="width:100%" required>
             <option value="" disabled selected>Selecione o motivo padronizado...</option>
             <option value="Avaria no Transporte">Avaria no Transporte</option>
@@ -632,12 +823,14 @@
 
         <div class="form-field" style="margin-bottom:12px">
           <label for="cancel-protocolo-mediacao">Protocolo / Ticket de Mediação Mercado Livre (Opcional)</label>
-          <input type="text" id="cancel-protocolo-mediacao" class="search-input" style="width:100%" placeholder="Ex: MED-589123891 ou Reclamação #40921" />
+          <input type="text" id="cancel-protocolo-mediacao" class="search-input" style="width:100%"
+            placeholder="Ex: MED-589123891 ou Reclamação #40921" />
         </div>
 
         <div class="form-field" style="margin-bottom:16px">
           <label for="cancel-detalhe-obs">Detalhes e Observações Técnicas</label>
-          <textarea id="cancel-detalhe-obs" class="search-input" style="width:100%" rows="2" placeholder="Observações para identificação de padrões, laudo do produto ou histórico da conversa com o cliente..."></textarea>
+          <textarea id="cancel-detalhe-obs" class="search-input" style="width:100%" rows="2"
+            placeholder="Observações para identificação de padrões, laudo do produto ou histórico da conversa com o cliente..."></textarea>
         </div>
 
         <div class="modal-actions">
@@ -651,14 +844,17 @@
   </div>
 
   <!-- Modal de Padrões e Estatísticas de Devoluções / Mediações (SCRUM-22) ─────────────── -->
-  <div class="modal-backdrop" id="modal-padroes-devolucoes" role="dialog" aria-modal="true" aria-labelledby="padroes-title">
+  <div class="modal-backdrop" id="modal-padroes-devolucoes" role="dialog" aria-modal="true"
+    aria-labelledby="padroes-title">
     <div class="modal" style="width:min(720px, 96vw);max-height:90vh;overflow-y:auto">
-      <div class="modal-header" style="display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid var(--line);padding-bottom:12px;margin-bottom:16px">
+      <div class="modal-header"
+        style="display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid var(--line);padding-bottom:12px;margin-bottom:16px">
         <h2 id="padroes-title" style="color:var(--ink);font-size:1.15rem;display:flex;align-items:center;gap:8px">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--down)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
-            <line x1="12" y1="9" x2="12" y2="13"/>
-            <line x1="12" y1="17" x2="12.01" y2="17"/>
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--down)" stroke-width="2"
+            stroke-linecap="round" stroke-linejoin="round">
+            <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
+            <line x1="12" y1="9" x2="12" y2="13" />
+            <line x1="12" y1="17" x2="12.01" y2="17" />
           </svg>
           Padrões de Devoluções & Mediações (SCRUM-22)
         </h2>
@@ -666,22 +862,28 @@
       </div>
 
       <p style="font-size:0.85rem;color:var(--muted);line-height:1.5;margin-bottom:16px">
-        Monitore motivos recorrentes de devolução e mediações no Mercado Livre para identificar pontos de melhoria em descrições técnicas, embalagem de cilindros ou atendimento pós-venda.
+        Monitore motivos recorrentes de devolução e mediações no Mercado Livre para identificar pontos de melhoria em
+        descrições técnicas, embalagem de cilindros ou atendimento pós-venda.
       </p>
 
       <!-- Grid de Resumo -->
       <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;margin-bottom:20px">
         <div class="card" style="padding:12px;background:#fef2f2;border-left:4px solid var(--down)">
-          <div style="font-size:0.75rem;color:var(--muted);text-transform:uppercase;font-weight:700">Total Ocorrências</div>
-          <div id="stat-total-ocorrencias" style="font-size:1.4rem;font-weight:800;color:var(--down);margin-top:4px">0</div>
+          <div style="font-size:0.75rem;color:var(--muted);text-transform:uppercase;font-weight:700">Total Ocorrências
+          </div>
+          <div id="stat-total-ocorrencias" style="font-size:1.4rem;font-weight:800;color:var(--down);margin-top:4px">0
+          </div>
         </div>
         <div class="card" style="padding:12px;background:#fffbeb;border-left:4px solid #f59e0b">
           <div style="font-size:0.75rem;color:var(--muted);text-transform:uppercase;font-weight:700">Mediações ML</div>
           <div id="stat-total-mediacoes" style="font-size:1.4rem;font-weight:800;color:#b45309;margin-top:4px">0</div>
         </div>
         <div class="card" style="padding:12px;background:#f0fdf4;border-left:4px solid #10b981">
-          <div style="font-size:0.75rem;color:var(--muted);text-transform:uppercase;font-weight:700">Principal Causa</div>
-          <div id="stat-principal-motivo" style="font-size:0.88rem;font-weight:700;color:#047857;margin-top:6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">-</div>
+          <div style="font-size:0.75rem;color:var(--muted);text-transform:uppercase;font-weight:700">Principal Causa
+          </div>
+          <div id="stat-principal-motivo"
+            style="font-size:0.88rem;font-weight:700;color:#047857;margin-top:6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">
+            -</div>
         </div>
       </div>
 
@@ -721,22 +923,29 @@
   </div>
 
   <!-- Modal de Comparativo de Modalidades de Envio (#24 / SCRUM-27) ──────────────────────── -->
-  <div class="modal-backdrop" id="modal-comparativo-modalidades" role="dialog" aria-modal="true" aria-labelledby="modal-modalidades-title">
+  <div class="modal-backdrop" id="modal-comparativo-modalidades" role="dialog" aria-modal="true"
+    aria-labelledby="modal-modalidades-title">
     <div class="modal" style="width:min(880px, 96vw);max-height:92vh;overflow-y:auto">
-      <div class="modal-header" style="display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid var(--line);padding-bottom:12px;margin-bottom:16px">
-        <h2 id="modal-modalidades-title" style="color:var(--ink);font-size:1.18rem;display:flex;align-items:center;gap:8px">
+      <div class="modal-header"
+        style="display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid var(--line);padding-bottom:12px;margin-bottom:16px">
+        <h2 id="modal-modalidades-title"
+          style="color:var(--ink);font-size:1.18rem;display:flex;align-items:center;gap:8px">
           <span>🚚</span>
           <span>Comparativo de Modalidades de Envio (#24)</span>
         </h2>
-        <button class="btn-ghost" id="btn-fechar-modal-comparativo" style="padding:4px 8px;font-size:0.8rem">Fechar</button>
+        <button class="btn-ghost" id="btn-fechar-modal-comparativo"
+          style="padding:4px 8px;font-size:0.8rem">Fechar</button>
       </div>
 
       <p style="font-size:0.85rem;color:var(--muted);line-height:1.5;margin-bottom:16px">
-        Avalie o desempenho logístico e financeiro entre as modalidades: <strong>Mercado Envios Full</strong>, <strong>Coleta</strong>, <strong>Tradicional</strong> e <strong>Logística Própria</strong>. Compare prazos médios de entrega, custo de frete suportado e taxa de pontualidade operacional.
+        Avalie o desempenho logístico e financeiro entre as modalidades: <strong>Mercado Envios Full</strong>,
+        <strong>Coleta</strong>, <strong>Tradicional</strong> e <strong>Logística Própria</strong>. Compare prazos
+        médios de entrega, custo de frete suportado e taxa de pontualidade operacional.
       </p>
 
       <!-- Grid de Cards por Modalidade -->
-      <div id="grid-cards-modalidades" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:12px;margin-bottom:20px">
+      <div id="grid-cards-modalidades"
+        style="display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:12px;margin-bottom:20px">
         <!-- Renderizado dinamicamente via JS -->
       </div>
 
@@ -767,6 +976,120 @@
     </div>
   </div>
 
+  <!-- Modal de Dados do Destinatário para NF-e (Story 33c) ────────────────────────── -->
+  <div class="modal-backdrop" id="modal-destinatario-nfe" role="dialog" aria-modal="true"
+    aria-labelledby="modal-dest-nfe-title">
+    <form class="modal" id="form-destinatario-nfe" style="width: min(680px, 96vw); max-height: 92vh;">
+      <div class="modal-header" style="display:flex;justify-content:space-between;align-items:center;">
+        <h2 id="modal-dest-nfe-title" style="margin:0;font-size:1.1rem;">Dados Fiscais do Destinatário (NF-e)</h2>
+        <button class="icon-btn" type="button" id="btn-fechar-modal-dest-nfe" title="Fechar">✕</button>
+      </div>
+      <input type="hidden" id="dest-nfe-pedido-id" />
+      <div class="form-grid">
+        <div class="form-field span-2">
+          <label for="dest-nfe-nome">Nome Completo / Razão Social *</label>
+          <input id="dest-nfe-nome" required maxlength="150" />
+        </div>
+        <div class="form-field">
+          <label for="dest-nfe-documento">CPF ou CNPJ *</label>
+          <input id="dest-nfe-documento" required maxlength="18" placeholder="000.000.000-00 ou 00.000.000/0001-00" />
+        </div>
+        <div class="form-field">
+          <label for="dest-nfe-ie">Inscrição Estadual (Opcional)</label>
+          <input id="dest-nfe-ie" maxlength="20" placeholder="IE ou ISENTO" />
+        </div>
+        <div class="form-field">
+          <label for="dest-nfe-cep">CEP *</label>
+          <input id="dest-nfe-cep" required maxlength="9" placeholder="00000-000" />
+        </div>
+        <div class="form-field">
+          <label for="dest-nfe-uf">UF *</label>
+          <select id="dest-nfe-uf" required>
+            <option value="AC">AC</option>
+            <option value="AL">AL</option>
+            <option value="AP">AP</option>
+            <option value="AM">AM</option>
+            <option value="BA">BA</option>
+            <option value="CE">CE</option>
+            <option value="DF">DF</option>
+            <option value="ES">ES</option>
+            <option value="GO">GO</option>
+            <option value="MA">MA</option>
+            <option value="MT">MT</option>
+            <option value="MS">MS</option>
+            <option value="MG">MG</option>
+            <option value="PA">PA</option>
+            <option value="PB">PB</option>
+            <option value="PR">PR</option>
+            <option value="PE">PE</option>
+            <option value="PI">PI</option>
+            <option value="RJ">RJ</option>
+            <option value="RN">RN</option>
+            <option value="RS">RS</option>
+            <option value="RO">RO</option>
+            <option value="RR">RR</option>
+            <option value="SC">SC</option>
+            <option value="SP" selected>SP</option>
+            <option value="SE">SE</option>
+            <option value="TO">TO</option>
+          </select>
+        </div>
+        <div class="form-field span-2">
+          <label for="dest-nfe-logradouro">Logradouro *</label>
+          <input id="dest-nfe-logradouro" required maxlength="255" />
+        </div>
+        <div class="form-field">
+          <label for="dest-nfe-numero">Número *</label>
+          <input id="dest-nfe-numero" required maxlength="20" />
+        </div>
+        <div class="form-field">
+          <label for="dest-nfe-complemento">Complemento</label>
+          <input id="dest-nfe-complemento" maxlength="100" />
+        </div>
+        <div class="form-field">
+          <label for="dest-nfe-bairro">Bairro *</label>
+          <input id="dest-nfe-bairro" required maxlength="100" />
+        </div>
+        <div class="form-field">
+          <label for="dest-nfe-municipio">Município *</label>
+          <input id="dest-nfe-municipio" required maxlength="100" />
+        </div>
+        <div class="form-field">
+          <label for="dest-nfe-ibge">Código IBGE (7 dígitos — opcional)</label>
+          <input id="dest-nfe-ibge" maxlength="7" />
+        </div>
+        <div class="form-field">
+          <label for="dest-nfe-email">E-mail (Opcional)</label>
+          <input id="dest-nfe-email" type="email" maxlength="150" />
+        </div>
+      </div>
+      <p class="form-error" id="form-dest-nfe-error"></p>
+      <div class="modal-actions">
+        <button type="button" class="btn-ghost" id="btn-cancelar-dest-nfe">Cancelar</button>
+        <button type="submit" class="btn-primary" id="btn-salvar-dest-nfe">Salvar Destinatário</button>
+      </div>
+    </form>
+  </div>
+
+  <!-- Modal de Preparação, Validação e Assinatura da NF-e (Story 33c) ──────────── -->
+  <div class="modal-backdrop" id="modal-preparar-nfe" role="dialog" aria-modal="true" aria-labelledby="modal-nfe-title">
+    <div class="modal" style="width: min(860px, 96vw); max-height: 92vh;">
+      <div class="modal-header"
+        style="display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid var(--line);padding-bottom:12px;margin-bottom:14px">
+        <div>
+          <h2 id="modal-nfe-title" style="margin:0;font-size:1.15rem;font-weight:800;color:var(--ink)">Preparar &amp;
+            Assinar NF-e (Story 33c)</h2>
+          <span id="modal-nfe-subtitulo" style="font-size:0.78rem;color:var(--muted)">Montagem XML v4.00, validação
+            cadastral e assinatura digital A1</span>
+        </div>
+        <button class="icon-btn" type="button" id="btn-fechar-modal-nfe" title="Fechar">✕</button>
+      </div>
+      <div id="modal-nfe-body" style="font-size:0.86rem;"></div>
+      <div class="modal-actions" id="modal-nfe-actions"
+        style="border-top:1px solid var(--line);padding-top:14px;margin-top:16px"></div>
+    </div>
+  </div>
+
   <!-- Toasts -->
   <div id="toast-container" aria-live="polite" aria-atomic="true"></div>
 
@@ -778,4 +1101,5 @@
   <script src="js/pedidos.js"></script>
   <script src="js/respostas-padrao.js"></script>
 </body>
+
 </html>

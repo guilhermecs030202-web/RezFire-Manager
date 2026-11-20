@@ -83,7 +83,7 @@ A história, como está, **não atende ao INVEST**: é grande demais (S), difíc
 
 ---
 
-## 33c · Montar, validar e assinar a NF-e a partir de um pedido
+## 33c · Montar, validar e assinar a NF-e a partir de um pedido · *(Implementada em 20/11/2026)*
 
 - **SP:** 8 | **MoSCoW sugerido:** Should | **Depende de:** 33a, 33b, #9a (ou #30)
 
@@ -91,21 +91,21 @@ A história, como está, **não atende ao INVEST**: é grande demais (S), difíc
 
 **Critérios de aceite**
 
-- [ ] No pedido, a ação "Preparar NF-e" monta a nota com emitente, destinatário, itens, impostos, frete e totais.
-- [ ] O sistema valida os dados antes da assinatura e mostra os erros indicando o campo e o motivo.
-- [ ] A nota é assinada digitalmente com o certificado do emitente.
-- [ ] Um pedido sem dados obrigatórios (destinatário ou dados fiscais do produto) é bloqueado, com a lista do que falta.
-- [ ] A numeração é sequencial e não se repete.
+- [x] No pedido, a ação "Preparar NF-e" monta a nota com emitente, destinatário, itens, impostos, frete e totais. (`POST /api/fiscal/pedidos/:id/preparar-nfe`, `backend/src/utils/nfeBuilder.ts` layout 4.00 e UI em `frontend/pedidos.html` / `frontend/js/pedidos.js`)
+- [x] O sistema valida os dados antes da assinatura e mostra os erros indicando o campo e o motivo. (`validarDadosParaNFe` retornando HTTP 422 com array estruturado `secao`, `campo`, `label`, `motivo` exibido no modal `#modal-preparar-nfe`)
+- [x] A nota é assinada digitalmente com o certificado do emitente. (`backend/src/utils/nfeSigner.ts` XMLDSig RSA-SHA1 + Digest SHA-1 utilizando o PKCS#12 decifrado em memória do cofre AES-256-GCM e auto-verificação criptográfica)
+- [x] Um pedido sem dados obrigatórios (destinatário ou dados fiscais do produto) é bloqueado, com a lista do que falta. (bloqueio HTTP 422 antes de consumir numeração, com atalhos diretos para corrigir destinatário, emitente ou produtos)
+- [x] A numeração é sequencial e não se repete. (alocação transacional atômica com lock pessimista `pessimistic_write` na linha do emitente + constraint única `(ambiente, serie, numero)` em `notas_fiscais`)
 
 **Definition of Ready (DoR): não pronto até que...**
 
-- [ ] Stories 33a e 33b concluídas.
-- [ ] Origem dos dados do pedido e do destinatário (CPF/CNPJ e endereço) definida: pedidos manuais (#9a) ou importados do Mercado Livre (#30).
-- [ ] Versão vigente do layout da NF-e confirmada, incluindo as exigências da Reforma Tributária (IBS e CBS).
-- [ ] Regras de cálculo de impostos fornecidas pelo contador, e definido quem calcula (o sistema ou valor informado).
-- [ ] Regra de série e numeração definida.
-- [ ] Exemplos reais de notas (sem dados pessoais) disponíveis para comparação.
-- [ ] Estimativa (8 SP) revisada após a decisão entre integração direta e serviço intermediário.
+- [x] Stories 33a e 33b concluídas.
+- [x] Origem dos dados do pedido e do destinatário (CPF/CNPJ e endereço) definida: pedidos manuais (#9a) ou importados do Mercado Livre (#30). *(Campos fiscais do destinatário incorporados à entidade `Pedido` e editáveis via `PATCH /api/pedidos/:id/destinatario` e modal dedicado.)*
+- [ ] Versão vigente do layout da NF-e confirmada, incluindo as exigências da Reforma Tributária (IBS e CBS). *(Implementada base oficial layout `4.00` com `vIBS=0` e `vCBS=0` preparados no `impostos_snapshot`/`totais_snapshot`; confirmar tags específicas da fase vigente com o contador antes de 33d.)*
+- [ ] Regras de cálculo de impostos fornecidas pelo contador, e definido quem calcula (o sistema ou valor informado). *(Base Simples Nacional CSOSN/CRT implementada com `vTotTrib` calculado a partir de `aliquota_imposto_percentual`; alíquotas por regime/UF aguardam validação contábil final.)*
+- [x] Regra de série e numeração definida. *(Série configurável no emitente e incremento atômico sequencial por `(ambiente, serie)` na assinatura.)*
+- [ ] Exemplos reais de notas (sem dados pessoais) disponíveis para comparação. *(Externo — pendente envio de XML modelo pela ResFire/contador antes da transmissão oficial em 33d.)*
+- [x] Estimativa (8 SP) revisada após a decisão entre integração direta e serviço intermediário.
 
 ---
 

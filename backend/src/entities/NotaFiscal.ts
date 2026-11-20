@@ -39,16 +39,46 @@ export class NotaFiscal {
 
   @Column({
     type: 'enum',
-    enum: ['rascunho', 'em_processamento', 'autorizada', 'rejeitada', 'denegada', 'cancelada'],
+    enum: ['rascunho', 'assinada', 'em_processamento', 'autorizada', 'rejeitada', 'denegada', 'cancelada'],
     default: 'rascunho',
   })
-  status: 'rascunho' | 'em_processamento' | 'autorizada' | 'rejeitada' | 'denegada' | 'cancelada';
+  status: 'rascunho' | 'assinada' | 'em_processamento' | 'autorizada' | 'rejeitada' | 'denegada' | 'cancelada';
 
   @Column({ type: 'varchar', length: 64, nullable: true })
   protocolo_autorizacao: string | null;
 
   @Column({ type: 'json', nullable: true })
   emitente_snapshot: Record<string, any> | null;
+
+  @Column({ type: 'json', nullable: true })
+  destinatario_snapshot: Record<string, any> | null;
+
+  @Column({ type: 'json', nullable: true })
+  totais_snapshot: Record<string, any> | null;
+
+  @Column({ type: 'json', nullable: true })
+  impostos_snapshot: Record<string, any> | null;
+
+  @Column({ type: 'longtext', nullable: true })
+  xml_gerado: string | null;
+
+  @Column({ type: 'longtext', nullable: true })
+  xml_assinado: string | null;
+
+  @Column({ type: 'varchar', length: 128, nullable: true })
+  digest_value: string | null;
+
+  @Column({ type: 'boolean', default: false })
+  assinatura_valida: boolean;
+
+  @Column({ type: 'timestamp', nullable: true })
+  assinada_em: Date | null;
+
+  @Column({ type: 'varchar', length: 128, nullable: true })
+  assinada_por_certificado_serial: string | null;
+
+  @Column({ type: 'varchar', length: 10, default: '4.00' })
+  versao_layout: string;
 
   @Column({ type: 'decimal', precision: 10, scale: 2, default: 0 })
   valor_total: number;

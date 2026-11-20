@@ -33,7 +33,26 @@ export class PedidoController {
 
   async criar(req: Request, res: Response) {
     try {
-      const { codigo_pedido, cliente_nome, origem, itens, exibir_na_entrega } = req.body;
+      const {
+        codigo_pedido,
+        cliente_nome,
+        origem,
+        itens,
+        exibir_na_entrega,
+        modalidade_envio,
+        destinatario_documento,
+        destinatario_ie,
+        destinatario_cep,
+        destinatario_logradouro,
+        destinatario_numero,
+        destinatario_complemento,
+        destinatario_bairro,
+        destinatario_municipio,
+        destinatario_codigo_municipio_ibge,
+        destinatario_uf,
+        destinatario_email,
+        valor_desconto,
+      } = req.body;
       const id_usuario = req.usuario?.id_usuario;
 
       if (!cliente_nome || !itens || !Array.isArray(itens) || itens.length === 0) {
@@ -50,6 +69,19 @@ export class PedidoController {
           origem,
           itens,
           exibir_na_entrega,
+          modalidade_envio,
+          destinatario_documento,
+          destinatario_ie,
+          destinatario_cep,
+          destinatario_logradouro,
+          destinatario_numero,
+          destinatario_complemento,
+          destinatario_bairro,
+          destinatario_municipio,
+          destinatario_codigo_municipio_ibge,
+          destinatario_uf,
+          destinatario_email,
+          valor_desconto,
         },
         id_usuario
       );
@@ -58,6 +90,20 @@ export class PedidoController {
         sucesso: true,
         mensagem: 'Pedido aprovado e baixado no estoque com sucesso.',
         pedido: novoPedido,
+      });
+    } catch (error: any) {
+      return res.status(400).json({ sucesso: false, mensagem: error.message });
+    }
+  }
+
+  async atualizarDestinatario(req: Request, res: Response) {
+    try {
+      const id = Number(req.params.id);
+      const pedido = await pedidoService.atualizarDestinatario(id, req.body || {});
+      return res.json({
+        sucesso: true,
+        mensagem: 'Dados fiscais do destinatário atualizados no pedido.',
+        pedido,
       });
     } catch (error: any) {
       return res.status(400).json({ sucesso: false, mensagem: error.message });

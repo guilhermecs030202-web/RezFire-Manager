@@ -128,5 +128,47 @@ export class FiscalController {
       return res.status(400).json({ sucesso: false, mensagem: error.message });
     }
   }
+
+  async obterNFeDoPedido(req: Request, res: Response) {
+    try {
+      const idPedido = Number(req.params.id);
+      const resultado = await fiscalService.obterNFeDoPedido(idPedido);
+      return res.json({ sucesso: true, ...resultado });
+    } catch (error: any) {
+      return res.status(404).json({ sucesso: false, mensagem: error.message });
+    }
+  }
+
+  async prepararNFePedido(req: Request, res: Response) {
+    try {
+      const idPedido = Number(req.params.id);
+      const regerar = Boolean(req.body?.regerar);
+      const resultado = await fiscalService.prepararNFePedido(idPedido, { regerar });
+
+      if (resultado.bloqueado) {
+        return res.status(422).json(resultado);
+      }
+
+      const status = resultado.criada ? 201 : 200;
+      return res.status(status).json(resultado);
+    } catch (error: any) {
+      return res.status(400).json({ sucesso: false, mensagem: error.message });
+    }
+  }
+
+  async baixarXmlNota(req: Request, res: Response) {
+    try {
+      const idNota = Number(req.params.id);
+      const nota = await fiscalService.obterXmlAssinadoPorNota(idNota);
+      res.setHeader('Content-Type', 'application/xml; charset=utf-8');
+      res.setHeader(
+        'Content-Disposition',
+        `attachment; filename="NFe-${nota.chave_acesso || nota.numero}.xml"`
+      );
+      return res.send(nota.xml_assinado);
+    } catch (error: any) {
+      return res.status(404).json({ sucesso: false, mensagem: error.message });
+    }
+  }
 }
 

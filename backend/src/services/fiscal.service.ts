@@ -6,8 +6,18 @@ import { env } from '../config/env';
 import { EmitenteFiscal } from '../entities/EmitenteFiscal';
 import { Pedido } from '../entities/Pedido';
 import { Produto } from '../entities/Produto';
-import { decryptBuffer, encryptBuffer, encryptText, sha256Hex } from '../utils/cryptoVault';
+import { NotaFiscal } from '../entities/NotaFiscal';
+import { NotaFiscalItem } from '../entities/NotaFiscalItem';
+import {
+  decryptBuffer,
+  decryptText,
+  encryptBuffer,
+  encryptText,
+  sha256Hex,
+} from '../utils/cryptoVault';
 import { validarCertificadoA1 } from '../utils/certificadoA1Parser';
+import { montarXmlNFe400, validarDadosParaNFe } from '../utils/nfeBuilder';
+import { assinarXmlNFe } from '../utils/nfeSigner';
 import {
   CFOPS_SUGERIDOS,
   CSOSN_LISTA,
@@ -60,6 +70,10 @@ export class FiscalService {
 
   private get produtoRepo() {
     return AppDataSource.getRepository(Produto);
+  }
+
+  private get notaFiscalRepo() {
+    return AppDataSource.getRepository(NotaFiscal);
   }
 
   /**
@@ -460,10 +474,30 @@ export class FiscalService {
     }
 
     const pfxBuffer = decryptBuffer(fs.readFileSync(caminho));
+    const senha = decryptText(emitente.senha_certificado_enc);
     return {
       pfxBuffer,
       cnpj: emitente.cnpj,
       validoAte: emitente.certificado_valido_ate!,
+    };
+  }
+
+  private carregarPfxESenhaDeEmitente(emitente: EmitenteFiscal): {
+    pfxBuffer: Buffer;
+    senha: string;
+  } {
+    if (!emitente.certificado_arquivo_enc || !emitente.senha_certificado_enc) {
+      throw new Error('Certificado digital A1 não configurado no emitente.');
+    }
+
+    const caminho = path.join(env.FISCAL_VAULT_DIR, path.basename(emitente.certificado_arquivo_enc));
+    if (!fs.existsSync(caminho)) {
+      throw new Error('Arquivo cifrado do certificado digital não localizado no cofre.');
+    }
+
+    return {
+      pfxBuffer: decryptBuffer(fs.readFileSync(caminho)),
+      senha: decryptText(emitente.senha_certificado_enc),
     };
   }
 
@@ -586,6 +620,239 @@ export class FiscalService {
       produtos_bloqueados: produtosBloqueados,
       alertas_fiscais: alertasFiscais,
     };
+  }
+
+  /**
+   * Consulta a última NF-e preparada/emitida de um pedido + diagnóstico de prontidão atual (Story 33c).
+   */
+  async obterNFeDoPedido(id_pedido: number) {
+    const pedido = await this.pedidoRepo.findOne({
+      where: { id_pedido },
+      relations: ['itens', 'itens.produto'],
+    });
+    if (!pedido) {
+      throw new Error(`Pedido #${id_pedido} não encontrado.`);
+    }
+
+    const emitente = await this.emitenteRepo.findOne({ where: {} });
+    const erros = validarDadosParaNFe(emitente, pedido);
+
+    const notaFiscal = await this.notaFiscalRepo.findOne({
+      where: { id_pedido },
+      relations: ['itens'],
+      order: { id_nota_fiscal: 'DESC' },
+    });
+
+    return {
+      nota_fiscal: notaFiscal || null,
+      prontidao_atual: {
+        apto: erros.length === 0,
+        erros_validacao: erros,
+      },
+    };
+  }
+
+  /**
+   * Story 33c: Monta o XML NF-e v4.00 a partir de um pedido, valida todos os dados obrigatórios,
+   * garante numeração sequencial atômica (com lock pessimista) e assina digitalmente com o A1.
+   */
+  async prepararNFePedido(id_pedido: number, opcoes: { regerar?: boolean } = {}) {
+    const pedido = await this.pedidoRepo.findOne({
+      where: { id_pedido },
+      relations: ['itens', 'itens.produto'],
+    });
+    if (!pedido) {
+      throw new Error(`Pedido #${id_pedido} não encontrado.`);
+    }
+
+    const emitenteCheck = await this.emitenteRepo.findOne({ where: {} });
+    const erros = validarDadosParaNFe(emitenteCheck, pedido);
+    if (erros.length > 0) {
+      return {
+        sucesso: false,
+        bloqueado: true,
+        mensagem: `Preparação da NF-e bloqueada: ${erros.length} pendência(s) encontrada(s).`,
+        erros_validacao: erros,
+      };
+    }
+
+    const nfAutorizadaOuEmProc = await this.notaFiscalRepo.findOne({
+      where: [
+        { id_pedido, status: 'autorizada' },
+        { id_pedido, status: 'em_processamento' },
+      ],
+      order: { id_nota_fiscal: 'DESC' },
+    });
+    if (nfAutorizadaOuEmProc) {
+      throw new Error(
+        `O pedido #${pedido.codigo_pedido} já possui NF-e Nº ${nfAutorizadaOuEmProc.numero} (${nfAutorizadaOuEmProc.status}).`
+      );
+    }
+
+    const nfAssinadaExistente = await this.notaFiscalRepo.findOne({
+      where: { id_pedido, status: 'assinada' },
+      relations: ['itens'],
+      order: { id_nota_fiscal: 'DESC' },
+    });
+
+    if (nfAssinadaExistente && !opcoes.regerar) {
+      return {
+        sucesso: true,
+        bloqueado: false,
+        criada: false,
+        ja_preparada: true,
+        mensagem: `NF-e Série ${nfAssinadaExistente.serie} Nº ${nfAssinadaExistente.numero} já preparada e assinada.`,
+        nota_fiscal: nfAssinadaExistente,
+      };
+    }
+
+    const queryRunner = AppDataSource.createQueryRunner();
+    await queryRunner.connect();
+    await queryRunner.startTransaction();
+
+    let pfxBufferParaZerar: Buffer | null = null;
+    try {
+      const emitRepoTx = queryRunner.manager.getRepository(EmitenteFiscal);
+      const nfRepoTx = queryRunner.manager.getRepository(NotaFiscal);
+      const nfItemRepoTx = queryRunner.manager.getRepository(NotaFiscalItem);
+
+      // Lock pessimista no registro único do emitente para assegurar numeração sequencial única sob concorrência
+      const emitenteLocked = await emitRepoTx
+        .createQueryBuilder('e')
+        .setLock('pessimistic_write')
+        .addSelect(['e.certificado_arquivo_enc', 'e.senha_certificado_enc'])
+        .getOne();
+
+      if (!emitenteLocked) {
+        throw new Error('Emitente fiscal não encontrado.');
+      }
+
+      const notaParaAtualizar = await nfRepoTx.findOne({
+        where: [
+          { id_pedido, status: 'assinada' },
+          { id_pedido, status: 'rascunho' },
+        ],
+        order: { id_nota_fiscal: 'DESC' },
+      });
+
+      const serieAlocada = notaParaAtualizar
+        ? Number(notaParaAtualizar.serie)
+        : Number(emitenteLocked.serie_nfe);
+      let numeroAlocado: number;
+
+      if (notaParaAtualizar && Number(notaParaAtualizar.numero) > 0) {
+        numeroAlocado = Number(notaParaAtualizar.numero);
+      } else {
+        const maxRow = await nfRepoTx
+          .createQueryBuilder('nf')
+          .select('COALESCE(MAX(nf.numero), 0)', 'maxNumero')
+          .where('nf.ambiente = :amb AND nf.serie = :ser', {
+            amb: emitenteLocked.ambiente,
+            ser: serieAlocada,
+          })
+          .getRawOne();
+        const maxExistente = Number(maxRow?.maxNumero || 0);
+        numeroAlocado = Math.max(Number(emitenteLocked.proximo_numero_nfe), maxExistente + 1);
+        emitenteLocked.proximo_numero_nfe = numeroAlocado + 1;
+        await emitRepoTx.save(emitenteLocked);
+      }
+
+      const montada = montarXmlNFe400({
+        emitente: emitenteLocked,
+        pedido,
+        serie: serieAlocada,
+        numero: numeroAlocado,
+      });
+
+      const { pfxBuffer, senha } = this.carregarPfxESenhaDeEmitente(emitenteLocked);
+      pfxBufferParaZerar = pfxBuffer;
+
+      const assinada = assinarXmlNFe(
+        montada.xml_gerado,
+        montada.chave_acesso,
+        pfxBuffer,
+        senha
+      );
+
+      let nfEntity: NotaFiscal;
+      if (notaParaAtualizar) {
+        await nfItemRepoTx.delete({ id_nota_fiscal: notaParaAtualizar.id_nota_fiscal });
+        nfEntity = notaParaAtualizar;
+      } else {
+        nfEntity = nfRepoTx.create({ id_pedido });
+      }
+
+      nfEntity.ambiente = emitenteLocked.ambiente;
+      nfEntity.serie = serieAlocada;
+      nfEntity.numero = numeroAlocado;
+      nfEntity.chave_acesso = montada.chave_acesso;
+      nfEntity.status = 'assinada';
+      nfEntity.emitente_snapshot = montada.emitente_snapshot;
+      nfEntity.destinatario_snapshot = montada.destinatario_snapshot;
+      nfEntity.totais_snapshot = montada.totais_snapshot;
+      nfEntity.impostos_snapshot = montada.impostos_snapshot;
+      nfEntity.xml_gerado = montada.xml_gerado;
+      nfEntity.xml_assinado = assinada.xml_assinado;
+      nfEntity.digest_value = assinada.digest_value;
+      nfEntity.assinatura_valida = assinada.assinatura_valida;
+      nfEntity.assinada_em = new Date();
+      nfEntity.assinada_por_certificado_serial = assinada.certificado_serial;
+      nfEntity.versao_layout = '4.00';
+      nfEntity.valor_total = montada.totais_snapshot.vNF;
+
+      const nfSalva = await nfRepoTx.save(nfEntity);
+
+      for (const itemSnap of montada.itens_snapshot) {
+        const itemNf = nfItemRepoTx.create({
+          id_nota_fiscal: nfSalva.id_nota_fiscal,
+          id_produto: itemSnap.id_produto,
+          sku_snapshot: itemSnap.sku_snapshot,
+          nome_snapshot: itemSnap.nome_snapshot,
+          ncm_snapshot: itemSnap.ncm_snapshot,
+          cfop_snapshot: itemSnap.cfop_snapshot,
+          origem_snapshot: itemSnap.origem_snapshot,
+          cst_csosn_snapshot: itemSnap.cst_csosn_snapshot,
+          unidade_snapshot: itemSnap.unidade_snapshot,
+          cest_snapshot: itemSnap.cest_snapshot,
+          quantidade: itemSnap.quantidade,
+          valor_unitario: itemSnap.valor_unitario,
+          valor_total: itemSnap.valor_total,
+        });
+        await nfItemRepoTx.save(itemNf);
+      }
+
+      await queryRunner.commitTransaction();
+
+      const completa = await this.notaFiscalRepo.findOne({
+        where: { id_nota_fiscal: nfSalva.id_nota_fiscal },
+        relations: ['itens'],
+      });
+
+      return {
+        sucesso: true,
+        bloqueado: false,
+        criada: !notaParaAtualizar,
+        ja_preparada: false,
+        mensagem: `NF-e Série ${serieAlocada} Nº ${numeroAlocado} montada, validada e assinada digitalmente com sucesso!`,
+        nota_fiscal: completa,
+      };
+    } catch (err) {
+      await queryRunner.rollbackTransaction();
+      throw err;
+    } finally {
+      if (pfxBufferParaZerar) {
+        pfxBufferParaZerar.fill(0);
+      }
+      await queryRunner.release();
+    }
+  }
+
+  async obterXmlAssinadoPorNota(id_nota_fiscal: number) {
+    const nf = await this.notaFiscalRepo.findOne({ where: { id_nota_fiscal } });
+    if (!nf || !nf.xml_assinado) {
+      throw new Error(`XML assinado da nota fiscal #${id_nota_fiscal} não encontrado.`);
+    }
+    return nf;
   }
 }
 

@@ -98,6 +98,11 @@
       display: block;
     }
 
+    /* Modais acima do drawer (#detalhe-panel z-index 70) e overlay (65), abaixo de #toast-container (100) */
+    .modal-backdrop {
+      z-index: 90;
+    }
+
     .detalhe-head {
       padding: 20px 24px 14px;
       border-bottom: 1px solid var(--line);

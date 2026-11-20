@@ -80,6 +80,25 @@ function formatarDocFiscal(doc) {
   return doc || "—";
 }
 
+function formatarCepFiscal(cep) {
+  const d = String(cep || "").replace(/\D/g, "").slice(0, 8);
+  if (!d) return "";
+  if (d.length <= 5) return d;
+  return `${d.slice(0, 5)}-${d.slice(5)}`;
+}
+
+function aplicarMascaraDocFiscal(val) {
+  const d = String(val || "").replace(/\D/g, "").slice(0, 14);
+  if (d.length <= 11) {
+    if (d.length <= 3) return d;
+    if (d.length <= 6) return `${d.slice(0, 3)}.${d.slice(3)}`;
+    if (d.length <= 9) return `${d.slice(0, 3)}.${d.slice(3, 6)}.${d.slice(6)}`;
+    return `${d.slice(0, 3)}.${d.slice(3, 6)}.${d.slice(6, 9)}-${d.slice(9)}`;
+  }
+  if (d.length <= 12) return `${d.slice(0, 2)}.${d.slice(2, 5)}.${d.slice(5, 8)}/${d.slice(8)}`;
+  return `${d.slice(0, 2)}.${d.slice(2, 5)}.${d.slice(5, 8)}/${d.slice(8, 12)}-${d.slice(12)}`;
+}
+
 // ─── Normalização de Dados da Entidade Pedido (API & MySQL) ───────────────────
 function normalizarPedido(p) {
   if (!p) return null;
@@ -462,7 +481,7 @@ function renderTable() {
             </span>
           ` : ""}
         </td>
-        <td style="text-align:right" onclick="event.stopPropagation()">
+        <td class="actions-cell" style="text-align:right">
           <div style="display:inline-flex;gap:4px">
             <button class="icon-btn" data-action="view" data-id="${p.id_pedido}" title="Visualizar Detalhes">
               <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>
@@ -758,7 +777,7 @@ function openDetalhePanel(pedidoId) {
           <div><strong>CPF/CNPJ:</strong> <span class="font-mono">${formatarDocFiscal(pedido.destinatario_documento)}</span> ${pedido.destinatario_ie ? `· IE: ${escapeHtml(pedido.destinatario_ie)}` : ""}</div>
           <div style="color:var(--muted);margin-top:2px">
             ${pedido.destinatario_logradouro
-              ? `${escapeHtml(pedido.destinatario_logradouro)}, ${escapeHtml(pedido.destinatario_numero || "S/N")} — ${escapeHtml(pedido.destinatario_bairro || "")}, ${escapeHtml(pedido.destinatario_municipio || "")}/${escapeHtml(pedido.destinatario_uf || "")} · CEP ${escapeHtml(pedido.destinatario_cep || "")}`
+              ? `${escapeHtml(pedido.destinatario_logradouro)}, ${escapeHtml(pedido.destinatario_numero || "S/N")} — ${escapeHtml(pedido.destinatario_bairro || "")}, ${escapeHtml(pedido.destinatario_municipio || "")}/${escapeHtml(pedido.destinatario_uf || "")} · CEP ${escapeHtml(formatarCepFiscal(pedido.destinatario_cep) || "—")}`
               : "Endereço completo do destinatário ainda não informado para emissão fiscal."}
           </div>
         </div>
@@ -980,9 +999,9 @@ function openFormModal(pedidoParaEditar = null) {
     document.getElementById("pedido-frete").value = Number(pedidoParaEditar.frete || 0).toFixed(2);
     document.getElementById("pedido-observacoes").value = pedidoParaEditar.observacoes || "";
     document.getElementById("pedido-codigo-externo").value = pedidoParaEditar.codigo_externo_ml || "";
-    document.getElementById("pedido-dest-documento").value = pedidoParaEditar.destinatario_documento || "";
+    document.getElementById("pedido-dest-documento").value = aplicarMascaraDocFiscal(pedidoParaEditar.destinatario_documento || "");
     document.getElementById("pedido-dest-ie").value = pedidoParaEditar.destinatario_ie || "";
-    document.getElementById("pedido-dest-cep").value = pedidoParaEditar.destinatario_cep || "";
+    document.getElementById("pedido-dest-cep").value = formatarCepFiscal(pedidoParaEditar.destinatario_cep || "");
     document.getElementById("pedido-dest-email").value = pedidoParaEditar.destinatario_email || "";
     document.getElementById("pedido-dest-logradouro").value = pedidoParaEditar.destinatario_logradouro || "";
     document.getElementById("pedido-dest-numero").value = pedidoParaEditar.destinatario_numero || "";
@@ -2106,6 +2125,10 @@ function bindEvents() {
       return;
     }
 
+    if (e.target.closest("td.actions-cell")) {
+      return;
+    }
+
     // Clique na linha
     const row = e.target.closest("tr[data-row-id]");
     if (row) {
@@ -2162,9 +2185,9 @@ function abrirModalDestinatarioNFe(pedido, aoSalvarChamarPreparar = false) {
   document.getElementById("form-dest-nfe-error").textContent = "";
   document.getElementById("dest-nfe-pedido-id").value = pedido.id_pedido;
   document.getElementById("dest-nfe-nome").value = pedido.cliente_nome || pedido.cliente || "";
-  document.getElementById("dest-nfe-documento").value = pedido.destinatario_documento || "";
+  document.getElementById("dest-nfe-documento").value = aplicarMascaraDocFiscal(pedido.destinatario_documento || "");
   document.getElementById("dest-nfe-ie").value = pedido.destinatario_ie || "";
-  document.getElementById("dest-nfe-cep").value = pedido.destinatario_cep || "";
+  document.getElementById("dest-nfe-cep").value = formatarCepFiscal(pedido.destinatario_cep || "");
   document.getElementById("dest-nfe-uf").value = pedido.destinatario_uf || pedido.uf || "SP";
   document.getElementById("dest-nfe-logradouro").value = pedido.destinatario_logradouro || "";
   document.getElementById("dest-nfe-numero").value = pedido.destinatario_numero || "";
@@ -2412,6 +2435,18 @@ async function abrirModalPrepararNFe(pedido, opcoes = {}) {
 }
 
 function bindNFeModalsEvents() {
+  ["dest-nfe-documento", "pedido-dest-documento"].forEach((id) => {
+    document.getElementById(id)?.addEventListener("input", (e) => {
+      e.target.value = aplicarMascaraDocFiscal(e.target.value);
+    });
+  });
+
+  ["dest-nfe-cep", "pedido-dest-cep"].forEach((id) => {
+    document.getElementById(id)?.addEventListener("input", (e) => {
+      e.target.value = formatarCepFiscal(e.target.value);
+    });
+  });
+
   document.getElementById("btn-fechar-modal-nfe")?.addEventListener("click", fecharModalPrepararNFe);
   document.getElementById("modal-preparar-nfe")?.addEventListener("click", (e) => {
     if (e.target.id === "modal-preparar-nfe") fecharModalPrepararNFe();

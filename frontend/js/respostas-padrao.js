@@ -43,7 +43,7 @@
               <span style="font-size:1.4rem">💬</span>
               <div>
                 <h2 style="margin:0;font-size:1.1rem;font-weight:800;color:#fafaf9;letter-spacing:0.02em">
-                  Base de Respostas Padrão de Pré-Venda (#22)
+                  Base de Respostas Padrão de Pré-Venda
                 </h2>
                 <p style="margin:0;font-size:0.75rem;color:#a8a29e">
                   Respostas técnicas prontas sobre validade, AVCB, capacidade extintora e selo INMETRO.

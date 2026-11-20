@@ -574,7 +574,7 @@ function openViewModal(product) {
         <div style="background:#fff;border:1px solid var(--line);border-radius:10px;padding:14px 16px;margin-top:14px">
           <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
             <h4 style="font-size:0.82rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:0.06em;margin:0">
-              Dados Fiscais (NF-e · Story 33b)
+              Dados Fiscais (NF-e)
             </h4>
             ${badge}
           </div>

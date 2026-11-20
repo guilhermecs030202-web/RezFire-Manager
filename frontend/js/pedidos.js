@@ -501,7 +501,7 @@ function renderTable() {
             ${money(p.valor_total)}
           </strong>
           ${p.lucro_liquido !== undefined && p.status !== "Cancelado" ? `
-            <span style="display:block;font-size:0.71rem;font-weight:700;color:${p.lucro_liquido >= 0 ? '#15803d' : 'var(--down)'}" title="Lucro Líquido Real (#18abc)">
+            <span style="display:block;font-size:0.71rem;font-weight:700;color:${p.lucro_liquido >= 0 ? '#15803d' : 'var(--down)'}" title="Lucro Líquido Real">
               Lucro: ${money(p.lucro_liquido)} (${Number(p.margem_liquida_percentual || 0).toFixed(1)}%)
             </span>
           ` : ""}
@@ -617,7 +617,7 @@ function openDetalhePanel(pedidoId) {
           ` : ""}
           <div class="detalhe-field span-2" style="background:#f8fafc;padding:10px;border-radius:8px;border:1px solid #e2e8f0;margin-top:6px">
             <span class="detalhe-label" style="display:flex;align-items:center;gap:4px">
-              <span>🚚</span> Modalidade de Envio (#24)
+              <span>🚚</span> Modalidade de Envio
             </span>
             <div style="display:flex;align-items:center;gap:8px;margin-top:4px;flex-wrap:wrap">
               <select id="select-detalhe-modalidade" style="padding:4px 8px;border-radius:6px;border:1px solid var(--line);font-size:0.82rem;font-weight:700">
@@ -687,12 +687,12 @@ function openDetalhePanel(pedidoId) {
         </div>
       </section>
 
-      <!-- Apuração do Lucro Real por Venda (SCRUM-23 / #18abc) -->
+      <!-- Apuração do Lucro Real por Venda -->
       <section class="detalhe-section" style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;padding:14px;margin-bottom:14px">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
           <div style="display:flex;align-items:center;gap:6px">
             <span style="font-size:1rem">💰</span>
-            <h3 style="margin:0;font-size:0.92rem;font-weight:800;color:#166534">Lucro Real da Venda (#18abc)</h3>
+            <h3 style="margin:0;font-size:0.92rem;font-weight:800;color:#166534">Lucro Real da Venda</h3>
           </div>
           <span class="entrega-badge" style="background:#dcfce7;color:#15803d;border:1px solid #86efac;font-size:0.75rem;font-weight:700">
             ${escapeHtml(pedido.tipo_anuncio || (pedido.origem === 'Mercado Livre' ? 'Clássico' : 'Venda Direta'))}
@@ -701,13 +701,13 @@ function openDetalhePanel(pedidoId) {
 
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;font-size:0.82rem;margin-bottom:12px">
           <div style="background:#fff;border:1px solid #dcfce7;border-radius:6px;padding:8px">
-            <div style="font-size:0.72rem;color:var(--muted);font-weight:700;text-transform:uppercase">Custos Fixos (#18a)</div>
+            <div style="font-size:0.72rem;color:var(--muted);font-weight:700;text-transform:uppercase">Custos Fixos</div>
             <div style="font-weight:700;color:var(--down);font-size:0.95rem;margin:2px 0">- ${money(pedido.total_custos_fixos || 0)}</div>
             <div style="font-size:0.72rem;color:var(--muted)">CMV: ${money(pedido.custo_produtos || 0)} · Impostos (${pedido.aliquota_imposto_percentual || 6}%): ${money(pedido.custo_impostos || 0)} · Embalagem: ${money(pedido.custo_embalagem || 5)}</div>
           </div>
 
           <div style="background:#fff;border:1px solid #dcfce7;border-radius:6px;padding:8px">
-            <div style="font-size:0.72rem;color:var(--muted);font-weight:700;text-transform:uppercase">Tarifas ML & Frete (#18b)</div>
+            <div style="font-size:0.72rem;color:var(--muted);font-weight:700;text-transform:uppercase">Tarifas ML & Frete</div>
             <div style="font-weight:700;color:var(--down);font-size:0.95rem;margin:2px 0">- ${money(pedido.total_tarifas_plataforma || 0)}</div>
             <div style="font-size:0.72rem;color:var(--muted)">Comissão (${pedido.tarifa_ml_percentual || 12}%): ${money(pedido.tarifa_ml_comissao || 0)} · Frete: ${money(pedido.custo_frete || 0)}</div>
           </div>
@@ -715,7 +715,7 @@ function openDetalhePanel(pedidoId) {
 
         <div style="background:#fff;border:1px solid #86efac;border-radius:6px;padding:10px;display:flex;justify-content:space-between;align-items:center">
           <div>
-            <div style="font-size:0.72rem;color:var(--muted);font-weight:700;text-transform:uppercase">Lucro Líquido Real (#18c)</div>
+            <div style="font-size:0.72rem;color:var(--muted);font-weight:700;text-transform:uppercase">Lucro Líquido Real</div>
             <div style="font-size:1.15rem;font-weight:800;color:${(pedido.lucro_liquido || 0) >= 0 ? '#15803d' : 'var(--down)'}">
               ${money(pedido.lucro_liquido || 0)}
             </div>
@@ -1311,7 +1311,7 @@ async function executarCancelamento() {
   const detalhe = document.getElementById("cancel-detalhe-obs")?.value?.trim() || null;
 
   if (!motivo) {
-    alert("Por favor, selecione um motivo padronizado da lista (Taxonomia SCRUM-22).");
+    alert("Por favor, selecione um motivo padronizado da lista.");
     return;
   }
   if (motivo === "Outro" && (!detalhe || detalhe.length < 5)) {

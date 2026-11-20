@@ -32,7 +32,7 @@
       <div class="page-toolbar">
         <div>
           <h1 class="page-title">CONFIGURAÇÃO FISCAL &amp; NF-E</h1>
-          <p class="page-subtitle">Cadastro do emitente fiscal, cofre do certificado digital A1 e ambiente SEFAZ (Story 33a).</p>
+          <p class="page-subtitle">Cadastro do emitente fiscal, cofre do certificado digital A1 e ambiente SEFAZ.</p>
         </div>
         <div class="flex items-center gap-2">
           <a href="produtos.html?fiscal=pendentes" class="btn-ghost" style="text-decoration:none;">
@@ -72,7 +72,7 @@
             <p class="kpi-hint" id="kpi-num-hint">Sequência fiscal configurada</p>
           </div>
           <div class="card kpi-card">
-            <p class="kpi-label">COBERTURA FISCAL (33B)</p>
+            <p class="kpi-label">COBERTURA FISCAL</p>
             <div class="kpi-value" id="kpi-cobertura-valor" style="font-size: 1.25rem;">—</div>
             <p class="kpi-hint" id="kpi-cobertura-hint">Produtos com NCM, CFOP, Origem e CSOSN</p>
           </div>
@@ -138,7 +138,7 @@
                 </div>
 
                 <div class="form-field span-2">
-                  <label for="emitente_modo_integracao">Arquitetura de Transmissão SEFAZ (DoR 33a)</label>
+                  <label for="emitente_modo_integracao">Arquitetura de Transmissão SEFAZ</label>
                   <select id="emitente_modo_integracao" name="modo_integracao">
                     <option value="sefaz_direto">Integração Direta com Web Services SEFAZ-SP (via Certificado A1)</option>
                     <option value="intermediario">Serviço Intermediário / Gateway Fiscal</option>
@@ -219,7 +219,7 @@
               <div id="certificado-alerta-vencimento" class="p-3 rounded-xl text-xs space-y-1.5 mb-3 border" style="display:none;">
                 <div class="flex items-center justify-between gap-2">
                   <strong id="cert-alerta-titulo"></strong>
-                  <a href="alertas.html" class="underline font-bold text-[11px]">Ver na Central (#19)</a>
+                  <a href="alertas.html" class="underline font-bold text-[11px]">Ver na Central de Alertas</a>
                 </div>
                 <p id="cert-alerta-mensagem" class="leading-relaxed"></p>
                 <p class="text-[11px] opacity-90">
@@ -291,11 +291,11 @@
           </div>
         </div>
 
-        <!-- Seção inferior: Produtos com Pendências Fiscais (atalho direto 33a -> 33b) -->
+        <!-- Seção inferior: Produtos com Pendências Fiscais -->
         <section class="card table-wrap mt-5 p-5">
           <div class="flex items-center justify-between flex-wrap gap-2 mb-3">
             <div>
-              <h2 class="text-base font-extrabold text-stone-900">Diagnóstico Fiscal do Catálogo (Story 33b)</h2>
+              <h2 class="text-base font-extrabold text-stone-900">Diagnóstico Fiscal do Catálogo</h2>
               <p class="text-xs text-stone-500">Produtos sem NCM, CFOP, Origem, CST/CSOSN ou Unidade completos não podem ser emitidos em NF-e.</p>
             </div>
             <span id="pendencias-resumo-badge" class="text-xs font-semibold text-stone-600">Carregando...</span>
@@ -315,11 +315,11 @@
           </table>
         </section>
 
-        <!-- Arquivo Fiscal de NF-e Emitidas (XML Autorizado & DANFE - Story 33e) -->
+        <!-- Arquivo Fiscal de NF-e Emitidas (XML Autorizado & DANFE) -->
         <section class="card table-wrap mt-5 p-5">
           <div class="flex items-center justify-between flex-wrap gap-3 mb-3">
             <div>
-              <h2 class="text-base font-extrabold text-stone-900">Arquivo de Notas Fiscais (XML Autorizado &amp; DANFE — Story 33e)</h2>
+              <h2 class="text-base font-extrabold text-stone-900">Arquivo de Notas Fiscais (XML Autorizado &amp; DANFE)</h2>
               <p class="text-xs text-stone-500">Consulta permanente dos documentos fiscais emitidos, hash SHA-256 de integridade, guarda legal de 5 anos e reimpressão de DANFE.</p>
             </div>
             <div class="flex items-center gap-2 flex-wrap">
@@ -352,11 +352,11 @@
           </table>
         </section>
 
-        <!-- Inutilização de Numeração NF-e (Story 33f) -->
+        <!-- Inutilização de Numeração NF-e -->
         <section class="card table-wrap mt-5 p-5">
           <div class="flex items-center justify-between flex-wrap gap-2 mb-3">
             <div>
-              <h2 class="text-base font-extrabold text-stone-900">Inutilização de Numeração NF-e (Story 33f)</h2>
+              <h2 class="text-base font-extrabold text-stone-900">Inutilização de Numeração NF-e</h2>
               <p class="text-xs text-stone-500">Comunique à SEFAZ faixas ou números pulados não utilizados na sequência para manter a integridade fiscal da série.</p>
             </div>
             <span id="inut-info-serie" class="text-xs font-semibold text-stone-600">—</span>

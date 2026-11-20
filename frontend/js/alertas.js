@@ -391,7 +391,7 @@
         critFiltro: "atencao",
       }),
       card({
-        label: "Postagem (#10)",
+        label: "Postagem",
         val: String(r.por_categoria.postagem),
         sublabel: "Atrasos e envios hoje",
         icon: "🚚",
@@ -399,9 +399,9 @@
         catFiltro: "postagem",
       }),
       card({
-        label: "Estoque (#4 & #8)",
+        label: "Estoque & FEFO",
         val: String(r.por_categoria.estoque + r.por_categoria.validade),
-        sublabel: "Ruptura & FEFO",
+        sublabel: "Ruptura & validade",
         icon: "📦",
         color: "bg-purple-100 text-purple-800",
         catFiltro: "estoque",
@@ -484,11 +484,11 @@
 
     const catBadge = (cat) => {
       switch (cat) {
-        case "postagem": return `<span class="badge-categoria-tag cat-postagem">⏱️ Prazo de Postagem (#10)</span>`;
-        case "estoque":  return `<span class="badge-categoria-tag cat-estoque">📦 Estoque & Ruptura (#4)</span>`;
-        case "validade": return `<span class="badge-categoria-tag cat-validade">🛡️ Validade FEFO (#8)</span>`;
-        case "anuncio":  return `<span class="badge-categoria-tag cat-anuncio">📢 Mercado Livre (#13)</span>`;
-        case "fiscal":   return `<span class="badge-categoria-tag cat-fiscal">🔐 Fiscal & Certificado A1 (33g)</span>`;
+        case "postagem": return `<span class="badge-categoria-tag cat-postagem">⏱️ Prazo de Postagem</span>`;
+        case "estoque":  return `<span class="badge-categoria-tag cat-estoque">📦 Estoque & Ruptura</span>`;
+        case "validade": return `<span class="badge-categoria-tag cat-validade">🛡️ Validade FEFO</span>`;
+        case "anuncio":  return `<span class="badge-categoria-tag cat-anuncio">📢 Mercado Livre</span>`;
+        case "fiscal":   return `<span class="badge-categoria-tag cat-fiscal">🔐 Fiscal & Certificado A1</span>`;
         default:         return `<span class="badge-categoria-tag cat-postagem">Geral</span>`;
       }
     };

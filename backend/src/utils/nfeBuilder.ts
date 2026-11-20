@@ -134,7 +134,7 @@ export function validarDadosParaNFe(
       secao: 'emitente',
       campo: 'emitente_fiscal',
       label: 'Emitente Fiscal',
-      motivo: 'Nenhum emitente fiscal cadastrado. Configure o emitente na tela Fiscal & NF-e (Story 33a).',
+      motivo: 'Nenhum emitente fiscal cadastrado. Configure o emitente na tela Fiscal & NF-e.',
     });
   } else {
     if (!emitente.razao_social || emitente.razao_social.trim().length < 3) {

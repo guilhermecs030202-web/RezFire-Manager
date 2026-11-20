@@ -762,7 +762,7 @@ export class FiscalService {
     const bloqueiosEmitente: string[] = [];
 
     if (!emitenteDto) {
-      bloqueiosEmitente.push('Emitente fiscal ainda não configurado (Story 33a).');
+      bloqueiosEmitente.push('Emitente fiscal ainda não configurado.');
     } else if (!emitenteDto.pronto_para_emissao) {
       bloqueiosEmitente.push(...emitenteDto.pendencias_emitente);
     }

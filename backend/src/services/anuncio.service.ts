@@ -1,5 +1,44 @@
 import { AppDataSource } from '../config/database';
-import { AnuncioML, OcorrenciaAnuncio, MidiaAnuncio } from '../entities';
+import {
+  AnuncioML,
+  OcorrenciaAnuncio,
+  MidiaAnuncio,
+  ProdutoAnuncio,
+  Produto,
+  ConexaoMercadoLivre,
+} from '../entities';
+import { NotificacaoService } from './notificacao.service';
+
+export interface CriarAnuncioManualDTO {
+  ml_item_id?: string;
+  codigo_externo_ml?: string | null;
+  titulo: string;
+  preco: number;
+  status?: 'Ativo' | 'Pausado' | 'Rebaixado' | 'Sob Revisão' | 'Excluído' | string;
+  quantidade_disponivel?: number;
+  quantidade_vendida?: number;
+  visitas?: number;
+  url?: string;
+  id_produto?: number;
+  quantidade_anunciada?: number;
+  produtos_vinculados?: Array<{ id_produto: number; quantidade_anunciada?: number }>;
+}
+
+export interface AtualizarAnuncioManualDTO {
+  ml_item_id?: string;
+  codigo_externo_ml?: string | null;
+  titulo?: string;
+  preco?: number;
+  status?: 'Ativo' | 'Pausado' | 'Rebaixado' | 'Sob Revisão' | 'Excluído' | string;
+  quantidade_disponivel?: number;
+  quantidade_vendida?: number;
+  visitas?: number;
+  url?: string;
+  motivo_mudanca?: string;
+  id_produto?: number;
+  quantidade_anunciada?: number;
+  produtos_vinculados?: Array<{ id_produto: number; quantidade_anunciada?: number }>;
+}
 
 export interface CriarMidiaDTO {
   tipo?: 'imagem' | 'video';
@@ -30,11 +69,20 @@ export class AnuncioService {
   private anuncioRepo = AppDataSource.getRepository(AnuncioML);
   private ocorrenciaRepo = AppDataSource.getRepository(OcorrenciaAnuncio);
   private midiaRepo = AppDataSource.getRepository(MidiaAnuncio);
+  private produtoAnuncioRepo = AppDataSource.getRepository(ProdutoAnuncio);
+  private produtoRepo = AppDataSource.getRepository(Produto);
+  private conexaoRepo = AppDataSource.getRepository(ConexaoMercadoLivre);
+  private notificacaoService = new NotificacaoService();
 
   /**
    * Lista anúncios com suporte a filtros e ordenação
    */
-  async listar(filtros?: { status?: string; foi_recriado?: boolean; busca?: string }) {
+  async listar(filtros?: {
+    status?: string;
+    foi_recriado?: boolean;
+    origem_dado?: 'manual' | 'mercado_livre';
+    busca?: string;
+  }) {
     const qb = this.anuncioRepo
       .createQueryBuilder('a')
       .leftJoinAndSelect('a.ocorrencias', 'o')
@@ -47,6 +95,10 @@ export class AnuncioService {
 
     if (filtros?.foi_recriado !== undefined) {
       qb.andWhere('a.foi_recriado = :foi_recriado', { foi_recriado: filtros.foi_recriado });
+    }
+
+    if (filtros?.origem_dado) {
+      qb.andWhere('a.origem_dado = :origem_dado', { origem_dado: filtros.origem_dado });
     }
 
     if (filtros?.busca) {
@@ -354,6 +406,259 @@ export class AnuncioService {
     });
 
     return { sucesso: true, mensagem: 'Mídia removida com sucesso.' };
+  }
+
+  /**
+   * Story #34 (Critérios 1, 2, 4): Cadastra um anúncio em modo manual sem exigir conta conectada ao ML.
+   * Registra `origem_dado = 'manual'` e permite vincular produtos do catálogo para alertas (#13/#19).
+   */
+  async criarAnuncioManual(dados: CriarAnuncioManualDTO, id_usuario?: number) {
+    const titulo = String(dados.titulo || '').trim();
+    if (titulo.length < 3) {
+      throw new Error('O título do anúncio é obrigatório (mínimo 3 caracteres).');
+    }
+
+    const preco = Number(dados.preco);
+    if (!Number.isFinite(preco) || preco <= 0) {
+      throw new Error('O preço do anúncio deve ser maior que zero.');
+    }
+
+    const codigoInformado = String(dados.ml_item_id || dados.codigo_externo_ml || '').trim();
+    const mlItemId =
+      codigoInformado.length > 0
+        ? codigoInformado.toUpperCase()
+        : `MAN-${Date.now().toString().slice(-8)}`;
+    const codigoExternoMl = dados.codigo_externo_ml
+      ? String(dados.codigo_externo_ml).trim().toUpperCase()
+      : mlItemId.startsWith('MLB')
+      ? mlItemId
+      : null;
+
+    const existente = await this.anuncioRepo.findOne({ where: { ml_item_id: mlItemId } });
+    if (existente) {
+      throw new Error(`Já existe um anúncio cadastrado com o código "${mlItemId}".`);
+    }
+
+    const conexaoExistente = id_usuario
+      ? await this.conexaoRepo.findOne({ where: { id_usuario }, order: { id_conexao: 'DESC' } })
+      : await this.conexaoRepo.findOne({ where: {}, order: { id_conexao: 'DESC' } });
+
+    const statusInicial = dados.status?.trim() || 'Ativo';
+    const qtdDisponivel = Math.max(0, Number(dados.quantidade_disponivel ?? 1));
+    const qtdVendida = Math.max(0, Number(dados.quantidade_vendida ?? 0));
+    const visitas = Math.max(0, Number(dados.visitas ?? 0));
+
+    const novo = this.anuncioRepo.create({
+      id_conexao: conexaoExistente ? conexaoExistente.id_conexao : null,
+      ml_item_id: mlItemId,
+      origem_dado: 'manual',
+      codigo_externo_ml: codigoExternoMl,
+      titulo,
+      preco,
+      status: statusInicial,
+      quantidade_disponivel: qtdDisponivel,
+      quantidade_vendida: qtdVendida,
+      visitas,
+      url: dados.url?.trim() || `https://produto.mercadolivre.com.br/${mlItemId}`,
+      ultima_sincronizacao: null as any,
+    });
+
+    const salvo = await this.anuncioRepo.save(novo);
+
+    // Vincula produtos se informados
+    const listaVinculos: Array<{ id_produto: number; quantidade_anunciada: number }> = [];
+    if (Array.isArray(dados.produtos_vinculados) && dados.produtos_vinculados.length > 0) {
+      for (const pv of dados.produtos_vinculados) {
+        if (pv.id_produto) {
+          listaVinculos.push({
+            id_produto: Number(pv.id_produto),
+            quantidade_anunciada: Math.max(1, Number(pv.quantidade_anunciada || 1)),
+          });
+        }
+      }
+    } else if (dados.id_produto) {
+      listaVinculos.push({
+        id_produto: Number(dados.id_produto),
+        quantidade_anunciada: Math.max(1, Number(dados.quantidade_anunciada || 1)),
+      });
+    }
+
+    for (const v of listaVinculos) {
+      const prod = await this.produtoRepo.findOne({ where: { id_produto: v.id_produto } });
+      if (prod) {
+        await this.produtoAnuncioRepo.save(
+          this.produtoAnuncioRepo.create({
+            id_anuncio: salvo.id_anuncio,
+            id_produto: prod.id_produto,
+            quantidade_anunciada: v.quantidade_anunciada,
+          })
+        );
+      }
+    }
+
+    await this.adicionarOcorrencia(salvo.id_anuncio, {
+      tipo_evento: 'Cadastro Manual',
+      titulo: 'Anúncio cadastrado em modo manual',
+      detalhe: `Anúncio [${mlItemId}] "${titulo}" cadastrado manualmente com status "${statusInicial}" e estoque anunciado de ${qtdDisponivel} un.`,
+      autor: 'Gestor RezFire (Modo Manual)',
+    });
+
+    if (statusInicial === 'Pausado' || statusInicial === 'Rebaixado' || statusInicial === 'Sob Revisão') {
+      await this.notificacaoService
+        .notificarGestorMudancaStatusAnuncio({
+          id_usuario,
+          id_anuncio: salvo.id_anuncio,
+          ml_item_id: salvo.ml_item_id,
+          titulo: salvo.titulo,
+          status_anterior: 'Ativo',
+          novo_status: statusInicial,
+          data_mudanca: new Date(),
+        })
+        .catch(() => null);
+    }
+
+    return this.buscarPorId(salvo.id_anuncio);
+  }
+
+  /**
+   * Story #34 (Critério 2 & DoR 4): Atualiza dados e status de um anúncio em modo manual.
+   * Quando o status muda (ex.: Ativo -> Pausado/Rebaixado), grava ocorrência no histórico (#14/#17)
+   * e dispara notificação (#32), alimentando automaticamente os alertas (#13/#19).
+   */
+  async atualizarAnuncioManual(
+    id_anuncio: number,
+    dados: AtualizarAnuncioManualDTO,
+    id_usuario?: number
+  ) {
+    const anuncio = await this.anuncioRepo.findOne({ where: { id_anuncio } });
+    if (!anuncio) {
+      throw new Error(`Anúncio #${id_anuncio} não encontrado.`);
+    }
+
+    const statusAnterior = anuncio.status;
+
+    if (dados.titulo !== undefined) {
+      const t = String(dados.titulo).trim();
+      if (t.length < 3) throw new Error('O título do anúncio deve ter ao menos 3 caracteres.');
+      anuncio.titulo = t;
+    }
+
+    if (dados.preco !== undefined) {
+      const p = Number(dados.preco);
+      if (!Number.isFinite(p) || p <= 0) throw new Error('O preço deve ser maior que zero.');
+      anuncio.preco = p;
+    }
+
+    if (dados.quantidade_disponivel !== undefined) {
+      anuncio.quantidade_disponivel = Math.max(0, Number(dados.quantidade_disponivel));
+    }
+
+    if (dados.quantidade_vendida !== undefined) {
+      anuncio.quantidade_vendida = Math.max(0, Number(dados.quantidade_vendida));
+    }
+
+    if (dados.visitas !== undefined) {
+      anuncio.visitas = Math.max(0, Number(dados.visitas));
+    }
+
+    if (dados.url !== undefined) {
+      anuncio.url = String(dados.url).trim() || anuncio.url;
+    }
+
+    if (dados.codigo_externo_ml !== undefined) {
+      const ext = dados.codigo_externo_ml ? String(dados.codigo_externo_ml).trim().toUpperCase() : null;
+      anuncio.codigo_externo_ml = ext && ext.length > 0 ? ext : null;
+    }
+
+    if (dados.ml_item_id !== undefined) {
+      const novoCodigo = String(dados.ml_item_id).trim().toUpperCase();
+      if (novoCodigo && novoCodigo !== anuncio.ml_item_id) {
+        const dup = await this.anuncioRepo.findOne({ where: { ml_item_id: novoCodigo } });
+        if (dup && dup.id_anuncio !== id_anuncio) {
+          throw new Error(`Código "${novoCodigo}" já pertence a outro anúncio.`);
+        }
+        anuncio.ml_item_id = novoCodigo;
+        if (novoCodigo.startsWith('MLB') && !anuncio.codigo_externo_ml) {
+          anuncio.codigo_externo_ml = novoCodigo;
+        }
+      }
+    }
+
+    let statusMudou = false;
+    if (dados.status !== undefined && String(dados.status).trim()) {
+      const novoStatus = String(dados.status).trim();
+      if (novoStatus !== statusAnterior) {
+        anuncio.status = novoStatus;
+        statusMudou = true;
+      }
+    }
+
+    await this.anuncioRepo.save(anuncio);
+
+    // Atualiza vínculos de produto se informados
+    if (Array.isArray(dados.produtos_vinculados)) {
+      await this.produtoAnuncioRepo.delete({ id_anuncio });
+      for (const pv of dados.produtos_vinculados) {
+        if (!pv.id_produto) continue;
+        const prod = await this.produtoRepo.findOne({ where: { id_produto: Number(pv.id_produto) } });
+        if (prod) {
+          await this.produtoAnuncioRepo.save(
+            this.produtoAnuncioRepo.create({
+              id_anuncio,
+              id_produto: prod.id_produto,
+              quantidade_anunciada: Math.max(1, Number(pv.quantidade_anunciada || 1)),
+            })
+          );
+        }
+      }
+    } else if (dados.id_produto !== undefined && dados.id_produto) {
+      const prod = await this.produtoRepo.findOne({ where: { id_produto: Number(dados.id_produto) } });
+      if (prod) {
+        await this.produtoAnuncioRepo.delete({ id_anuncio });
+        await this.produtoAnuncioRepo.save(
+          this.produtoAnuncioRepo.create({
+            id_anuncio,
+            id_produto: prod.id_produto,
+            quantidade_anunciada: Math.max(1, Number(dados.quantidade_anunciada || 1)),
+          })
+        );
+      }
+    }
+
+    if (statusMudou) {
+      const motivoExtra = dados.motivo_mudanca ? ` Motivo: ${dados.motivo_mudanca}.` : '';
+      await this.adicionarOcorrencia(id_anuncio, {
+        tipo_evento: 'Mudança de Status',
+        titulo: `Status alterado manualmente para ${anuncio.status}`,
+        detalhe: `Status do anúncio [${anuncio.ml_item_id}] alterado de "${statusAnterior}" para "${anuncio.status}" em modo manual.${motivoExtra}`,
+        autor: 'Gestor RezFire (Modo Manual)',
+        dados_anteriores: {
+          status_anterior: statusAnterior,
+          status_novo: anuncio.status,
+          modo: 'manual',
+        },
+      });
+
+      if (
+        anuncio.status === 'Pausado' ||
+        anuncio.status === 'Rebaixado' ||
+        anuncio.status === 'Sob Revisão'
+      ) {
+        await this.notificacaoService
+          .notificarGestorMudancaStatusAnuncio({
+            id_usuario,
+            id_anuncio: anuncio.id_anuncio,
+            ml_item_id: anuncio.ml_item_id,
+            titulo: anuncio.titulo,
+            status_anterior: statusAnterior,
+            novo_status: anuncio.status,
+            data_mudanca: new Date(),
+          })
+          .catch(() => null);
+      }
+    }
+
+    return this.buscarPorId(id_anuncio);
   }
 }
 

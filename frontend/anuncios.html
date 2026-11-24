@@ -40,8 +40,8 @@
 
         <div class="flex items-center gap-3 flex-wrap">
           <div id="sync-status-indicator" class="sync-badge cursor-pointer hover:opacity-90" title="Clique para gerenciar a conexão OAuth 2.0">
-            <span class="inline-block w-2 h-2 rounded-full bg-emerald-500"></span>
-            <span id="sync-status-text">Conta Conectada (OAuth 2.0)</span>
+            <span class="inline-block w-2 h-2 rounded-full bg-amber-500"></span>
+            <span id="sync-status-text">Não Conectado · Modo Manual</span>
           </div>
 
           <button id="btn-gerenciar-oauth" class="btn-ghost" type="button"
@@ -52,8 +52,13 @@
           </button>
 
           <div class="text-xs text-stone-500 font-medium" id="sync-last-time">
-            Última sincronização: carregando...
+            Modo Manual ativo (integração opcional)
           </div>
+
+          <button id="btn-novo-anuncio-manual" class="btn-ghost" type="button"
+            style="padding: 8px 14px; font-size: 0.84rem; display: inline-flex; align-items: center; gap: 6px; border-color: #0f766e; color: #0f766e; font-weight: 700;">
+            <span>+ Novo Anúncio</span>
+          </button>
 
           <button id="btn-ver-recriados" class="btn-ghost" type="button"
             style="padding: 8px 14px; font-size: 0.84rem; display: inline-flex; align-items: center; gap: 6px; border-color: #cbd5e1; color: var(--ink);">
@@ -77,6 +82,9 @@
           </button>
         </div>
       </div>
+
+      <!-- Banner não bloqueante do Modo Manual / Estado da Integração -->
+      <div id="modo-manual-ml-banner" style="display: none; margin-bottom: 14px;"></div>
 
       <!-- Mensagem de feedback de sincronização / notificações -->
       <div id="sync-feedback-banner" style="display: none; margin-bottom: 16px;"></div>
@@ -251,6 +259,29 @@
       <div id="drawer-divergencias-secao">
         <h3 class="drawer-section-title">Diagnóstico de Divergências</h3>
         <div id="drawer-divergencias-lista"></div>
+      </div>
+
+      <!-- Seção: Controle Manual de Status e Dados do Anúncio -->
+      <div class="p-4 bg-white border border-stone-200 rounded-xl">
+        <div class="flex items-center justify-between mb-2">
+          <h3 class="drawer-section-title mb-0">Status &amp; Edição Rápida (Modo Manual)</h3>
+          <span id="drawer-origem-badge" class="text-[11px] font-bold px-2 py-0.5 rounded-full bg-stone-100 text-stone-700">Manual</span>
+        </div>
+        <div class="flex items-center gap-2 flex-wrap">
+          <select id="drawer-select-status-manual" class="search-input text-xs flex-1">
+            <option value="Ativo">Ativo</option>
+            <option value="Pausado">Pausado</option>
+            <option value="Rebaixado">Rebaixado</option>
+            <option value="Sob Revisão">Sob Revisão</option>
+            <option value="Excluído">Excluído</option>
+          </select>
+          <button id="btn-salvar-status-manual" type="button" class="btn-primary" style="padding: 6px 12px; font-size: 0.78rem;">
+            Atualizar Status
+          </button>
+          <button id="btn-editar-anuncio-manual" type="button" class="btn-ghost" style="padding: 6px 12px; font-size: 0.78rem;">
+            Editar Dados
+          </button>
+        </div>
       </div>
 
       <!-- Seção 2: Composição de Produtos do RezFire (Suporte a Kits e Multi-item) -->
@@ -491,7 +522,7 @@
             <path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16" />
             <path d="M8 16H3v5" />
           </svg>
-          Análise de Anúncios Excluídos & Recriados (SCRUM-20 / #15)
+          Análise de Anúncios Excluídos &amp; Recriados
         </h2>
         <button type="button" class="btn-ghost text-xs px-2.5 py-1" id="btn-fechar-relatorio-recriados">Fechar</button>
       </div>
@@ -644,6 +675,66 @@
       <div id="oauth-modal-conteudo">
         <!-- Preenchido dinamicamente via JS -->
       </div>
+    </div>
+  </div>
+
+  <!-- Modal 7: Cadastro e Edição Manual de Anúncio -->
+  <div class="modal-backdrop" id="modal-anuncio-manual" role="dialog" aria-modal="true"
+    aria-labelledby="modal-anuncio-manual-title" style="display:none">
+    <div class="modal" style="width:min(560px, 96vw)">
+      <div class="modal-header"
+        style="display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid var(--line);padding-bottom:12px;margin-bottom:14px">
+        <h2 id="modal-anuncio-manual-title" style="font-size:1.1rem;color:var(--ink);font-weight:800">
+          Cadastrar Anúncio (Modo Manual)
+        </h2>
+        <button type="button" class="btn-ghost text-xs px-2 py-1" id="btn-fechar-modal-anuncio-manual">✕</button>
+      </div>
+      <form id="form-anuncio-manual" class="space-y-3">
+        <input type="hidden" id="manual-anuncio-id" value="" />
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div class="form-field sm:col-span-2">
+            <label for="manual-anuncio-titulo">Título do Anúncio *</label>
+            <input id="manual-anuncio-titulo" type="text" class="search-input w-full" required maxlength="255" placeholder="Ex: Extintor Pó Químico ABC 4kg c/ Suporte" />
+          </div>
+          <div class="form-field">
+            <label for="manual-anuncio-codigo">Código MLB / Identificador (Opcional)</label>
+            <input id="manual-anuncio-codigo" type="text" class="search-input w-full" maxlength="64" placeholder="Ex: MLB-39201920 ou deixe em branco" />
+          </div>
+          <div class="form-field">
+            <label for="manual-anuncio-status">Status do Anúncio *</label>
+            <select id="manual-anuncio-status" class="search-input w-full" required>
+              <option value="Ativo">Ativo</option>
+              <option value="Pausado">Pausado</option>
+              <option value="Rebaixado">Rebaixado</option>
+              <option value="Sob Revisão">Sob Revisão</option>
+              <option value="Excluído">Excluído</option>
+            </select>
+          </div>
+          <div class="form-field">
+            <label for="manual-anuncio-preco">Preço Anunciado (R$) *</label>
+            <input id="manual-anuncio-preco" type="number" step="0.01" min="0.01" class="search-input w-full" required placeholder="189.90" />
+          </div>
+          <div class="form-field">
+            <label for="manual-anuncio-qtd">Estoque Anunciado (un.) *</label>
+            <input id="manual-anuncio-qtd" type="number" min="0" value="10" class="search-input w-full" required />
+          </div>
+          <div class="form-field">
+            <label for="manual-anuncio-vendidos">Unidades Vendidas</label>
+            <input id="manual-anuncio-vendidos" type="number" min="0" value="0" class="search-input w-full" />
+          </div>
+          <div class="form-field">
+            <label for="manual-anuncio-produto">Produto Vinculado (Catálogo)</label>
+            <select id="manual-anuncio-produto" class="search-input w-full">
+              <option value="">Sem vínculo inicial</option>
+            </select>
+          </div>
+        </div>
+        <p class="form-error text-xs text-red-700" id="manual-anuncio-error"></p>
+        <div class="flex items-center justify-end gap-2 pt-3 border-t border-stone-200">
+          <button type="button" class="btn-ghost text-xs" id="btn-cancelar-anuncio-manual">Cancelar</button>
+          <button type="submit" class="btn-primary text-xs" id="btn-salvar-anuncio-manual">Salvar Anúncio</button>
+        </div>
+      </form>
     </div>
   </div>
 

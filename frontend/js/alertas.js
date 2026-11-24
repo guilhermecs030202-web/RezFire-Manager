@@ -25,6 +25,7 @@
         estoque: 0,
         validade: 0,
         anuncio: 0,
+        fiscal: 0,
       },
     },
     filtros: {
@@ -303,6 +304,7 @@
         estoque: alertas.filter((a) => a.categoria === "estoque").length,
         validade: alertas.filter((a) => a.categoria === "validade").length,
         anuncio: alertas.filter((a) => a.categoria === "anuncio").length,
+        fiscal: alertas.filter((a) => a.categoria === "fiscal").length,
       },
     };
   }
@@ -423,9 +425,9 @@
         catFiltro: "postagem",
       }),
       card({
-        label: "Estoque",
+        label: "Estoque & FEFO",
         val: String(r.por_categoria.estoque + r.por_categoria.validade),
-        sublabel: "Ruptura & FEFO",
+        sublabel: "Ruptura & validade",
         icon: "📦",
         color: "bg-purple-100 text-purple-800",
         catFiltro: "estoque",
@@ -512,6 +514,7 @@
         case "estoque":  return `<span class="badge-categoria-tag cat-estoque">📦 Estoque & Ruptura</span>`;
         case "validade": return `<span class="badge-categoria-tag cat-validade">🛡️ Validade FEFO</span>`;
         case "anuncio":  return `<span class="badge-categoria-tag cat-anuncio">📢 Mercado Livre</span>`;
+        case "fiscal":   return `<span class="badge-categoria-tag cat-fiscal">🔐 Fiscal & Certificado A1</span>`;
         default:         return `<span class="badge-categoria-tag cat-postagem">Geral</span>`;
       }
     };

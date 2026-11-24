@@ -23,4 +23,10 @@ export { PurchaseOrderItem } from './PurchaseOrderItem';
 export { ProdutoFornecedor } from './ProdutoFornecedor';
 export { Return, ReturnStatus, ReturnResolutionType } from './Return';
 export { ReturnItem, ReturnReason, ReturnItemDestination } from './ReturnItem';
+export { EmitenteFiscal } from './EmitenteFiscal';
+export { NotaFiscal } from './NotaFiscal';
+export { NotaFiscalItem } from './NotaFiscalItem';
+export { NotaFiscalTransmissao } from './NotaFiscalTransmissao';
+export { NotaFiscalEvento } from './NotaFiscalEvento';
+export { NotaFiscalInutilizacao } from './NotaFiscalInutilizacao';
 

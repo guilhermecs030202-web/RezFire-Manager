@@ -12,6 +12,19 @@ export interface ParametrosNotificacaoAnuncio {
   data_mudanca?: Date;
 }
 
+export interface ParametrosNotificacaoCertificado {
+  id_usuario?: number;
+  id_emitente: number;
+  razao_social: string;
+  cnpj: string;
+  titular: string;
+  serial: string | null;
+  valido_ate: Date;
+  dias_restantes: number;
+  status: 'vencendo' | 'vencido';
+  antecedencia_dias: number;
+}
+
 export class NotificacaoService {
   private get notificacaoRepo() {
     return AppDataSource.getRepository(Notificacao);
@@ -138,6 +151,106 @@ export class NotificacaoService {
     console.log(`Atalho: https://rezfire-manager.com.br/anuncios.html`);
     console.log(`======================================================\n`);
 
+    return notificacao;
+  }
+
+  /**
+   * Notifica o gestor sobre proximidade de vencimento ou expiração do Certificado Digital A1 (Story 33g + #32).
+   * Inclui janela antirruído de 24h por serial e status para evitar duplicidade.
+   */
+  async notificarGestorVencimentoCertificado(
+    params: ParametrosNotificacaoCertificado
+  ): Promise<Notificacao | null> {
+    let idUsuario = params.id_usuario;
+    let emailGestor = 'gestor@rezfire.com.br';
+    let nomeGestor = 'Gestor RezFire';
+
+    if (idUsuario) {
+      const u = await this.usuarioRepo.findOne({ where: { id_usuario: idUsuario } });
+      if (u) {
+        emailGestor = u.email;
+        nomeGestor = u.nome;
+      }
+    } else {
+      const gestor = await this.usuarioRepo.findOne({ where: { perfil: 'GESTOR', ativo: true } });
+      if (gestor) {
+        idUsuario = gestor.id_usuario;
+        emailGestor = gestor.email;
+        nomeGestor = gestor.nome;
+      } else {
+        const primeiro = await this.usuarioRepo.findOne({ where: { ativo: true } });
+        if (primeiro) {
+          idUsuario = primeiro.id_usuario;
+          emailGestor = primeiro.email;
+          nomeGestor = primeiro.nome;
+        }
+      }
+    }
+
+    if (!idUsuario) return null;
+
+    const tipo = params.status === 'vencido' ? 'CERTIFICADO_VENCIDO' : 'CERTIFICADO_VENCENDO';
+    const serialChave = params.serial || 'SEM_SERIAL';
+
+    const existente = await this.notificacaoRepo
+      .createQueryBuilder('n')
+      .where('n.id_usuario = :idUsuario', { idUsuario })
+      .andWhere('n.tipo = :tipo', { tipo })
+      .andWhere("JSON_UNQUOTE(JSON_EXTRACT(n.dados_origem, '$.serial')) = :serialChave", {
+        serialChave,
+      })
+      .andWhere('n.created_at >= :limiteTempo', {
+        limiteTempo: new Date(Date.now() - 24 * 60 * 60 * 1000),
+      })
+      .getOne();
+
+    if (existente) {
+      return null;
+    }
+
+    const dataValidadeBr = new Date(params.valido_ate).toLocaleDateString('pt-BR', {
+      timeZone: 'UTC',
+    });
+
+    const titulo =
+      params.status === 'vencido'
+        ? `🚨 Certificado Digital A1 VENCIDO (${dataValidadeBr}) — Emissão de NF-e Bloqueada`
+        : `⚠️ Certificado Digital A1 vence em ${params.dias_restantes} dia(s) (${dataValidadeBr})`;
+
+    const mensagem =
+      params.status === 'vencido'
+        ? `O certificado digital A1 de "${params.titular || params.razao_social}" (CNPJ ${params.cnpj}) expirou em ${dataValidadeBr}. A assinatura e transmissão de NF-e na SEFAZ estão bloqueadas até a instalação de um novo arquivo .pfx/.p12 válido (o histórico de notas emitidas permanece preservado).`
+        : `O certificado digital A1 de "${params.titular || params.razao_social}" (CNPJ ${params.cnpj}) vencerá em ${dataValidadeBr} (restam ${params.dias_restantes} dia(s), dentro da antecedência configurada de ${params.antecedencia_dias} dias). Providencie a renovação a tempo para não interromper o faturamento.`;
+
+    const notificacao = this.notificacaoRepo.create({
+      id_usuario: idUsuario,
+      tipo,
+      canal: 'TODOS',
+      titulo,
+      mensagem,
+      link: 'fiscal.html',
+      dados_origem: {
+        id_emitente: params.id_emitente,
+        razao_social: params.razao_social,
+        cnpj: params.cnpj,
+        titular: params.titular,
+        serial: serialChave,
+        valido_ate: new Date(params.valido_ate).toISOString(),
+        data_validade_formatada: dataValidadeBr,
+        dias_restantes: params.dias_restantes,
+        status: params.status,
+        antecedencia_dias: params.antecedencia_dias,
+        destinatario: {
+          nome: nomeGestor,
+          email: emailGestor,
+        },
+      },
+      lida: false,
+      enviado_email: true,
+      created_at: new Date(),
+    });
+
+    await this.notificacaoRepo.save(notificacao);
     return notificacao;
   }
 

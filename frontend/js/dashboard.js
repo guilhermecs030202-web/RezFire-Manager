@@ -1190,7 +1190,7 @@ async function renderTabML(dias = 30) {
   if (kpisContainer) {
     kpisContainer.innerHTML = [
       kpiCard("FATURAMENTO REALIZADO", money(kpis.faturamento_realizado_total), `Vendas confirmadas nos últimos ${filterDays} dias`),
-      kpiCard("FATURAMENTO CESSANTE (#17)", money(kpis.faturamento_perdido_total), `Perda estimada por pausas e rebaixamentos`),
+      kpiCard("FATURAMENTO CESSANTE", money(kpis.faturamento_perdido_total), `Perda estimada por pausas e rebaixamentos`),
       kpiCard("FATURAMENTO POTENCIAL", money(kpis.faturamento_potencial_total), `Receita sem interrupções operacionais`),
       kpiCard("IMPACTO PERCENTUAL", `${kpis.impacto_percentual_receita}%`, `Proporção de receita perdida`),
       kpiCard("ANÚNCIOS ATIVOS / PAUSADOS", `${kpis.anuncios_ativos_atualmente} / ${kpis.anuncios_pausados_atualmente}`, `${kpis.total_dias_anuncio_indisponivel} dias inativos acumulados`),

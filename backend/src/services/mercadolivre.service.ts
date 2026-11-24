@@ -97,9 +97,8 @@ export class MercadoLivreService {
       };
     }
 
-    const url = `https://auth.mercadolivre.com.br/authorization?response_type=code&client_id=${
-      env.ML_CLIENT_ID
-    }&redirect_uri=${encodeURIComponent(env.ML_REDIRECT_URI)}&state=${state}`;
+    const url = `https://auth.mercadolivre.com.br/authorization?response_type=code&client_id=${env.ML_CLIENT_ID
+      }&redirect_uri=${encodeURIComponent(env.ML_REDIRECT_URI)}&state=${state}`;
 
     return { url, configurado: true };
   }
@@ -160,6 +159,8 @@ export class MercadoLivreService {
     conexao.status = 'Conectado';
 
     await this.conexaoRepo.save(conexao);
+    MercadoLivreService.ultimaFalhaSincronizacao = null;
+    MercadoLivreService.ultimaFalhaSincronizacaoPedidos = null;
 
     return {
       sucesso: true,
@@ -180,6 +181,8 @@ export class MercadoLivreService {
     conexao.expires_at = null as any;
     conexao.ml_user_id = null as any;
     await this.conexaoRepo.save(conexao);
+    MercadoLivreService.ultimaFalhaSincronizacao = null;
+    MercadoLivreService.ultimaFalhaSincronizacaoPedidos = null;
 
     return {
       sucesso: true,
@@ -333,56 +336,56 @@ export class MercadoLivreService {
       const res = await fetch(`https://api.mercadolibre.com${resource}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
-        if (res.ok) {
-          const item = (await res.json()) as any;
-          const statusAnterior = anuncio.status;
-          let novoStatus = 'Ativo';
-          if (item.status === 'under_review') {
-            novoStatus = 'Rebaixado';
-          } else if (item.status === 'paused') {
-            novoStatus = 'Pausado';
-          } else if (item.status === 'closed' || item.status === 'inactive') {
-            novoStatus = 'Excluído';
-          }
-          const statusMudou = statusAnterior !== novoStatus;
+      if (res.ok) {
+        const item = (await res.json()) as any;
+        const statusAnterior = anuncio.status;
+        let novoStatus = 'Ativo';
+        if (item.status === 'under_review') {
+          novoStatus = 'Rebaixado';
+        } else if (item.status === 'paused') {
+          novoStatus = 'Pausado';
+        } else if (item.status === 'closed' || item.status === 'inactive') {
+          novoStatus = 'Excluído';
+        }
+        const statusMudou = statusAnterior !== novoStatus;
 
-          anuncio.titulo = item.title || anuncio.titulo;
-          anuncio.preco = Number(item.price) || anuncio.preco;
-          anuncio.status = novoStatus;
-          anuncio.quantidade_disponivel = Number(item.available_quantity) || anuncio.quantidade_disponivel;
-          anuncio.quantidade_vendida = Number(item.sold_quantity) || anuncio.quantidade_vendida;
-          anuncio.ultima_sincronizacao = new Date();
-          await this.anuncioRepo.save(anuncio);
+        anuncio.titulo = item.title || anuncio.titulo;
+        anuncio.preco = Number(item.price) || anuncio.preco;
+        anuncio.status = novoStatus;
+        anuncio.quantidade_disponivel = Number(item.available_quantity) || anuncio.quantidade_disponivel;
+        anuncio.quantidade_vendida = Number(item.sold_quantity) || anuncio.quantidade_vendida;
+        anuncio.ultima_sincronizacao = new Date();
+        await this.anuncioRepo.save(anuncio);
 
-          if (statusMudou) {
-            const ocorrencia = this.ocorrenciaRepo.create({
+        if (statusMudou) {
+          const ocorrencia = this.ocorrenciaRepo.create({
+            id_anuncio: anuncio.id_anuncio,
+            tipo_evento: 'Mudança de Status',
+            titulo: `Status alterado via API ML para ${novoStatus}`,
+            detalhe: `Status do anúncio [${anuncio.ml_item_id}] atualizado de "${statusAnterior}" para "${novoStatus}" pelo Mercado Livre via webhook.`,
+            autor: 'Sincronizador ML (Automático)',
+            dados_anteriores: {
+              status_anterior: statusAnterior,
+              status_novo: novoStatus,
+            },
+            data_ocorrencia: new Date(),
+          });
+          await this.ocorrenciaRepo.save(ocorrencia);
+
+          // User Story #32: Notificação em tempo quase real via webhook ao gestor
+          if (novoStatus === 'Pausado' || novoStatus === 'Rebaixado') {
+            await this.notificacaoService.notificarGestorMudancaStatusAnuncio({
+              id_usuario,
               id_anuncio: anuncio.id_anuncio,
-              tipo_evento: 'Mudança de Status',
-              titulo: `Status alterado via API ML para ${novoStatus}`,
-              detalhe: `Status do anúncio [${anuncio.ml_item_id}] atualizado de "${statusAnterior}" para "${novoStatus}" pelo Mercado Livre via webhook.`,
-              autor: 'Sincronizador ML (Automático)',
-              dados_anteriores: {
-                status_anterior: statusAnterior,
-                status_novo: novoStatus,
-              },
-              data_ocorrencia: new Date(),
+              ml_item_id: anuncio.ml_item_id,
+              titulo: anuncio.titulo,
+              status_anterior: statusAnterior,
+              novo_status: novoStatus,
+              data_mudanca: new Date(),
             });
-            await this.ocorrenciaRepo.save(ocorrencia);
-
-            // User Story #32: Notificação em tempo quase real via webhook ao gestor
-            if (novoStatus === 'Pausado' || novoStatus === 'Rebaixado') {
-              await this.notificacaoService.notificarGestorMudancaStatusAnuncio({
-                id_usuario,
-                id_anuncio: anuncio.id_anuncio,
-                ml_item_id: anuncio.ml_item_id,
-                titulo: anuncio.titulo,
-                status_anterior: statusAnterior,
-                novo_status: novoStatus,
-                data_mudanca: new Date(),
-              });
-            }
           }
         }
+      }
     }
   }
 
@@ -725,13 +728,20 @@ export class MercadoLivreService {
           novoStatus = 'Excluído';
         }
 
-        // Busca anúncio existente no banco para garantir IDEMPOTÊNCIA (Critério 5)
-        let anuncio = await this.anuncioRepo.findOne({ where: { ml_item_id: mlItemId } });
+        // Busca anúncio existente no banco para garantir IDEMPOTÊNCIA (Critério 5 da #29 e Critério 5 / DoR 4 da #34)
+        // Reconhece tanto por ml_item_id quanto por codigo_externo_ml cadastrado em modo manual
+        let anuncio = await this.anuncioRepo
+          .createQueryBuilder('a')
+          .where('a.ml_item_id = :mlItemId OR a.codigo_externo_ml = :mlItemId', { mlItemId })
+          .getOne();
 
         if (anuncio) {
           const statusAnterior = anuncio.status;
           const statusMudou = statusAnterior !== novoStatus;
 
+          anuncio.id_conexao = conexao.id_conexao || anuncio.id_conexao;
+          anuncio.ml_item_id = mlItemId;
+          anuncio.codigo_externo_ml = mlItemId;
           anuncio.titulo = itemRemoto.title || anuncio.titulo;
           anuncio.preco = itemRemoto.price || anuncio.preco;
           anuncio.quantidade_disponivel = itemRemoto.available_quantity;
@@ -782,6 +792,8 @@ export class MercadoLivreService {
           anuncio = this.anuncioRepo.create({
             id_conexao: conexao.id_conexao,
             ml_item_id: mlItemId,
+            origem_dado: 'mercado_livre',
+            codigo_externo_ml: mlItemId,
             titulo: itemRemoto.title,
             preco: itemRemoto.price,
             status: novoStatus,
@@ -940,16 +952,36 @@ export class MercadoLivreService {
 
       for (const orderData of ordersList) {
         totalProcessados++;
-        const orderId = String(orderData.id || orderData.order_id);
-        const codigoPedido = `MLB-${orderId}`;
 
-        // Verifica existência para garantir IDEMPOTÊNCIA (Critério 2)
-        const pedidoExistente = await this.pedidoRepo.findOne({
-          where: { codigo_pedido: codigoPedido },
-          relations: ['itens'],
-        });
+        // Critério 6 da Story #34: A baixa automática de estoque (#31) vale SOMENTE para pedidos de origem Mercado Livre.
+        // Caso um payload traga origem_dado = 'manual' ou origem diferente de Mercado Livre, ignora na rotina automática.
+        if (
+          orderData.origem_dado === 'manual' ||
+          (orderData.origem && String(orderData.origem).trim() !== 'Mercado Livre')
+        ) {
+          continue;
+        }
+
+        const rawOrderId = String(orderData.id || orderData.order_id || '').trim().replace(/^MLB-/i, '');
+        if (!rawOrderId) continue;
+        const codigoPedido = `MLB-${rawOrderId}`;
+
+        // Verifica existência para garantir IDEMPOTÊNCIA e conciliação com pedidos manuais (Critérios 5 e 6 / DoR 4 da #34)
+        const pedidoExistente = await this.pedidoRepo
+          .createQueryBuilder('p')
+          .leftJoinAndSelect('p.itens', 'i')
+          .where(
+            'p.codigo_pedido = :codigoPedido OR p.codigo_pedido = :rawOrderId OR p.codigo_externo_ml = :rawOrderId OR p.codigo_externo_ml = :codigoPedido',
+            { codigoPedido, rawOrderId }
+          )
+          .getOne();
 
         if (pedidoExistente) {
+          if (!pedidoExistente.codigo_externo_ml) {
+            pedidoExistente.codigo_externo_ml = rawOrderId;
+            await this.pedidoRepo.save(pedidoExistente);
+          }
+
           // Atualização de status existente no Mercado Livre (Critério 3)
           if (orderData.status === 'cancelled' && pedidoExistente.status !== 'Cancelado') {
             await this.pedidoService.atualizarStatus(
@@ -977,7 +1009,7 @@ export class MercadoLivreService {
             );
             pedidosAtualizados++;
           }
-          continue; // Já importado, encerra sem duplicar baixa nem pedido!
+          continue; // Já importado ou já cadastrado manualmente: encerra sem duplicar pedido nem baixar estoque em duplicidade!
         }
 
         // Apenas pedidos com pagamento aprovado geram novo pedido no sistema
@@ -1071,13 +1103,16 @@ export class MercadoLivreService {
 
           const compradorNome = clienteML?.name || orderData.buyer?.nickname || 'Cliente Mercado Livre';
 
-          // Executa a baixa transacional e registro da movimentação indicando o pedido de origem (Critérios 1 & 3 da #31)
+          // Executa a baixa transacional e registro da movimentação indicando o pedido de origem (Critérios 1 & 3 da #31 e Critérios 4 & 6 da #34)
           await this.pedidoService.criarPedido(
             {
               codigo_pedido: codigoPedido,
               cliente_nome: compradorNome,
               id_cliente: clienteML ? clienteML.id : null,
               origem: 'Mercado Livre',
+              origem_dado: 'mercado_livre',
+              codigo_externo_ml: rawOrderId,
+              baixar_estoque_agora: true,
               itens: itensParaImportar,
               prazo_despacho: prazoDespacho,
               exibir_na_entrega: true,
@@ -1142,6 +1177,74 @@ export class MercadoLivreService {
     return {
       ultima_sincronizacao_sucesso: MercadoLivreService.ultimaSincronizacaoPedidosSucesso,
       ultima_falha: MercadoLivreService.ultimaFalhaSincronizacaoPedidos,
+    };
+  }
+
+  /**
+   * Story #34 (Critérios 1, 5, 7 e DoR 5): Retorna o estado consolidado da integração com o Mercado Livre
+   * ('conectado' | 'desconectado' | 'erro'), o modo de operação ('integrado' | 'manual'), o convite opcional
+   * não bloqueante e a contagem de registros por origem ('manual' vs 'mercado_livre').
+   */
+  async obterEstadoIntegracaoCompleto(id_usuario: number) {
+    const conexao = await this.obterConexao(id_usuario);
+    const falhaAnuncios = MercadoLivreService.ultimaFalhaSincronizacao;
+    const falhaPedidos = MercadoLivreService.ultimaFalhaSincronizacaoPedidos;
+    const erroAtivo = falhaAnuncios || falhaPedidos;
+
+    let estadoIntegracao: 'conectado' | 'desconectado' | 'erro' = 'desconectado';
+    if (conexao.status === 'Expirado' || Boolean(erroAtivo)) {
+      estadoIntegracao = 'erro';
+    } else if (conexao.status === 'Conectado') {
+      estadoIntegracao = 'conectado';
+    }
+
+    const [
+      pedidosManuais,
+      pedidosMercadoLivre,
+      anunciosManuais,
+      anunciosMercadoLivre,
+    ] = await Promise.all([
+      this.pedidoRepo.count({ where: { origem_dado: 'manual' } }),
+      this.pedidoRepo.count({ where: { origem_dado: 'mercado_livre' } }),
+      this.anuncioRepo.count({ where: { origem_dado: 'manual' } }),
+      this.anuncioRepo.count({ where: { origem_dado: 'mercado_livre' } }),
+    ]);
+
+    return {
+      status: conexao.status,
+      estado_integracao: estadoIntegracao,
+      modo_operacao: conexao.status === 'Conectado' ? ('integrado' as const) : ('manual' as const),
+      integracao_opcional: true,
+      bloqueia_uso_manual: false,
+      ml_user_id: conexao.ml_user_id || null,
+      expires_at: conexao.expires_at || null,
+      ultima_atualizacao: conexao.updated_at,
+      ultima_sincronizacao_sucesso: MercadoLivreService.ultimaSincronizacaoSucesso,
+      ultima_falha: falhaAnuncios,
+      ultima_sincronizacao_pedidos_sucesso: MercadoLivreService.ultimaSincronizacaoPedidosSucesso,
+      ultima_falha_pedidos: falhaPedidos,
+      convite_conexao: {
+        exibir: conexao.status !== 'Conectado',
+        rotulo_status:
+          estadoIntegracao === 'erro'
+            ? 'Integração com erro (Modo Manual liberado)'
+            : conexao.status === 'Conectado'
+              ? 'Conectado ao Mercado Livre'
+              : 'Não conectado (Modo Manual ativo)',
+        mensagem:
+          estadoIntegracao === 'erro'
+            ? `A última tentativa de sincronização com o Mercado Livre apresentou erro (${erroAtivo?.mensagem || 'token expirado'}), mas todos os módulos (Estoque, Pedidos, Anúncios, Painel, Alertas e NF-e) continuam 100% liberados para trabalho manual.`
+            : conexao.status === 'Conectado'
+              ? 'Conta vinculada via OAuth 2.0. Pedidos do Mercado Livre têm baixa automática e pedidos manuais seguem com controle manual.'
+              : 'O sistema funciona integralmente sem conta conectada (Estoque, Pedidos, Anúncios, Painel, Alertas e NF-e). Conecte sua conta do Mercado Livre opcionalmente quando desejar automatizar a sincronização.',
+        acao_label: 'Conectar Mercado Livre (Opcional)',
+      },
+      resumo_origem_dados: {
+        pedidos_manuais: pedidosManuais,
+        pedidos_mercado_livre: pedidosMercadoLivre,
+        anuncios_manuais: anunciosManuais,
+        anuncios_mercado_livre: anunciosMercadoLivre,
+      },
     };
   }
 }

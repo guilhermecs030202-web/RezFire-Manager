@@ -6,16 +6,72 @@ const anuncioService = new AnuncioService();
 export class AnuncioController {
   async listar(req: Request, res: Response) {
     try {
-      const { status, busca, foi_recriado } = req.query;
+      const { status, busca, foi_recriado, origem_dado } = req.query;
       const anuncios = await anuncioService.listar({
         status: status ? String(status) : undefined,
         busca: busca ? String(busca) : undefined,
         foi_recriado: foi_recriado !== undefined ? foi_recriado === 'true' : undefined,
+        origem_dado:
+          origem_dado === 'manual' || origem_dado === 'mercado_livre'
+            ? origem_dado
+            : undefined,
       });
 
       return res.json({ sucesso: true, anuncios });
     } catch (err: any) {
       return res.status(500).json({ sucesso: false, mensagem: err.message });
+    }
+  }
+
+  async criarManual(req: Request, res: Response) {
+    try {
+      const id_usuario = req.usuario?.id_usuario;
+      const anuncio = await anuncioService.criarAnuncioManual(req.body || {}, id_usuario);
+      return res.status(201).json({
+        sucesso: true,
+        mensagem: 'Anúncio cadastrado em modo manual com sucesso.',
+        anuncio,
+      });
+    } catch (err: any) {
+      return res.status(400).json({ sucesso: false, mensagem: err.message });
+    }
+  }
+
+  async atualizarManual(req: Request, res: Response) {
+    try {
+      const id = Number(req.params.id);
+      const id_usuario = req.usuario?.id_usuario;
+      const anuncio = await anuncioService.atualizarAnuncioManual(id, req.body || {}, id_usuario);
+      return res.json({
+        sucesso: true,
+        mensagem: 'Anúncio atualizado em modo manual com sucesso.',
+        anuncio,
+      });
+    } catch (err: any) {
+      return res.status(400).json({ sucesso: false, mensagem: err.message });
+    }
+  }
+
+  async atualizarStatusManual(req: Request, res: Response) {
+    try {
+      const id = Number(req.params.id);
+      const id_usuario = req.usuario?.id_usuario;
+      const { status, motivo_mudanca } = req.body || {};
+      if (!status || !String(status).trim()) {
+        return res.status(400).json({ sucesso: false, mensagem: 'O novo status do anúncio é obrigatório.' });
+      }
+      const anuncio = await anuncioService.atualizarAnuncioManual(
+        id,
+        { status, motivo_mudanca },
+        id_usuario
+      );
+      return res.json({
+        sucesso: true,
+        mensagem: `Status do anúncio alterado manualmente para "${anuncio.status}".`,
+        anuncio,
+      });
+    } catch (err: any) {
+      return res.status(400).json({ sucesso: false, mensagem: err.message });
     }
   }
 

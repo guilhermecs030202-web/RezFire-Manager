@@ -81,20 +81,16 @@ export class MercadoLivreController {
   }
 
   /**
-   * Consulta o status atual da conexão OAuth do gestor
+   * Consulta o status atual da conexão OAuth do gestor e o estado do Modo Manual (#34)
    */
   async obterStatusConexao(req: Request, res: Response) {
     try {
       const id_usuario = req.usuario?.id_usuario || 1;
-      const conexao = await mlService.obterConexao(id_usuario);
+      const estado = await mlService.obterEstadoIntegracaoCompleto(id_usuario);
 
       return res.json({
         sucesso: true,
-        status: conexao.status,
-        ml_user_id: conexao.ml_user_id || null,
-        expires_at: conexao.expires_at || null,
-        ultima_atualizacao: conexao.updated_at,
-        ...mlService.obterStatusSincronizacao(),
+        ...estado,
       });
     } catch (error: any) {
       return res.status(500).json({ sucesso: false, mensagem: error.message });

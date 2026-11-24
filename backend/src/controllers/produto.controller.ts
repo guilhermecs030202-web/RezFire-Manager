@@ -30,7 +30,24 @@ export class ProdutoController {
 
   async criar(req: Request, res: Response) {
     try {
-      const { sku, nome, descricao, preco, custo, categoria, tipo, estoque_minimo, combo_items, detalhes_extintor } = req.body;
+      const {
+        sku,
+        nome,
+        descricao,
+        preco,
+        custo,
+        categoria,
+        tipo,
+        estoque_minimo,
+        combo_items,
+        detalhes_extintor,
+        ncm,
+        cfop,
+        origem_mercadoria,
+        cst_csosn,
+        unidade_comercial,
+        cest,
+      } = req.body;
 
       if (!sku || !nome || preco === undefined) {
         return res.status(400).json({
@@ -50,6 +67,12 @@ export class ProdutoController {
         estoque_minimo: estoque_minimo !== undefined ? Number(estoque_minimo) : 0,
         combo_items,
         detalhes_extintor,
+        ncm,
+        cfop,
+        origem_mercadoria,
+        cst_csosn,
+        unidade_comercial,
+        cest,
       });
 
       return res.status(201).json({

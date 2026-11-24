@@ -25,6 +25,8 @@ function icon(name) {
       '<path d="M6 22V4a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v18Z"/><path d="M6 12H4a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h2"/><path d="M18 9h2a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2h-2"/><path d="M10 6h4"/><path d="M10 10h4"/><path d="M10 14h4"/><path d="M10 18h4"/>',
     clipboard:
       '<path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1" ry="1"/><path d="M9 14h6"/><path d="M9 10h6"/><path d="M9 18h4"/>',
+    fiscal:
+      '<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><line x1="10" y1="9" x2="8" y2="9"/>',
   };
 
   return `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${paths[name]}</svg>`;
@@ -79,6 +81,9 @@ function renderSidebar(active) {
       <a class="nav-item ${active === "usuarios" ? "is-active" : ""}" href="usuarios.html" id="nav-item-usuarios">
         ${icon("shield")} Usuários & Acessos
       </a>
+      <a class="nav-item ${active === "fiscal" ? "is-active" : ""}" href="fiscal.html" id="nav-item-fiscal">
+        ${icon("fiscal")} Fiscal & NF-e
+      </a>
     </nav>
     <div class="sidebar-footer">
       <div class="sidebar-user" id="sidebar-user-name">Gestor RezFire</div>
@@ -107,10 +112,12 @@ function renderSidebar(active) {
         const roleEl = document.getElementById("sidebar-user-role");
         if (roleEl) roleEl.textContent = u.perfil.toUpperCase();
       }
-      // Se for perfil OPERADOR, oculta o link de gerenciamento de usuários
+      // Se for perfil OPERADOR, oculta os links restritos ao Gestor
       if (u.perfil && u.perfil.toUpperCase() === 'OPERADOR') {
         const navUsuarios = document.getElementById("nav-item-usuarios");
         if (navUsuarios) navUsuarios.style.display = 'none';
+        const navFiscal = document.getElementById("nav-item-fiscal");
+        if (navFiscal) navFiscal.style.display = 'none';
       }
     }
   } catch (e) {}

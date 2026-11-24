@@ -3,4 +3,9 @@ dist/
 .env
 uploads/certificados/*
 !uploads/certificados/.gitkeep
+uploads/fiscal-vault/*
+!uploads/fiscal-vault/.gitkeep
+*.pfx
+*.p12
+*.enc
 

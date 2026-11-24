@@ -9,6 +9,8 @@ import { EventoMercadoLivre } from '../entities/EventoMercadoLivre';
 import { OcorrenciaAnuncio } from '../entities/OcorrenciaAnuncio';
 import { PedidoService } from './pedido.service';
 import { NotificacaoService } from './notificacao.service';
+import { CustomerService } from './customer.service';
+import { Customer } from '../entities/Customer';
 import { env } from '../config/env';
 
 export class MercadoLivreService {
@@ -51,6 +53,14 @@ export class MercadoLivreService {
 
   private pedidoService = new PedidoService();
   private notificacaoService = new NotificacaoService();
+  private customerService = new CustomerService();
+
+  /**
+   * Upsert isolado de comprador do Mercado Livre como cliente interno
+   */
+  async upsertCustomerFromMercadoLivre(orderData: any): Promise<Customer> {
+    return this.customerService.upsertCustomerFromMercadoLivre(orderData);
+  }
 
   /**
    * Obtém ou inicializa a conexão com o Mercado Livre para o gestor
@@ -1051,13 +1061,22 @@ export class MercadoLivreService {
             prazoDespacho = new Date(dataPed.getTime() + 24 * 60 * 60 * 1000);
           }
 
-          const compradorNome = orderData.buyer?.nickname || 'Cliente Mercado Livre';
+          // Cria ou atualiza o cliente automaticamente via dados do comprador do Mercado Livre
+          let clienteML: Customer | null = null;
+          try {
+            clienteML = await this.customerService.upsertCustomerFromMercadoLivre(orderData);
+          } catch (errCli: any) {
+            console.warn('[MercadoLivreService] Falha ao cadastrar/atualizar cliente do ML:', errCli?.message);
+          }
+
+          const compradorNome = clienteML?.name || orderData.buyer?.nickname || 'Cliente Mercado Livre';
 
           // Executa a baixa transacional e registro da movimentação indicando o pedido de origem (Critérios 1 & 3 da #31)
           await this.pedidoService.criarPedido(
             {
               codigo_pedido: codigoPedido,
               cliente_nome: compradorNome,
+              id_cliente: clienteML ? clienteML.id : null,
               origem: 'Mercado Livre',
               itens: itensParaImportar,
               prazo_despacho: prazoDespacho,

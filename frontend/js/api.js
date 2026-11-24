@@ -216,11 +216,51 @@ window.RezFireAPI = {
     async obterKpis(dias = 30) {
       return window.RezFireAPI.request(`/dashboard/kpis?dias=${dias}`);
     },
+    async kpis(dias = 30) {
+      return window.RezFireAPI.dashboard.obterKpis(dias);
+    },
     async obterGraficos(dias = 30) {
       return window.RezFireAPI.request(`/dashboard/graficos?dias=${dias}`);
     },
+    async graficos(dias = 30) {
+      return window.RezFireAPI.dashboard.obterGraficos(dias);
+    },
     async obterImpactoQuedas(dias = 30) {
       return window.RezFireAPI.request(`/dashboard/impacto-quedas-anuncios?dias=${dias}`);
+    },
+    async customers(filtros = {}) {
+      const query = new URLSearchParams(filtros).toString();
+      return window.RezFireAPI.request(`/dashboard/customers${query ? '?' + query : ''}`);
+    },
+    async clientes(filtros = {}) {
+      return window.RezFireAPI.dashboard.customers(filtros);
+    },
+    async purchases(filtros = {}) {
+      const query = new URLSearchParams(filtros).toString();
+      return window.RezFireAPI.request(`/dashboard/purchases${query ? '?' + query : ''}`);
+    },
+    async compras(filtros = {}) {
+      return window.RezFireAPI.dashboard.purchases(filtros);
+    },
+    async returns(filtros = {}) {
+      const query = new URLSearchParams(filtros).toString();
+      return window.RezFireAPI.request(`/dashboard/returns${query ? '?' + query : ''}`);
+    },
+    async devolucoes(filtros = {}) {
+      return window.RezFireAPI.dashboard.returns(filtros);
+    },
+    async recentReturns(params = {}) {
+      const cleanParams = {};
+      Object.keys(params).forEach(k => {
+        if (params[k] !== undefined && params[k] !== null && params[k] !== '' && params[k] !== 'ALL') {
+          cleanParams[k] = params[k];
+        }
+      });
+      const query = new URLSearchParams(cleanParams).toString();
+      return window.RezFireAPI.request(`/dashboard/returns/recentes${query ? '?' + query : ''}`);
+    },
+    async devolucoesRecentes(params = {}) {
+      return window.RezFireAPI.dashboard.recentReturns(params);
     },
   },
 
@@ -502,5 +542,116 @@ window.RezFireAPI = {
       });
     },
   },
+
+  // Módulo de Clientes (Presenciais e Mercado Livre)
+  customers: {
+    async listar(params = {}) {
+      const query = new URLSearchParams(params).toString();
+      return window.RezFireAPI.request(`/customers${query ? '?' + query : ''}`);
+    },
+    async buscarPorId(id) {
+      return window.RezFireAPI.request(`/customers/${id}`);
+    },
+    async criar(dados) {
+      return window.RezFireAPI.request('/customers', {
+        method: 'POST',
+        body: JSON.stringify(dados),
+      });
+    },
+    async atualizar(id, dados) {
+      return window.RezFireAPI.request(`/customers/${id}`, {
+        method: 'PUT',
+        body: JSON.stringify(dados),
+      });
+    },
+  },
+
+  // Módulo de Fornecedores e Vínculo de Produtos (RezFire Manager)
+  suppliers: {
+    async listar(params = {}) {
+      const query = new URLSearchParams(params).toString();
+      return window.RezFireAPI.request(`/suppliers${query ? '?' + query : ''}`);
+    },
+    async buscarPorId(id) {
+      return window.RezFireAPI.request(`/suppliers/${id}`);
+    },
+    async criar(dados) {
+      return window.RezFireAPI.request('/suppliers', {
+        method: 'POST',
+        body: JSON.stringify(dados),
+      });
+    },
+    async atualizar(id, dados) {
+      return window.RezFireAPI.request(`/suppliers/${id}`, {
+        method: 'PUT',
+        body: JSON.stringify(dados),
+      });
+    },
+    async alternarStatus(id, ativo) {
+      return window.RezFireAPI.request(`/suppliers/${id}/status`, {
+        method: 'PATCH',
+        body: JSON.stringify({ ativo }),
+      });
+    },
+    async listarProdutos(id) {
+      return window.RezFireAPI.request(`/suppliers/${id}/products`);
+    },
+    async vincularProduto(id, dados) {
+      return window.RezFireAPI.request(`/suppliers/${id}/products`, {
+        method: 'POST',
+        body: JSON.stringify(dados),
+      });
+    },
+    async desvincularProduto(id, idProduto) {
+      return window.RezFireAPI.request(`/suppliers/${id}/products/${idProduto}`, {
+        method: 'DELETE',
+      });
+    },
+  },
+
+  // Módulo de Pedidos de Compra (RezFire Manager)
+  purchaseOrders: {
+    async listar(params = {}) {
+      const query = new URLSearchParams(params).toString();
+      return window.RezFireAPI.request(`/purchase-orders${query ? '?' + query : ''}`);
+    },
+    async buscarPorId(id) {
+      return window.RezFireAPI.request(`/purchase-orders/${id}`);
+    },
+    async obterProximoNumero() {
+      return window.RezFireAPI.request('/purchase-orders/proximo-numero');
+    },
+    async criar(dados) {
+      return window.RezFireAPI.request('/purchase-orders', {
+        method: 'POST',
+        body: JSON.stringify(dados),
+      });
+    },
+    async atualizar(id, dados) {
+      return window.RezFireAPI.request(`/purchase-orders/${id}`, {
+        method: 'PUT',
+        body: JSON.stringify(dados),
+      });
+    },
+    async registrarRecebimento(id, dados) {
+      return window.RezFireAPI.request(`/purchase-orders/${id}/receive`, {
+        method: 'POST',
+        body: JSON.stringify(dados),
+      });
+    },
+    async cancelar(id, motivo) {
+      return window.RezFireAPI.request(`/purchase-orders/${id}/cancel`, {
+        method: 'PATCH',
+        body: JSON.stringify({ motivo }),
+      });
+    },
+  },
 };
+
+// Alias em português para o módulo de clientes
+window.RezFireAPI.clientes = window.RezFireAPI.customers;
+// Alias em português para o módulo de fornecedores
+window.RezFireAPI.fornecedores = window.RezFireAPI.suppliers;
+// Alias em português para o módulo de pedidos de compra
+window.RezFireAPI.pedidosCompra = window.RezFireAPI.purchaseOrders;
 

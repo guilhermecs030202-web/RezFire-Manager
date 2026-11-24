@@ -37,13 +37,15 @@
         </p>
 
         <div class="dash-tabs">
-          <button class="dash-tab" data-tab="visao-geral">Visão Geral</button>
           <button class="dash-tab is-active" data-tab="vendas">Vendas</button>
           <button class="dash-tab" data-tab="estoque">Estoque</button>
           <button class="dash-tab" data-tab="ml">Mercado Livre</button>
           <button class="dash-tab" data-tab="entregas">Entregas</button>
           <button class="dash-tab" data-tab="produtos">Produtos</button>
           <button class="dash-tab" data-tab="financeiro">Financeiro</button>
+          <button class="dash-tab" data-tab="clientes">Clientes</button>
+          <button class="dash-tab" data-tab="compras">Compras e Fornecedores</button>
+          <button class="dash-tab" data-tab="devolucoes">Devoluções e Qualidade</button>
         </div>
 
         <!-- ABA 2: DASHBOARD DE VENDAS -->
@@ -546,30 +548,6 @@
           </div>
         </div>
 
-        <div id="tab-visao-geral" class="tab-content">
-          <div class="section-head">
-            <span class="section-num">1</span>
-            GESTÃO DE ESTOQUE
-          </div>
-          <section class="kpi-grid" id="kpis-estoque"></section>
-          <div class="chart-card card" style="margin-top: 12px">
-            <h2 class="chart-title">Entradas × Saídas (unidades)</h2>
-            <div id="chart-movimentacoes"></div>
-          </div>
-
-          <div class="section-head">
-            <span class="section-num">2</span>
-            MOVIMENTAÇÕES
-          </div>
-          <section class="kpi-grid" id="kpis-movimentacoes"></section>
-
-          <div class="section-head">
-            <span class="section-num">3</span>
-            VENDAS
-          </div>
-          <section class="kpi-grid" id="kpis-vendas"></section>
-        </div>
-
         <div id="tab-produtos" class="tab-content">
           <div class="page-toolbar" style="margin-top: 12px;">
             <div class="flex items-center gap-3">
@@ -857,6 +835,526 @@
             </div>
           </div>
         </div>
+
+        <!-- ABA 8: DASHBOARD DE CLIENTES (INDICADORES & SINAIS DE ATENÇÃO) -->
+        <div id="tab-clientes" class="tab-content">
+          <!-- Toolbar de Filtros do Dashboard de Clientes -->
+          <div class="page-toolbar" style="margin-top: 12px; margin-bottom: 20px;">
+            <div class="flex items-center gap-3 flex-wrap">
+              <div class="flex items-center gap-2">
+                <label for="filtro-clientes-periodo" class="text-xs font-bold text-stone-500 uppercase">Período:</label>
+                <select id="filtro-clientes-periodo" class="search-input" style="width: 190px;">
+                  <option value="7">Últimos 7 dias</option>
+                  <option value="30" selected>Últimos 30 dias</option>
+                  <option value="90">Últimos 90 dias</option>
+                  <option value="180">Últimos 6 meses</option>
+                  <option value="365">Últimos 12 meses</option>
+                </select>
+              </div>
+
+              <div class="flex items-center gap-2">
+                <label for="filtro-clientes-origem" class="text-xs font-bold text-stone-500 uppercase">Origem:</label>
+                <select id="filtro-clientes-origem" class="search-input" style="width: 200px;">
+                  <option value="ALL" selected>Todas as Origens</option>
+                  <option value="PRESENCIAL">Presencial (Balcão)</option>
+                  <option value="MERCADO_LIVRE">Mercado Livre</option>
+                </select>
+              </div>
+
+              <div class="flex items-center gap-2">
+                <label for="filtro-clientes-dias-inativo" class="text-xs font-bold text-stone-500 uppercase">Critério Inativo:</label>
+                <select id="filtro-clientes-dias-inativo" class="search-input" style="width: 170px;">
+                  <option value="60">Sem compra há 60d</option>
+                  <option value="90" selected>Sem compra há 90d</option>
+                  <option value="120">Sem compra há 120d</option>
+                  <option value="180">Sem compra há 180d</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="flex items-center gap-3 flex-wrap">
+              <button id="btn-recarregar-dash-clientes" type="button" class="btn-ghost" style="padding: 8px 14px; font-size: 0.82rem; display: inline-flex; align-items: center; gap: 6px;">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 2v6h-6"/><path d="M3 12a9 9 0 0 1 15-6.7L21 8"/><path d="M3 22v-6h6"/><path d="M21 12a9 9 0 0 1-15 6.7L3 16"/></svg>
+                Atualizar Métricas
+              </button>
+              <a href="clientes.html" class="btn-primary" style="padding: 8px 14px; font-size: 0.82rem; text-decoration: none; display: inline-flex; align-items: center; gap: 6px;">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+                Gerenciar Clientes
+              </a>
+            </div>
+          </div>
+
+          <!-- Banner de Erro Resiliente com Opção de Tentar Novamente -->
+          <div id="erro-dash-clientes" style="display: none; background: #fef2f2; border: 1px solid #fecaca; border-radius: 8px; padding: 14px 18px; margin-bottom: 20px;">
+            <div style="display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap;">
+              <div style="display: flex; align-items: center; gap: 10px;">
+                <span style="font-size: 1.3rem;">⚠️</span>
+                <div>
+                  <span style="font-size: 0.88rem; font-weight: 700; color: #991b1b;">Erro ao carregar dados de clientes:</span>
+                  <p id="mensagem-erro-dash-clientes" style="margin: 2px 0 0; font-size: 0.8rem; color: #7f1d1d;">Falha de comunicação com o servidor.</p>
+                </div>
+              </div>
+              <button id="btn-tentar-novamente-dash-clientes" type="button" class="btn-ghost" style="padding: 6px 14px; font-size: 0.8rem; background: #fff; border-color: #f87171; color: #b91c1c;">
+                Tentar Novamente
+              </button>
+            </div>
+          </div>
+
+          <!-- Painel de Pontos de Atenção & Alertas Operacionais de Clientes -->
+          <section id="container-alertas-clientes" class="mb-5 flex flex-col gap-2.5">
+            <!-- Renderizado dinamicamente via JS -->
+          </section>
+
+          <!-- Grade de KPIs Estratégicos de Clientes -->
+          <section class="kpi-grid mb-5" id="kpis-tab-clientes" style="grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));">
+            <!-- Renderizado dinamicamente via JS -->
+          </section>
+
+          <!-- Linha 1 de Gráficos: Timeline Temporal e Distribuição de Origem -->
+          <div class="charts-row" style="margin-top: 20px;">
+            <div class="chart-card card">
+              <div class="flex items-center justify-between mb-2">
+                <h2 class="chart-title">Novos Clientes ao Longo do Tempo</h2>
+                <span class="text-xs text-stone-500 font-medium">Cadastros por Origem no Período</span>
+              </div>
+              <div id="chart-novos-clientes-timeline"></div>
+            </div>
+
+            <div class="chart-card card">
+              <div class="flex items-center justify-between mb-2">
+                <h2 class="chart-title">Distribuição por Canal (Origem)</h2>
+                <span class="text-xs text-stone-500 font-medium">Presencial × Mercado Livre</span>
+              </div>
+              <div id="chart-clientes-origem"></div>
+            </div>
+          </div>
+
+          <!-- Linha 2 de Gráficos: Novos x Recorrentes e Distribuição Geográfica -->
+          <div class="charts-row" style="margin-top: 20px;">
+            <div class="chart-card card">
+              <div class="flex items-center justify-between mb-2">
+                <h2 class="chart-title">Perfil de Compradores no Período</h2>
+                <span class="text-xs text-stone-500 font-medium">Novos Clientes vs Recompras (Recorrência)</span>
+              </div>
+              <div id="chart-clientes-novos-recorrentes"></div>
+            </div>
+
+            <div class="chart-card card">
+              <div class="flex items-center justify-between mb-2">
+                <h2 class="chart-title">Presença Geográfica (Top Estados)</h2>
+                <span class="text-xs text-stone-500 font-medium">Clientes e Faturamento por UF</span>
+              </div>
+              <div id="chart-clientes-geo"></div>
+            </div>
+          </div>
+
+          <!-- Linha 3: Top 10 Clientes por Receita (Tabela Estruturada) -->
+          <div class="card p-4 mt-5 border border-stone-200">
+            <div class="flex items-center justify-between mb-3 flex-wrap gap-2">
+              <div>
+                <h2 class="chart-title text-sm font-bold text-stone-900">
+                  Top 10 Clientes por Faturamento no Período
+                </h2>
+                <p class="text-xs text-stone-500 mt-0.5">
+                  Ranking dos compradores de maior receita, canal de aquisição e data da última compra.
+                </p>
+              </div>
+              <a href="clientes.html" class="btn-ghost text-xs px-3 py-1.5 border-stone-300">
+                Ver Todos os Clientes →
+              </a>
+            </div>
+            <div class="overflow-x-auto">
+              <table class="products-table" style="width: 100%; font-size: 0.84rem;">
+                <thead>
+                  <tr style="border-bottom: 2px solid var(--line); text-align: left;">
+                    <th style="padding: 10px 8px; width: 50px;">Posição</th>
+                    <th style="padding: 10px 8px;">Cliente / Razão Social</th>
+                    <th style="padding: 10px 8px;">Origem</th>
+                    <th style="padding: 10px 8px;">Localização</th>
+                    <th style="padding: 10px 8px; text-align: center;">Pedidos</th>
+                    <th style="padding: 10px 8px; text-align: right;">Faturamento Total</th>
+                    <th style="padding: 10px 8px; text-align: right;">Último Pedido</th>
+                    <th style="padding: 10px 8px; text-align: right;">Ações</th>
+                  </tr>
+                </thead>
+                <tbody id="tbody-top-clientes">
+                  <!-- Renderizado dinamicamente via JS -->
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <!-- ABA 9: DASHBOARD DE COMPRAS & FORNECEDORES -->
+        <div id="tab-compras" class="tab-content">
+          <!-- Toolbar de Filtros do Dashboard de Compras -->
+          <div class="page-toolbar" style="margin-top: 12px; margin-bottom: 20px;">
+            <div class="flex items-center gap-3 flex-wrap">
+              <div class="flex items-center gap-2">
+                <label for="filtro-compras-periodo" class="text-xs font-bold text-stone-500 uppercase">Período:</label>
+                <select id="filtro-compras-periodo" class="search-input" style="width: 190px;">
+                  <option value="7">Últimos 7 dias</option>
+                  <option value="30" selected>Últimos 30 dias</option>
+                  <option value="90">Últimos 90 dias</option>
+                  <option value="180">Últimos 6 meses</option>
+                  <option value="365">Últimos 12 meses</option>
+                </select>
+              </div>
+
+              <div class="flex items-center gap-2">
+                <label for="filtro-compras-fornecedor" class="text-xs font-bold text-stone-500 uppercase">Fornecedor:</label>
+                <select id="filtro-compras-fornecedor" class="search-input" style="width: 220px;">
+                  <option value="ALL" selected>Todos os Fornecedores</option>
+                </select>
+              </div>
+
+              <div class="flex items-center gap-2">
+                <label for="filtro-compras-categoria" class="text-xs font-bold text-stone-500 uppercase">Categoria:</label>
+                <select id="filtro-compras-categoria" class="search-input" style="width: 180px;">
+                  <option value="ALL" selected>Todas as Categorias</option>
+                  <option value="Extintores">Extintores</option>
+                  <option value="Acessórios">Acessórios</option>
+                  <option value="Sinalização">Sinalização</option>
+                  <option value="Detecção">Detecção</option>
+                  <option value="Kits">Kits</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="flex items-center gap-3 flex-wrap">
+              <button id="btn-recarregar-dash-compras" type="button" class="btn-ghost" style="padding: 8px 14px; font-size: 0.82rem; display: inline-flex; align-items: center; gap: 6px;">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 2v6h-6"/><path d="M3 12a9 9 0 0 1 15-6.7L21 8"/><path d="M3 22v-6h6"/><path d="M21 12a9 9 0 0 1-15 6.7L3 16"/></svg>
+                Atualizar Métricas
+              </button>
+            </div>
+          </div>
+
+          <!-- Banner de Erro Resiliente com Opção de Tentar Novamente -->
+          <div id="erro-dash-compras" style="display: none; background: #fef2f2; border: 1px solid #fecaca; border-radius: 8px; padding: 14px 18px; margin-bottom: 20px;">
+            <div style="display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap;">
+              <div style="display: flex; align-items: center; gap: 10px;">
+                <span style="font-size: 1.3rem;">⚠️</span>
+                <div>
+                  <span style="font-size: 0.88rem; font-weight: 700; color: #991b1b;">Erro ao carregar dados de compras:</span>
+                  <p id="mensagem-erro-dash-compras" style="margin: 2px 0 0; font-size: 0.8rem; color: #7f1d1d;">Falha de comunicação com o servidor.</p>
+                </div>
+              </div>
+              <button id="btn-tentar-novamente-dash-compras" type="button" class="btn-ghost" style="padding: 6px 14px; font-size: 0.8rem; background: #fff; border-color: #f87171; color: #b91c1c;">
+                Tentar Novamente
+              </button>
+            </div>
+          </div>
+
+          <!-- Painel de Pontos de Atenção & Alertas Operacionais de Compras -->
+          <section id="container-alertas-compras" class="mb-5 flex flex-col gap-2.5">
+            <!-- Renderizado dinamicamente via JS -->
+          </section>
+
+          <!-- Grade de 8 KPIs Estratégicos de Compras & Fornecedores -->
+          <section class="kpi-grid mb-5" id="kpis-tab-compras" style="grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));">
+            <!-- Renderizado dinamicamente via JS -->
+          </section>
+
+          <!-- Linha 1 de Gráficos: Timeline do Gasto e Top Fornecedores -->
+          <div class="charts-row" style="margin-top: 20px;">
+            <div class="chart-card card">
+              <div class="flex items-center justify-between mb-2">
+                <h2 class="chart-title">Evolução do Gasto em Compras</h2>
+                <span class="text-xs text-stone-500 font-medium">Valores e Ordens por Data</span>
+              </div>
+              <div id="chart-compras-timeline"></div>
+            </div>
+
+            <div class="chart-card card">
+              <div class="flex items-center justify-between mb-2">
+                <h2 class="chart-title">Top Fornecedores por Volume</h2>
+                <span class="text-xs text-stone-500 font-medium">Gasto Financeiro e Participação</span>
+              </div>
+              <div id="chart-compras-top-fornecedores"></div>
+            </div>
+          </div>
+
+          <!-- Linha 2 de Gráficos: Prazos Previsto x Realizado & Gasto por Categoria -->
+          <div class="charts-row" style="margin-top: 20px;">
+            <div class="chart-card card">
+              <div class="flex items-center justify-between mb-2">
+                <h2 class="chart-title">Pontualidade: Prazo Previsto × Realizado</h2>
+                <span class="text-xs text-stone-500 font-medium">Média em Dias por Fornecedor</span>
+              </div>
+              <div id="chart-compras-prazos"></div>
+            </div>
+
+            <div class="chart-card card">
+              <div class="flex items-center justify-between mb-2">
+                <h2 class="chart-title">Gasto por Categoria de Produto</h2>
+                <span class="text-xs text-stone-500 font-medium">Distribuição do Capital em Insumos</span>
+              </div>
+              <div id="chart-compras-categorias"></div>
+            </div>
+          </div>
+
+          <!-- Linha 3 de Gráficos: Pedidos por Status & Evolução de Preços dos Itens -->
+          <div class="charts-row" style="margin-top: 20px;">
+            <div class="chart-card card">
+              <div class="flex items-center justify-between mb-2">
+                <h2 class="chart-title">Pedidos de Compra por Status</h2>
+                <span class="text-xs text-stone-500 font-medium">Situação das Ordens Emitidas</span>
+              </div>
+              <div id="chart-compras-status"></div>
+            </div>
+
+            <div class="chart-card card">
+              <div class="flex items-center justify-between mb-2 flex-wrap gap-2">
+                <h2 class="chart-title">Evolução do Preço dos Itens</h2>
+                <select id="filtro-compras-produto-preco" class="search-input text-xs" style="width: 220px; padding: 4px 8px;">
+                  <option value="">Selecione um Produto</option>
+                </select>
+              </div>
+              <div id="chart-compras-evolucao-preco"></div>
+            </div>
+          </div>
+
+          <!-- Linha 4: Scorecard / Ranking de Fornecedores (Tabela Interativa e Ordenável) -->
+          <div class="card p-4 mt-5 border border-stone-200" id="tabela-scorecard-compras">
+            <div class="flex items-center justify-between mb-3 flex-wrap gap-2">
+              <div>
+                <h2 class="chart-title text-sm font-bold text-stone-900">
+                  Scorecard e Avaliação de Confiabilidade de Fornecedores
+                </h2>
+                <p class="text-xs text-stone-500 mt-0.5">
+                  Confronto de pontualidade, prazos médios de entrega, volume adquirido e avaliação operacional. Clique nos títulos das colunas para ordenar.
+                </p>
+              </div>
+              <span id="badge-total-fornecedores-scorecard" class="text-xs px-2.5 py-1 bg-stone-100 text-stone-600 font-bold rounded-full">
+                4 fornecedores
+              </span>
+            </div>
+            <div class="overflow-x-auto">
+              <table class="products-table" style="width: 100%; font-size: 0.84rem;">
+                <thead>
+                  <tr style="border-bottom: 2px solid var(--line); text-align: left; cursor: pointer; user-select: none;">
+                    <th data-sort="nome" style="padding: 10px 8px;">Fornecedor / Razão Social ⬍</th>
+                    <th data-sort="cidadeUf" style="padding: 10px 8px;">Localização ⬍</th>
+                    <th data-sort="totalPedidos" style="padding: 10px 8px; text-align: center;">Pedidos ⬍</th>
+                    <th data-sort="totalGasto" style="padding: 10px 8px; text-align: right;">Gasto Total ⬍</th>
+                    <th data-sort="pontualidadePct" style="padding: 10px 8px; text-align: center;">Pontualidade ⬍</th>
+                    <th data-sort="leadTimeMedioDias" style="padding: 10px 8px; text-align: center;">Lead Time Médio ⬍</th>
+                    <th data-sort="pedidosAtrasados" style="padding: 10px 8px; text-align: center;">Em Atraso ⬍</th>
+                    <th data-sort="taxaDevolucaoPct" style="padding: 10px 8px; text-align: center;">Reprovações ⬍</th>
+                    <th data-sort="statusOperacional" style="padding: 10px 8px; text-align: center;">Status ⬍</th>
+                  </tr>
+                </thead>
+                <tbody id="tbody-scorecard-compras">
+                  <!-- Renderizado dinamicamente via JS -->
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <!-- ABA 10: DASHBOARD DE DEVOLUÇÕES & QUALIDADE -->
+        <div id="tab-devolucoes" class="tab-content">
+          <!-- Toolbar de Filtros do Dashboard de Devoluções -->
+          <div class="page-toolbar" style="margin-top: 12px; margin-bottom: 20px;">
+            <div class="flex items-center gap-3 flex-wrap">
+              <div class="flex items-center gap-2">
+                <label for="filtro-devolucoes-periodo" class="text-xs font-bold text-stone-500 uppercase">Período:</label>
+                <select id="filtro-devolucoes-periodo" class="search-input" style="width: 175px;">
+                  <option value="7">Últimos 7 dias</option>
+                  <option value="30" selected>Últimos 30 dias</option>
+                  <option value="90">Últimos 90 dias</option>
+                  <option value="180">Últimos 6 meses</option>
+                  <option value="365">Últimos 12 meses</option>
+                </select>
+              </div>
+
+              <div class="flex items-center gap-2">
+                <label for="filtro-devolucoes-motivo" class="text-xs font-bold text-stone-500 uppercase">Motivo:</label>
+                <select id="filtro-devolucoes-motivo" class="search-input" style="width: 195px;">
+                  <option value="ALL" selected>Todos os Motivos</option>
+                  <option value="DEFEITO">Defeito de Fabricação</option>
+                  <option value="AVARIA_TRANSPORTE">Avaria no Transporte</option>
+                  <option value="PRODUTO_ERRADO">Produto Errado</option>
+                  <option value="DIVERGENCIA_DESCRICAO">Divergência na Descrição</option>
+                  <option value="ARREPENDIMENTO">Arrependimento (7 dias)</option>
+                  <option value="OUTRO">Outros</option>
+                </select>
+              </div>
+
+              <div class="flex items-center gap-2">
+                <label for="filtro-devolucoes-categoria" class="text-xs font-bold text-stone-500 uppercase">Categoria:</label>
+                <select id="filtro-devolucoes-categoria" class="search-input" style="width: 170px;">
+                  <option value="ALL" selected>Todas as Categorias</option>
+                  <option value="Extintores">Extintores</option>
+                  <option value="Acessórios">Acessórios</option>
+                  <option value="Sinalização">Sinalização</option>
+                  <option value="Detecção">Detecção</option>
+                </select>
+              </div>
+
+              <div class="flex items-center gap-2">
+                <label for="filtro-devolucoes-fornecedor" class="text-xs font-bold text-stone-500 uppercase">Fornecedor:</label>
+                <select id="filtro-devolucoes-fornecedor" class="search-input" style="width: 195px;">
+                  <option value="ALL" selected>Todos os Fornecedores</option>
+                  <option value="1">Resil Extintores</option>
+                  <option value="2">Bucka Fire Systems</option>
+                  <option value="3">Extinpel Brasil</option>
+                  <option value="4">Sinalize Placas</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="flex items-center gap-2">
+              <button class="btn-ghost" id="btn-recarregar-dash-devolucoes" title="Recarregar métricas de qualidade">
+                🔄 Atualizar
+              </button>
+            </div>
+          </div>
+
+          <!-- Banner de Erro em Casos de Falha de Conexão -->
+          <div id="erro-dash-devolucoes" style="display: none; background: #fef2f2; border: 1px solid #f87171; border-radius: 8px; padding: 14px 18px; margin-bottom: 20px;">
+            <div style="display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap;">
+              <div style="display: flex; align-items: center; gap: 10px;">
+                <span style="font-size: 1.3rem;">⚠️</span>
+                <div>
+                  <h3 style="margin: 0; font-size: 0.9rem; font-weight: 700; color: #991b1b;">Falha ao obter métricas de devoluções</h3>
+                  <p id="mensagem-erro-dash-devolucoes" style="margin: 2px 0 0; font-size: 0.8rem; color: #7f1d1d;"></p>
+                </div>
+              </div>
+              <button id="btn-tentar-novamente-dash-devolucoes" class="btn-ghost" style="padding: 6px 14px; font-size: 0.8rem; border-color: #ef4444; color: #991b1b;">
+                Tentar Novamente
+              </button>
+            </div>
+          </div>
+
+          <!-- Bloco de Alertas de Qualidade e Atenção Operacional -->
+          <div class="card mb-5" style="border-left: 4px solid var(--accent); background: #fdfaf6;">
+            <div class="flex items-center justify-between mb-3">
+              <div class="flex items-center gap-2">
+                <span style="font-size: 1.15rem;">🛡️</span>
+                <h2 class="chart-title text-sm font-bold text-stone-900" style="margin:0;">
+                  Pontos de Atenção em Qualidade & Devoluções
+                </h2>
+              </div>
+              <span class="text-xs text-stone-500 font-medium">Alertas automáticos baseados em limites operacionais</span>
+            </div>
+            <div id="container-alertas-devolucoes" class="space-y-2">
+              <!-- Inserido dinamicamente via JS -->
+            </div>
+          </div>
+
+          <!-- Grade de 8 Cards de KPI -->
+          <section class="kpi-grid mb-5" id="kpis-tab-devolucoes" style="grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));">
+            <!-- 8 Cards renderizados via JS -->
+          </section>
+
+          <!-- Linha 1 de Gráficos: Timeline e Diagrama de Pareto de Motivos -->
+          <div class="charts-row-equal grid grid-cols-1 lg:grid-cols-2 gap-4 mb-5">
+            <div class="chart-card card">
+              <div class="flex items-center justify-between mb-2">
+                <h2 class="chart-title">Devoluções ao Longo do Tempo</h2>
+                <span class="text-xs text-stone-500 font-medium">Ocorrências e Itens Devolvidos por Dia</span>
+              </div>
+              <div id="chart-devolucoes-timeline"></div>
+            </div>
+
+            <div class="chart-card card">
+              <div class="flex items-center justify-between mb-2">
+                <h2 class="chart-title">Motivos de Devolução (Diagrama de Pareto)</h2>
+                <span class="text-xs text-stone-500 font-medium">Frequência por Causa + % Acumulada</span>
+              </div>
+              <div id="chart-devolucoes-pareto"></div>
+            </div>
+          </div>
+
+          <!-- Linha 2 de Gráficos: Top 10 Produtos e Taxa por Categoria -->
+          <div class="charts-row-equal grid grid-cols-1 lg:grid-cols-2 gap-4 mb-5">
+            <div class="chart-card card">
+              <div class="flex items-center justify-between mb-2">
+                <h2 class="chart-title">Top Produtos com Mais Devoluções</h2>
+                <span class="text-xs text-stone-500 font-medium">Qtd Devolvida e Taxa Relativa sobre Vendas</span>
+              </div>
+              <div id="chart-devolucoes-top-produtos"></div>
+            </div>
+
+            <div class="chart-card card">
+              <div class="flex items-center justify-between mb-2">
+                <h2 class="chart-title">Taxa de Devolução por Categoria</h2>
+                <span class="text-xs text-stone-500 font-medium">Volume de Reprovações por Linha de Produto</span>
+              </div>
+              <div id="chart-devolucoes-categorias"></div>
+            </div>
+          </div>
+
+          <!-- Linha 3 de Gráficos: Fornecedores com Defeito e Status / Tempo de SLA -->
+          <div class="charts-row-equal grid grid-cols-1 lg:grid-cols-2 gap-4 mb-5">
+            <div class="chart-card card">
+              <div class="flex items-center justify-between mb-2">
+                <h2 class="chart-title">Taxa de Problemas por Fornecedor</h2>
+                <span class="text-xs text-stone-500 font-medium">Itens com Defeito Cruzados com Fornecedor Principal</span>
+              </div>
+              <div id="chart-devolucoes-fornecedores"></div>
+            </div>
+
+            <div class="chart-card card">
+              <div class="flex items-center justify-between mb-2">
+                <h2 class="chart-title">Devoluções por Status e SLA Médio</h2>
+                <span class="text-xs text-stone-500 font-medium">Distribuição por Etapa e Dias Médios de Resolução</span>
+              </div>
+              <div id="chart-devolucoes-status"></div>
+            </div>
+          </div>
+
+          <!-- Tabela Paginada no Servidor: Devoluções Recentes & Gestão de SLA -->
+          <div class="card mb-5">
+            <div class="flex items-center justify-between mb-3 flex-wrap gap-2">
+              <div>
+                <h2 class="chart-title text-sm font-bold text-stone-900">
+                  Devoluções e Ocorrências Recentes
+                </h2>
+                <p class="text-xs text-stone-500 mt-0.5">
+                  Lista detalhada dos chamados abertos, status, resolução adotada, destino físico dos itens e tempos de atendimento.
+                </p>
+              </div>
+              <div class="flex items-center gap-3">
+                <span id="badge-total-devolucoes-recentes" class="text-xs px-2.5 py-1 bg-stone-100 text-stone-600 font-bold rounded-full">
+                  0 devoluções
+                </span>
+              </div>
+            </div>
+
+            <div class="overflow-x-auto">
+              <table class="products-table" style="width: 100%; font-size: 0.84rem;">
+                <thead>
+                  <tr style="border-bottom: 2px solid var(--line); text-align: left;">
+                    <th style="padding: 10px 8px;">Código</th>
+                    <th style="padding: 10px 8px;">Pedido / Cliente</th>
+                    <th style="padding: 10px 8px;">Produto / Fornecedor</th>
+                    <th style="padding: 10px 8px; text-align: center;">Motivo</th>
+                    <th style="padding: 10px 8px; text-align: center;">Status</th>
+                    <th style="padding: 10px 8px; text-align: center;">Resolução</th>
+                    <th style="padding: 10px 8px; text-align: center;">Destino Físico</th>
+                    <th style="padding: 10px 8px; text-align: right;">Custo Total</th>
+                    <th style="padding: 10px 8px; text-align: center;">SLA (Dias)</th>
+                  </tr>
+                </thead>
+                <tbody id="tbody-devolucoes-recentes">
+                  <!-- Renderizado dinamicamente via JS -->
+                </tbody>
+              </table>
+            </div>
+
+            <!-- Controles de Paginação no Servidor -->
+            <div id="paginacao-devolucoes" class="flex items-center justify-between mt-4 pt-3 border-t border-stone-200 text-xs text-stone-600 flex-wrap gap-3">
+              <span id="info-paginacao-devolucoes">Mostrando 0 de 0 ocorrências</span>
+              <div class="flex items-center gap-2">
+                <button class="btn-ghost" id="btn-pag-prev-devolucoes" style="padding: 4px 10px;" disabled>Anterior</button>
+                <span id="num-pagina-devolucoes" class="font-bold px-2 py-1 bg-stone-100 rounded">1 / 1</span>
+                <button class="btn-ghost" id="btn-pag-next-devolucoes" style="padding: 4px 10px;" disabled>Próxima</button>
+              </div>
+            </div>
+          </div>
+        </div>
       </main>
     </div>
 
@@ -1014,9 +1512,9 @@
     <script src="https://cdn.jsdelivr.net/npm/apexcharts"></script>
     <script src="js/mock-data.js"></script>
     <script src="js/mock-entregas.js"></script>
-    <script src="js/api.js"></script>
-    <script src="js/layout.js"></script>
-    <script src="js/dashboard-entregas.js"></script>
-    <script src="js/dashboard.js"></script>
+    <script src="js/api.js?v=20261119-qualidade"></script>
+    <script src="js/layout.js?v=20261119-qualidade"></script>
+    <script src="js/dashboard-entregas.js?v=20261119-qualidade"></script>
+    <script src="js/dashboard.js?v=20261119-qualidade"></script>
   </body>
 </html>

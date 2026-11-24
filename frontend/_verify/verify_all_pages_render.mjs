@@ -55,13 +55,13 @@ function getEl(id) {
   return elements[id];
 }
 
-const tabButtons = ["visao-geral", "vendas", "estoque", "ml", "entregas", "produtos", "financeiro"].map((t) => {
+const tabButtons = ["vendas", "estoque", "ml", "entregas", "produtos", "financeiro", "clientes", "compras", "devolucoes"].map((t) => {
   const el = getEl("btn-tab-" + t);
   el.dataset.tab = t;
   return el;
 });
 
-const tabContents = ["visao-geral", "vendas", "estoque", "ml", "entregas", "produtos", "financeiro"].map((t) => {
+const tabContents = ["vendas", "estoque", "ml", "entregas", "produtos", "financeiro", "clientes", "compras", "devolucoes"].map((t) => {
   return getEl("tab-" + t);
 });
 
@@ -104,12 +104,12 @@ new Function(fs.readFileSync("frontend/js/dashboard-entregas.js", "utf8"))();
 new Function(fs.readFileSync("frontend/js/dashboard.js", "utf8"))();
 
 console.log("✓ Dashboard executado sem exceções.");
-console.log("   - KPI Estoque renderizado:", getEl("kpis-estoque").innerHTML.length > 0 ? "SIM ✓" : "NÃO ✗");
+console.log("   - KPI Estoque renderizado:", getEl("kpis-tab-estoque").innerHTML.length > 0 ? "SIM ✓" : "NÃO ✗");
 console.log("   - KPI Vendas renderizado:", getEl("kpis-tab-vendas").innerHTML.length > 0 ? "SIM ✓" : "NÃO ✗");
 
 // 2. Testa navegação de abas do Dashboard
 console.log("\n[2] Testando navegação nas abas do Dashboard:");
-["visao-geral", "vendas", "estoque", "ml", "entregas", "produtos", "financeiro"].forEach((tabName) => {
+["vendas", "estoque", "ml", "entregas", "produtos", "financeiro", "clientes", "compras", "devolucoes"].forEach((tabName) => {
   const btn = getEl("btn-tab-" + tabName);
   const content = getEl("tab-" + tabName);
   btn.click();

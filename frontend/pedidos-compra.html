@@ -1,0 +1,875 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Pedidos de Compra · RezFire Manager</title>
+  <meta name="description" content="Gestão e controle de pedidos de compra, cotações, recebimento de mercadorias e entrada de estoque na RezFire." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            cream: "#f4efe8",
+            sidebar: "#1a1412",
+            accent: "#e85c2a",
+          },
+          fontFamily: { sans: ["Inter", "ui-sans-serif", "system-ui"] },
+        },
+      },
+    };
+  </script>
+  <link rel="stylesheet" href="css/app.css" />
+  <style>
+    /* ── Layout Resiliente ──────────────────────────────────── */
+    .app-shell { display: flex; min-height: 100vh; background: var(--cream); }
+    .app-main { flex: 1; min-width: 0; padding: 28px 36px 48px; }
+
+    /* ── Badges de Status do Pedido de Compra ─────────────────── */
+    .badge-status {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      font-size: 0.72rem;
+      font-weight: 700;
+      padding: 3px 9px;
+      border-radius: 999px;
+      letter-spacing: 0.02em;
+      white-space: nowrap;
+    }
+    .badge-status-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: currentColor;
+    }
+    .badge-rascunho { background: #f3f4f6; color: #4b5563; border: 1px solid #e5e7eb; }
+    .badge-aberto   { background: #e0f2fe; color: #0369a1; border: 1px solid #bae6fd; }
+    .badge-parcial  { background: #fef3c7; color: #b45309; border: 1px solid #fde68a; }
+    .badge-recebido { background: #dcfce7; color: #166534; border: 1px solid #bbf7d0; }
+    .badge-cancelado{ background: #fee2e2; color: #991b1b; border: 1px solid #fecaca; }
+
+    .tag-atrasado {
+      display: inline-flex;
+      align-items: center;
+      gap: 3px;
+      background: #fef2f2;
+      color: #b91c1c;
+      border: 1px solid #f87171;
+      border-radius: 4px;
+      font-size: 0.68rem;
+      font-weight: 700;
+      padding: 1px 6px;
+      text-transform: uppercase;
+      animation: pulse-soft 2s infinite;
+    }
+
+    @keyframes pulse-soft {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.75; }
+    }
+
+    /* ── Modais & Drawers ───────────────────────────────────── */
+    .modal-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(26, 20, 18, 0.55);
+      z-index: 80;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      backdrop-filter: blur(2px);
+      padding: 16px;
+    }
+    .modal-overlay.is-open { display: flex !important; }
+
+    .modal-card {
+      background: #ffffff;
+      border-radius: 12px;
+      width: 100%;
+      max-width: 820px;
+      max-height: 90vh;
+      overflow-y: auto;
+      box-shadow: 0 20px 40px rgba(0, 0, 0, 0.2);
+      border: 1px solid #e7e5e4;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* ── Drawer Lateral de Detalhes ─────────────────────────── */
+    #drawer-detalhes {
+      position: fixed;
+      top: 0;
+      right: -760px;
+      width: min(720px, 100vw);
+      height: 100vh;
+      background: #fff;
+      box-shadow: -6px 0 24px rgba(26, 20, 18, 0.16);
+      z-index: 85;
+      display: flex;
+      flex-direction: column;
+      transition: right 0.28s cubic-bezier(0.16, 1, 0.3, 1);
+      overflow-y: auto;
+    }
+    #drawer-detalhes.is-open { right: 0; }
+
+    #drawer-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(26, 20, 18, 0.45);
+      z-index: 80;
+      display: none;
+      backdrop-filter: blur(2px);
+    }
+    #drawer-overlay.is-open { display: block; }
+
+    /* ── Toasts ────────────────────────────────────────────── */
+    #toast-container {
+      position: fixed;
+      bottom: 24px;
+      right: 24px;
+      z-index: 100;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      pointer-events: none;
+    }
+    .toast {
+      padding: 12px 18px;
+      border-radius: 8px;
+      font-size: 0.85rem;
+      font-weight: 600;
+      color: #fff;
+      box-shadow: 0 4px 14px rgba(0,0,0,0.18);
+      pointer-events: auto;
+      opacity: 0;
+      transform: translateY(12px);
+      transition: all 0.22s ease-out;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .toast-show {
+      opacity: 1;
+      transform: translateY(0);
+    }
+    .toast-sucesso { background: #166534; border-left: 4px solid #4ade80; }
+    .toast-erro { background: #991b1b; border-left: 4px solid #f87171; }
+    .toast-info { background: #1e3a8a; border-left: 4px solid #60a5fa; }
+  </style>
+</head>
+<body class="bg-cream text-stone-900 font-sans antialiased">
+  <div class="app-shell" id="app-shell">
+    <main class="app-main">
+      <!-- Toolbar / Cabeçalho -->
+      <div class="page-toolbar">
+        <div>
+          <h1 class="page-title flex items-center gap-2">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="text-accent">
+              <path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/>
+              <rect x="8" y="2" width="8" height="4" rx="1" ry="1"/>
+              <path d="M9 14h6"/><path d="M9 10h6"/><path d="M9 18h4"/>
+            </svg>
+            Pedidos de Compra
+          </h1>
+          <p class="page-subtitle">
+            Cotações com fornecedores, acompanhamento de entregas e conferência de entrada no estoque.
+          </p>
+        </div>
+        <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+          <button id="btn-atualizar" type="button" class="btn-ghost text-xs px-3 py-1.5 flex items-center gap-1.5 border-stone-300" title="Atualizar dados do servidor">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 2v6h-6"/><path d="M3 12a9 9 0 0 1 15-6.7L21 8"/><path d="M3 22v-6h6"/><path d="M21 12a9 9 0 0 1-15 6.7L3 16"/></svg>
+            Atualizar
+          </button>
+          <button id="btn-novo-pedido-compra" type="button" class="btn-primary text-xs px-3.5 py-1.5 flex items-center gap-1.5 shadow-sm">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+            + Novo Pedido de Compra
+          </button>
+        </div>
+      </div>
+
+      <!-- Cards de Resumo Operacional (KPIs) -->
+      <section class="kpi-grid mb-5">
+        <div class="card kpi-card bg-white border border-stone-200">
+          <span class="text-xs text-stone-500 font-semibold uppercase tracking-wider block">Total de Pedidos</span>
+          <span id="kpi-total-pedidos" class="text-2xl font-extrabold text-stone-900 mt-1 block">0</span>
+          <span class="text-[11px] text-stone-400 mt-0.5 block">Histórico de compras emitidas</span>
+        </div>
+        <div class="card kpi-card bg-white border border-stone-200">
+          <span class="text-xs text-sky-700 font-semibold uppercase tracking-wider block">Abertos / Em Trânsito</span>
+          <span id="kpi-pedidos-abertos" class="text-2xl font-extrabold text-sky-700 mt-1 block">0</span>
+          <span class="text-[11px] text-stone-400 mt-0.5 block">Aguardando entrega do fornecedor</span>
+        </div>
+        <div class="card kpi-card bg-white border border-stone-200">
+          <span class="text-xs text-emerald-700 font-semibold uppercase tracking-wider block">Pedidos Recebidos</span>
+          <span id="kpi-pedidos-recebidos" class="text-2xl font-extrabold text-emerald-700 mt-1 block">0</span>
+          <span class="text-[11px] text-stone-400 mt-0.5 block">Mercadorias entradas no estoque</span>
+        </div>
+        <div class="card kpi-card bg-white border border-stone-200">
+          <span class="text-xs text-red-700 font-semibold uppercase tracking-wider block">Pedidos Atrasados</span>
+          <span id="kpi-pedidos-atrasados" class="text-2xl font-extrabold text-red-700 mt-1 block">0</span>
+          <span class="text-[11px] text-stone-400 mt-0.5 block">Previsão de entrega vencida</span>
+        </div>
+      </section>
+
+      <!-- Barra de Filtros e Busca -->
+      <section class="card p-4 bg-white border border-stone-200 mb-5">
+        <div class="flex flex-col lg:flex-row gap-3 items-stretch lg:items-center justify-between">
+          <div class="flex-1 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+            <!-- Campo de Busca -->
+            <div class="relative">
+              <span class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-stone-400">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+              </span>
+              <input
+                id="filtro-busca"
+                type="text"
+                placeholder="Nº do pedido ou fornecedor..."
+                class="w-full pl-8 pr-8 py-2 text-xs border border-stone-300 rounded-md focus:outline-none focus:ring-1 focus:ring-accent focus:border-accent"
+              />
+              <button
+                id="btn-limpar-busca"
+                type="button"
+                class="absolute inset-y-0 right-0 pr-2.5 flex items-center text-stone-400 hover:text-stone-600 hidden"
+                title="Limpar busca"
+              >
+                ✕
+              </button>
+            </div>
+
+            <!-- Filtro de Status -->
+            <div>
+              <select
+                id="filtro-status"
+                class="w-full py-2 px-3 text-xs border border-stone-300 rounded-md focus:outline-none focus:ring-1 focus:ring-accent focus:border-accent bg-white"
+              >
+                <option value="ALL">Todos os status</option>
+                <option value="RASCUNHO">Rascunho</option>
+                <option value="ABERTO">Aberto (Confirmado)</option>
+                <option value="PARCIAL">Recebimento Parcial</option>
+                <option value="RECEBIDO">Recebido (Concluído)</option>
+                <option value="CANCELADO">Cancelado</option>
+                <option value="ATRASADO">Apenas Atrasados</option>
+              </select>
+            </div>
+
+            <!-- Filtro por Fornecedor -->
+            <div>
+              <select
+                id="filtro-fornecedor"
+                class="w-full py-2 px-3 text-xs border border-stone-300 rounded-md focus:outline-none focus:ring-1 focus:ring-accent focus:border-accent bg-white"
+              >
+                <option value="">Todos os fornecedores</option>
+              </select>
+            </div>
+
+            <!-- Filtro de Período Rápido / Datas -->
+            <div class="flex items-center gap-1.5">
+              <input
+                id="filtro-data-inicio"
+                type="date"
+                class="w-1/2 py-1.5 px-2 text-[11px] border border-stone-300 rounded-md focus:outline-none focus:ring-1 focus:ring-accent bg-white"
+                title="Data inicial"
+              />
+              <span class="text-stone-400 text-xs">até</span>
+              <input
+                id="filtro-data-fim"
+                type="date"
+                class="w-1/2 py-1.5 px-2 text-[11px] border border-stone-300 rounded-md focus:outline-none focus:ring-1 focus:ring-accent bg-white"
+                title="Data final"
+              />
+            </div>
+          </div>
+
+          <div class="flex items-center gap-2">
+            <button
+              id="btn-limpar-filtros"
+              type="button"
+              class="btn-ghost text-xs px-3 py-2 border-stone-300 text-stone-600 hover:bg-stone-50"
+            >
+              Limpar Filtros
+            </button>
+          </div>
+        </div>
+      </section>
+
+      <!-- Tabela de Pedidos de Compra -->
+      <section class="card table-wrap bg-white border border-stone-200 overflow-hidden shadow-sm" style="padding:0;">
+        <div class="overflow-x-auto">
+          <table class="products-table" style="width: 100%; border-collapse: collapse;">
+            <thead>
+              <tr class="bg-stone-50 border-b border-stone-200 text-stone-600 uppercase text-[11px] font-bold tracking-wider">
+                <th class="py-3 px-4">Nº Pedido</th>
+                <th class="py-3 px-4">Fornecedor</th>
+                <th class="py-3 px-4">Data Emissão</th>
+                <th class="py-3 px-4">Previsão Entrega</th>
+                <th class="py-3 px-4 text-right">Valor Total</th>
+                <th class="py-3 px-4 text-center">Status</th>
+                <th class="py-3 px-4 text-right">Ações</th>
+              </tr>
+            </thead>
+            <tbody id="tabela-pedidos-body" class="divide-y divide-stone-100">
+              <!-- Renderizado dinamicamente via pedidos-compra.js -->
+            </tbody>
+          </table>
+        </div>
+
+        <!-- Estado de Carregamento (Skeleton) -->
+        <div id="estado-loading" class="p-6 space-y-4" style="display:none;">
+          <div class="flex items-center gap-4"><div class="h-4 bg-stone-200 rounded w-32 animate-pulse"></div><div class="h-4 bg-stone-200 rounded w-48 animate-pulse"></div><div class="h-4 bg-stone-200 rounded w-24 animate-pulse"></div></div>
+          <div class="flex items-center gap-4"><div class="h-4 bg-stone-200 rounded w-28 animate-pulse"></div><div class="h-4 bg-stone-200 rounded w-40 animate-pulse"></div><div class="h-4 bg-stone-200 rounded w-28 animate-pulse"></div></div>
+        </div>
+
+        <!-- Estado Vazio -->
+        <div id="estado-vazio" class="py-12 px-4 text-center" style="display:none;">
+          <div class="w-12 h-12 mx-auto mb-3 text-stone-300">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+              <path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/>
+              <rect x="8" y="2" width="8" height="4" rx="1" ry="1"/>
+            </svg>
+          </div>
+          <h3 class="text-sm font-bold text-stone-700">Nenhum pedido de compra encontrado</h3>
+          <p class="text-xs text-stone-500 max-w-sm mx-auto mt-1 mb-4" id="mensagem-vazio">
+            Não encontramos nenhum pedido de compra com os filtros selecionados.
+          </p>
+          <button id="btn-vazio-novo-pedido" type="button" class="btn-primary text-xs px-3.5 py-1.5 inline-flex items-center gap-1.5 shadow-sm">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+            Criar Pedido de Compra
+          </button>
+        </div>
+
+        <!-- Estado de Erro -->
+        <div id="estado-erro" class="py-12 px-4 text-center" style="display:none;">
+          <div class="w-12 h-12 mx-auto mb-3 text-red-400">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 9v4"/><path d="M12 17h.01"/><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/></svg>
+          </div>
+          <h3 class="text-sm font-bold text-stone-800">Falha ao carregar pedidos de compra</h3>
+          <p class="text-xs text-stone-500 max-w-sm mx-auto mt-1 mb-4" id="mensagem-erro">
+            Ocorreu um erro ao comunicar com o servidor.
+          </p>
+          <button id="btn-tentar-novamente" type="button" class="btn-ghost text-xs px-4 py-1.5 border-stone-300">
+            Tentar novamente
+          </button>
+        </div>
+
+        <!-- Barra de Paginação -->
+        <div id="paginacao-container" class="py-3 px-4 border-t border-stone-200 bg-stone-50 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-stone-600">
+          <div class="flex items-center gap-2">
+            <span>Mostrar</span>
+            <select id="paginacao-limite" class="border border-stone-300 rounded px-2 py-1 text-xs bg-white focus:outline-none focus:ring-1 focus:ring-accent">
+              <option value="10">10 por página</option>
+              <option value="25">25 por página</option>
+              <option value="50">50 por página</option>
+            </select>
+            <span id="paginacao-info" class="text-stone-500 ml-2">Mostrando 0 de 0 registros</span>
+          </div>
+
+          <div class="flex items-center gap-1">
+            <button id="btn-pag-anterior" type="button" class="btn-ghost text-xs px-2.5 py-1 border-stone-300 disabled:opacity-40 disabled:cursor-not-allowed" disabled>
+              ‹ Anterior
+            </button>
+            <div id="paginacao-botoes" class="flex items-center gap-1"></div>
+            <button id="btn-pag-proxima" type="button" class="btn-ghost text-xs px-2.5 py-1 border-stone-300 disabled:opacity-40 disabled:cursor-not-allowed" disabled>
+              Próxima ›
+            </button>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <!-- Modal de Criação / Edição do Pedido de Compra ──────────────── -->
+  <div id="modal-pedido-compra" class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="modal-pedido-titulo">
+    <div class="modal-card">
+      <div class="p-4 border-b border-stone-200 flex items-center justify-between bg-stone-50">
+        <div>
+          <h2 id="modal-pedido-titulo" class="text-sm font-bold text-stone-900 flex items-center gap-2">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="text-accent">
+              <path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/>
+              <rect x="8" y="2" width="8" height="4" rx="1" ry="1"/>
+            </svg>
+            Novo Pedido de Compra
+          </h2>
+          <p class="text-[11px] text-stone-500 mt-0.5" id="modal-pedido-subtitulo">
+            Preencha os dados do fornecedor e adicione os itens para cotação ou compra direta.
+          </p>
+        </div>
+        <button id="btn-fechar-modal-pedido" type="button" class="text-stone-400 hover:text-stone-600 text-lg leading-none p-1" title="Fechar modal (Esc)">
+          ✕
+        </button>
+      </div>
+
+      <form id="form-pedido-compra" class="p-5 space-y-4">
+        <input type="hidden" id="campo-pedido-id" />
+
+        <!-- Dados do Cabeçalho -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div>
+            <label for="campo-fornecedor" class="block text-xs font-semibold text-stone-700 mb-1">
+              Fornecedor <span class="text-red-500">*</span>
+            </label>
+            <select
+              id="campo-fornecedor"
+              required
+              class="w-full text-xs px-3 py-2 border border-stone-300 rounded-md focus:outline-none focus:ring-1 focus:ring-accent bg-white"
+            >
+              <option value="">Selecione um fornecedor...</option>
+            </select>
+            <span class="text-[10px] text-stone-400 mt-0.5 block">Apenas fornecedores ativos são listados.</span>
+          </div>
+
+          <div>
+            <label for="campo-condicoes-pagamento" class="block text-xs font-semibold text-stone-700 mb-1">
+              Condições de Pagamento
+            </label>
+            <input
+              type="text"
+              id="campo-condicoes-pagamento"
+              placeholder="Ex.: 28 DDL faturado, À vista com 3% desc."
+              class="w-full text-xs px-3 py-2 border border-stone-300 rounded-md focus:outline-none focus:ring-1 focus:ring-accent"
+            />
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div>
+            <label for="campo-data-emissao" class="block text-xs font-semibold text-stone-700 mb-1">
+              Data do Pedido <span class="text-red-500">*</span>
+            </label>
+            <input
+              type="date"
+              id="campo-data-emissao"
+              required
+              class="w-full text-xs px-3 py-2 border border-stone-300 rounded-md focus:outline-none focus:ring-1 focus:ring-accent"
+            />
+          </div>
+
+          <div>
+            <label for="campo-data-previsao" class="block text-xs font-semibold text-stone-700 mb-1">
+              Previsão de Entrega <span class="text-red-500">*</span>
+            </label>
+            <input
+              type="date"
+              id="campo-data-previsao"
+              required
+              class="w-full text-xs px-3 py-2 border border-stone-300 rounded-md focus:outline-none focus:ring-1 focus:ring-accent"
+            />
+            <span class="text-[10px] text-stone-400 mt-0.5 block" id="aviso-prazo-fornecedor">Sugerido pelo prazo padrão do parceiro.</span>
+          </div>
+        </div>
+
+        <!-- Seção de Itens do Pedido -->
+        <div class="border-t border-stone-200 pt-3">
+          <div class="flex items-center justify-between mb-2">
+            <div>
+              <span class="text-xs font-bold text-stone-800 uppercase tracking-wider block">Itens do Pedido</span>
+              <span class="text-[10px] text-stone-500">Adicione os extintores e insumos a comprar.</span>
+            </div>
+            <button
+              type="button"
+              id="btn-adicionar-linha-item"
+              class="btn-ghost text-xs px-2.5 py-1.5 flex items-center gap-1 border-stone-300 text-stone-700 hover:bg-stone-100"
+            >
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+              Adicionar Item
+            </button>
+          </div>
+
+          <div class="border border-stone-200 rounded-lg overflow-hidden bg-white shadow-xs">
+            <table class="w-full text-left border-collapse text-xs">
+              <thead>
+                <tr class="bg-stone-50 border-b border-stone-200 text-stone-600 font-bold uppercase text-[10px]">
+                  <th class="py-2.5 px-3" style="width: 48%;">Produto</th>
+                  <th class="py-2.5 px-3 text-right" style="width: 16%;">Qtd.</th>
+                  <th class="py-2.5 px-3 text-right" style="width: 18%;">Custo Unit. (R$)</th>
+                  <th class="py-2.5 px-3 text-right" style="width: 18%;">Subtotal (R$)</th>
+                  <th class="py-2.5 px-2 text-center" style="width: 40px;"></th>
+                </tr>
+              </thead>
+              <tbody id="corpo-tabela-itens" class="divide-y divide-stone-100">
+                <!-- Linhas inseridas dinamicamente -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Totais, Frete e Desconto -->
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 border-t border-stone-200 pt-3">
+          <div>
+            <label for="campo-valor-frete" class="block text-xs font-semibold text-stone-700 mb-1">
+              Valor do Frete (R$)
+            </label>
+            <input
+              type="number"
+              step="0.01"
+              min="0"
+              id="campo-valor-frete"
+              value="0.00"
+              class="w-full text-xs px-3 py-2 border border-stone-300 rounded-md focus:outline-none focus:ring-1 focus:ring-accent"
+            />
+          </div>
+
+          <div>
+            <label for="campo-valor-desconto" class="block text-xs font-semibold text-stone-700 mb-1">
+              Desconto Comercial (R$)
+            </label>
+            <input
+              type="number"
+              step="0.01"
+              min="0"
+              id="campo-valor-desconto"
+              value="0.00"
+              class="w-full text-xs px-3 py-2 border border-stone-300 rounded-md focus:outline-none focus:ring-1 focus:ring-accent"
+            />
+          </div>
+
+          <div class="bg-stone-50 border border-stone-200 rounded-lg p-2.5 flex flex-col justify-center">
+            <span class="text-[10px] text-stone-500 font-bold uppercase block">Valor Total do Pedido</span>
+            <span id="label-valor-total-calculado" class="text-lg font-extrabold text-stone-900 block">R$ 0,00</span>
+          </div>
+        </div>
+
+        <div>
+          <label for="campo-observacoes-pedido" class="block text-xs font-semibold text-stone-700 mb-1">
+            Observações / Instruções de Entrega
+          </label>
+          <textarea
+            id="campo-observacoes-pedido"
+            rows="2"
+            placeholder="Ex.: Horário de recebimento das 08h às 17h, conferir lacres do Inmetro no descarregamento..."
+            class="w-full text-xs px-3 py-2 border border-stone-300 rounded-md focus:outline-none focus:ring-1 focus:ring-accent"
+          ></textarea>
+        </div>
+
+        <div class="pt-3 border-t border-stone-200 flex flex-wrap items-center justify-between gap-2">
+          <button
+            type="button"
+            id="btn-cancelar-modal-pedido"
+            class="btn-ghost text-xs px-4 py-2 border-stone-300"
+          >
+            Cancelar
+          </button>
+          <div class="flex items-center gap-2">
+            <button
+              type="button"
+              id="btn-salvar-rascunho"
+              class="btn-ghost text-xs px-3.5 py-2 border-stone-300 text-stone-700 hover:bg-stone-100"
+            >
+              Salvar como Rascunho
+            </button>
+            <button
+              type="button"
+              id="btn-confirmar-pedido-aberto"
+              class="btn-primary text-xs px-4 py-2 flex items-center gap-1.5 shadow-sm"
+            >
+              Confirmar Pedido (Aberto)
+            </button>
+          </div>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Modal de Recebimento de Mercadorias (Entrada no Estoque) ──── -->
+  <div id="modal-recebimento" class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="modal-recebimento-titulo">
+    <div class="modal-card">
+      <div class="p-4 border-b border-stone-200 flex items-center justify-between bg-stone-50">
+        <div>
+          <h2 id="modal-recebimento-titulo" class="text-sm font-bold text-stone-900 flex items-center gap-2">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="text-emerald-600">
+              <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/>
+            </svg>
+            Registrar Recebimento de Mercadorias
+          </h2>
+          <p class="text-[11px] text-stone-500 mt-0.5" id="modal-recebimento-subtitulo">
+            Confira as quantidades entregues. O saldo será creditado automaticamente no estoque.
+          </p>
+        </div>
+        <button id="btn-fechar-modal-recebimento" type="button" class="text-stone-400 hover:text-stone-600 text-lg leading-none p-1">
+          ✕
+        </button>
+      </div>
+
+      <form id="form-recebimento-mercadoria" class="p-5 space-y-4">
+        <input type="hidden" id="rec-pedido-id" />
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 bg-stone-50 p-3 rounded-lg border border-stone-200">
+          <div>
+            <span class="text-[10px] text-stone-500 font-bold uppercase block">Pedido / Fornecedor</span>
+            <span id="rec-info-pedido" class="text-xs font-bold text-stone-800 block mt-0.5">—</span>
+          </div>
+          <div>
+            <label for="rec-campo-data" class="block text-xs font-semibold text-stone-700 mb-1">
+              Data do Recebimento <span class="text-red-500">*</span>
+            </label>
+            <input
+              type="date"
+              id="rec-campo-data"
+              required
+              class="w-full text-xs px-2.5 py-1.5 border border-stone-300 rounded-md focus:outline-none focus:ring-1 focus:ring-accent bg-white"
+            />
+          </div>
+        </div>
+
+        <div>
+          <h3 class="text-xs font-bold text-stone-800 uppercase tracking-wider mb-2">Conferência dos Itens</h3>
+          <div class="border border-stone-200 rounded-lg overflow-hidden bg-white shadow-xs">
+            <table class="w-full text-left border-collapse text-xs">
+              <thead>
+                <tr class="bg-stone-50 border-b border-stone-200 text-stone-600 font-bold uppercase text-[10px]">
+                  <th class="py-2.5 px-3">Produto</th>
+                  <th class="py-2.5 px-2 text-center">Pedido</th>
+                  <th class="py-2.5 px-2 text-center">Já Entregue</th>
+                  <th class="py-2.5 px-2 text-center font-bold text-amber-700">Pendente</th>
+                  <th class="py-2.5 px-3 text-right" style="width: 140px;">Receber Agora</th>
+                </tr>
+              </thead>
+              <tbody id="rec-tabela-itens-body" class="divide-y divide-stone-100">
+                <!-- Preenchido dinamicamente -->
+              </tbody>
+            </table>
+          </div>
+          <span class="text-[10px] text-stone-500 mt-1 block">Deixe zero caso um item específico não tenha chegado nesta remessa.</span>
+        </div>
+
+        <!-- Dados opcionais de Lote / Rastreabilidade Inmetro -->
+        <div class="border-t border-stone-200 pt-3">
+          <span class="text-[11px] font-bold text-stone-700 uppercase tracking-wider block mb-2">
+            Rastreabilidade de Lote / Inmetro <span class="text-stone-400 font-normal">(opcional)</span>
+          </span>
+          <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <div>
+              <label for="rec-lote-numero" class="block text-[11px] text-stone-600 mb-0.5">Nº do Lote</label>
+              <input
+                type="text"
+                id="rec-lote-numero"
+                placeholder="Ex.: LOTE-2026-A"
+                class="w-full text-xs px-2.5 py-1.5 border border-stone-300 rounded-md focus:outline-none focus:ring-1 focus:ring-accent"
+              />
+            </div>
+            <div>
+              <label for="rec-lote-lacre" class="block text-[11px] text-stone-600 mb-0.5">Selo/Lacre Inmetro</label>
+              <input
+                type="text"
+                id="rec-lote-lacre"
+                placeholder="Ex.: INMETRO-998822"
+                class="w-full text-xs px-2.5 py-1.5 border border-stone-300 rounded-md focus:outline-none focus:ring-1 focus:ring-accent"
+              />
+            </div>
+            <div>
+              <label for="rec-lote-validade" class="block text-[11px] text-stone-600 mb-0.5">Data de Validade (Extintor)</label>
+              <input
+                type="date"
+                id="rec-lote-validade"
+                class="w-full text-xs px-2.5 py-1.5 border border-stone-300 rounded-md focus:outline-none focus:ring-1 focus:ring-accent"
+              />
+            </div>
+          </div>
+        </div>
+
+        <div class="pt-3 border-t border-stone-200 flex items-center justify-end gap-2">
+          <button
+            type="button"
+            id="btn-cancelar-modal-recebimento"
+            class="btn-ghost text-xs px-4 py-2 border-stone-300"
+          >
+            Cancelar
+          </button>
+          <button
+            type="submit"
+            id="btn-confirmar-recebimento"
+            class="btn-primary text-xs px-4 py-2 bg-emerald-600 hover:bg-emerald-700 border-emerald-700 text-white flex items-center gap-1.5 shadow-sm"
+          >
+            Dar Entrada no Estoque
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Modal de Cancelamento de Pedido de Compra ──────────────────── -->
+  <div id="modal-cancelamento" class="modal-overlay" role="dialog" aria-modal="true">
+    <div class="modal-card" style="max-width: 460px;">
+      <div class="p-5 text-center">
+        <div class="w-12 h-12 rounded-full bg-red-100 text-red-600 flex items-center justify-center mx-auto mb-3">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
+        </div>
+        <h3 class="text-sm font-bold text-stone-900 mb-1" id="modal-cancelamento-titulo">Cancelar Pedido de Compra?</h3>
+        <p class="text-xs text-stone-600 mb-4 leading-relaxed" id="modal-cancelamento-desc">
+          Informe o motivo do cancelamento. Pedidos já recebidos total ou parcialmente não podem ser cancelados.
+        </p>
+
+        <form id="form-cancelamento-pedido" class="text-left space-y-3">
+          <input type="hidden" id="cancelar-pedido-id" />
+          <div>
+            <label for="cancelar-motivo" class="block text-xs font-semibold text-stone-700 mb-1">
+              Motivo do Cancelamento <span class="text-red-500">*</span>
+            </label>
+            <textarea
+              id="cancelar-motivo"
+              required
+              rows="3"
+              placeholder="Ex.: Desistência por atraso excessivo, erro na cotação de insumos..."
+              class="w-full text-xs px-3 py-2 border border-stone-300 rounded-md focus:outline-none focus:ring-1 focus:ring-accent"
+            ></textarea>
+          </div>
+
+          <div class="flex items-center justify-end gap-2 pt-2">
+            <button
+              type="button"
+              id="btn-fechar-modal-cancelar"
+              class="btn-ghost text-xs px-4 py-2 border-stone-300"
+            >
+              Voltar
+            </button>
+            <button
+              type="submit"
+              id="btn-confirmar-cancelamento"
+              class="btn-primary text-xs px-4 py-2 bg-red-600 hover:bg-red-700 border-red-700 text-white shadow-sm"
+            >
+              Sim, Cancelar Pedido
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- Slideover Drawer de Detalhes do Pedido de Compra ────────────── -->
+  <div id="drawer-overlay"></div>
+  <aside id="drawer-detalhes" role="dialog" aria-modal="true" aria-labelledby="drawer-titulo">
+    <div class="p-4 border-b border-stone-200 flex items-center justify-between bg-stone-50 sticky top-0 z-10">
+      <div>
+        <div class="flex items-center gap-2">
+          <h2 id="drawer-titulo" class="text-sm font-bold text-stone-900">
+            Pedido de Compra #
+          </h2>
+          <span id="drawer-status-badge" class="badge-status badge-aberto">Aberto</span>
+          <span id="drawer-tag-atrasado" class="tag-atrasado hidden">Atrasado</span>
+        </div>
+        <p class="text-[11px] text-stone-500 mt-0.5" id="drawer-subtitulo">
+          Emitido em —
+        </p>
+      </div>
+      <button id="btn-fechar-drawer" type="button" class="text-stone-400 hover:text-stone-600 text-lg p-1" title="Fechar painel (Esc)">
+        ✕
+      </button>
+    </div>
+
+    <div class="p-5 flex-1 space-y-5 overflow-y-auto">
+      <!-- Progresso de Recebimento -->
+      <div class="card p-3.5 bg-stone-50 border border-stone-200 rounded-lg">
+        <div class="flex items-center justify-between text-xs font-semibold text-stone-700 mb-1.5">
+          <span>Progresso de Entrega</span>
+          <span id="drawer-progresso-percentual">0%</span>
+        </div>
+        <div class="w-full h-2 bg-stone-200 rounded-full overflow-hidden">
+          <div id="drawer-progresso-barra" class="h-full bg-emerald-600 transition-all duration-300" style="width: 0%;"></div>
+        </div>
+        <div class="flex items-center justify-between text-[11px] text-stone-500 mt-1.5">
+          <span>Total de Itens: <strong id="drawer-qtd-total-itens">0 un</strong></span>
+          <span>Recebido: <strong id="drawer-qtd-recebida-itens" class="text-emerald-700">0 un</strong></span>
+          <span>Pendente: <strong id="drawer-qtd-pendente-itens" class="text-amber-700">0 un</strong></span>
+        </div>
+      </div>
+
+      <!-- Resumo do Fornecedor e Prazos -->
+      <div class="grid grid-cols-2 gap-3 text-xs">
+        <div class="card p-3 border border-stone-200 rounded-lg">
+          <span class="text-[10px] text-stone-400 font-bold uppercase block">Fornecedor</span>
+          <span id="drawer-fornecedor-nome" class="font-bold text-stone-800 block mt-0.5">—</span>
+          <span id="drawer-fornecedor-cnpj" class="text-[11px] text-stone-500 font-mono block">—</span>
+          <span id="drawer-fornecedor-contato" class="text-[11px] text-stone-500 block">—</span>
+        </div>
+        <div class="card p-3 border border-stone-200 rounded-lg">
+          <span class="text-[10px] text-stone-400 font-bold uppercase block">Datas & Prazos</span>
+          <span class="block mt-0.5">Emissão: <strong id="drawer-data-emissao">—</strong></span>
+          <span class="block">Previsão: <strong id="drawer-data-previsao">—</strong></span>
+          <span class="block">Recebimento: <strong id="drawer-data-recebimento">—</strong></span>
+        </div>
+      </div>
+
+      <!-- Condições e Observações -->
+      <div class="card p-3 border border-stone-200 rounded-lg text-xs space-y-2">
+        <div>
+          <span class="text-[10px] text-stone-400 font-bold uppercase block">Condições de Pagamento</span>
+          <span id="drawer-condicoes-pagamento" class="text-stone-700 font-medium">—</span>
+        </div>
+        <div id="drawer-bloco-observacoes">
+          <span class="text-[10px] text-stone-400 font-bold uppercase block">Observações</span>
+          <p id="drawer-observacoes" class="text-stone-600 italic text-[11px] mt-0.5">—</p>
+        </div>
+        <div id="drawer-bloco-cancelamento" class="hidden bg-red-50 p-2.5 rounded border border-red-200 text-red-900">
+          <span class="text-[10px] font-bold uppercase block text-red-700">Motivo do Cancelamento</span>
+          <p id="drawer-motivo-cancelamento" class="text-xs mt-0.5">—</p>
+        </div>
+      </div>
+
+      <!-- Tabela de Itens Pedidos x Entregues -->
+      <div>
+        <h3 class="text-xs font-bold text-stone-800 uppercase tracking-wider mb-2">Itens do Pedido</h3>
+        <div class="border border-stone-200 rounded-lg overflow-hidden bg-white shadow-xs">
+          <table class="w-full text-left border-collapse text-xs">
+            <thead>
+              <tr class="bg-stone-50 border-b border-stone-200 text-stone-600 font-bold uppercase text-[10px]">
+                <th class="py-2.5 px-3">Produto</th>
+                <th class="py-2.5 px-2 text-center">Pedido</th>
+                <th class="py-2.5 px-2 text-center">Recebido</th>
+                <th class="py-2.5 px-3 text-right">Custo Unit.</th>
+                <th class="py-2.5 px-3 text-right">Subtotal</th>
+              </tr>
+            </thead>
+            <tbody id="drawer-tabela-itens-body" class="divide-y divide-stone-100">
+              <!-- Renderizado dinamicamente -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Totais Financeiros -->
+      <div class="card p-3 bg-stone-50 border border-stone-200 rounded-lg text-xs space-y-1">
+        <div class="flex items-center justify-between text-stone-600">
+          <span>Subtotal dos Produtos:</span>
+          <strong id="drawer-financeiro-subtotal">R$ 0,00</strong>
+        </div>
+        <div class="flex items-center justify-between text-stone-600">
+          <span>Frete:</span>
+          <strong id="drawer-financeiro-frete">R$ 0,00</strong>
+        </div>
+        <div class="flex items-center justify-between text-stone-600">
+          <span>Desconto:</span>
+          <strong id="drawer-financeiro-desconto">R$ 0,00</strong>
+        </div>
+        <div class="flex items-center justify-between text-stone-900 text-sm font-extrabold pt-1.5 border-t border-stone-200">
+          <span>Valor Total do Pedido:</span>
+          <span id="drawer-financeiro-total" class="text-accent">R$ 0,00</span>
+        </div>
+      </div>
+
+      <!-- Botão de Ação dentro do Drawer -->
+      <div class="pt-2 flex items-center justify-end gap-2" id="drawer-acoes-container">
+        <button
+          type="button"
+          id="drawer-btn-receber"
+          class="btn-primary text-xs px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 border-emerald-700 text-white flex items-center gap-1.5 shadow-sm"
+        >
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+          Registrar Recebimento
+        </button>
+      </div>
+    </div>
+  </aside>
+
+  <div id="toast-container" aria-live="polite" aria-atomic="true"></div>
+
+  <!-- Scripts -->
+  <script src="js/mock-data.js"></script>
+  <script src="js/api.js"></script>
+  <script src="js/layout.js"></script>
+  <script src="js/pedidos-compra.js"></script>
+</body>
+</html>

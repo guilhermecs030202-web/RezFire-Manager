@@ -5,9 +5,12 @@ import {
   CreateDateColumn,
   UpdateDateColumn,
   OneToMany,
+  ManyToOne,
+  JoinColumn,
   Index,
 } from 'typeorm';
 import { ItemPedido } from './ItemPedido';
+import { Customer } from './Customer';
 
 @Entity('pedidos')
 @Index(['status', 'data_pedido'])
@@ -27,6 +30,13 @@ export class Pedido {
 
   @Column({ type: 'varchar', length: 150, nullable: true })
   cliente_nome: string;
+
+  @Column({ name: 'id_cliente', type: 'int', unsigned: true, nullable: true })
+  id_cliente: number | null;
+
+  @ManyToOne(() => Customer, (cliente) => cliente.pedidos, { onDelete: 'SET NULL', nullable: true })
+  @JoinColumn({ name: 'id_cliente' })
+  cliente: Customer | null;
 
   @Column({ type: 'varchar', length: 50, default: 'Mercado Livre' })
   origem: string;

@@ -15,6 +15,7 @@ export interface CriarItemPedidoDTO {
 export interface CriarPedidoDTO {
   codigo_pedido?: string;
   cliente_nome: string;
+  id_cliente?: number | null;
   origem?: string;
   itens: CriarItemPedidoDTO[];
   exibir_na_entrega?: boolean;
@@ -58,6 +59,7 @@ export class PedidoService {
   }) {
     const qb = this.pedidoRepo
       .createQueryBuilder('p')
+      .leftJoinAndSelect('p.cliente', 'cli')
       .leftJoinAndSelect('p.itens', 'i')
       .leftJoinAndSelect('i.produto', 'prod')
       .orderBy('p.data_pedido', 'DESC');
@@ -97,7 +99,7 @@ export class PedidoService {
   async buscarPorId(id_pedido: number) {
     const pedido = await this.pedidoRepo.findOne({
       where: { id_pedido },
-      relations: ['itens', 'itens.produto'],
+      relations: ['cliente', 'itens', 'itens.produto'],
     });
 
     if (!pedido) {
@@ -294,6 +296,7 @@ export class PedidoService {
       const pedido = pedRepoTx.create({
         codigo_pedido: codigoPedido,
         cliente_nome: dados.cliente_nome.trim(),
+        id_cliente: dados.id_cliente || null,
         origem: origemPedido,
         status: 'Confirmado',
         valor_total: valorTotal,

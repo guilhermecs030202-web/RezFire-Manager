@@ -1,0 +1,1019 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Fornecedores · RezFire Manager</title>
+  <meta name="description" content="Gestão e cadastro de fornecedores, controle de compras e vínculo de produtos da RezFire." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            cream: "#f4efe8",
+            sidebar: "#1a1412",
+            accent: "#e85c2a",
+          },
+          fontFamily: { sans: ["Inter", "ui-sans-serif", "system-ui"] },
+        },
+      },
+    };
+  </script>
+  <link rel="stylesheet" href="css/app.css" />
+  <style>
+    /* ── Layout Resiliente ──────────────────────────────────── */
+    .app-shell { display: flex; min-height: 100vh; background: var(--cream); }
+    .app-main { flex: 1; min-width: 0; padding: 28px 36px 48px; }
+
+    /* ── Badges de Status ───────────────────────────────────── */
+    .badge-status {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 0.72rem;
+      font-weight: 700;
+      padding: 3px 9px;
+      border-radius: 999px;
+      letter-spacing: 0.02em;
+      white-space: nowrap;
+    }
+    .badge-status-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: currentColor;
+    }
+    .badge-ativo {
+      background: #dcfce7;
+      color: #166534;
+      border: 1px solid #bbf7d0;
+    }
+    .badge-inativo {
+      background: #f3f4f6;
+      color: #6b7280;
+      border: 1px solid #e5e7eb;
+    }
+    .badge-leadtime {
+      background: #eff6ff;
+      color: #1d4ed8;
+      border: 1px solid #bfdbfe;
+      font-weight: 600;
+      font-size: 0.72rem;
+      padding: 2px 7px;
+      border-radius: 6px;
+    }
+
+    /* ── Modais & Drawers ───────────────────────────────────── */
+    .modal-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(26, 20, 18, 0.55);
+      z-index: 80;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      backdrop-filter: blur(2px);
+      padding: 16px;
+    }
+    .modal-overlay.is-open { display: flex !important; }
+
+    .modal-card {
+      background: #ffffff;
+      border-radius: 12px;
+      width: 100%;
+      max-width: 720px;
+      max-height: 90vh;
+      overflow-y: auto;
+      box-shadow: 0 20px 40px rgba(0, 0, 0, 0.2);
+      border: 1px solid #e7e5e4;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* ── Drawer Lateral de Detalhes ─────────────────────────── */
+    #drawer-detalhes {
+      position: fixed;
+      top: 0;
+      right: -720px;
+      width: min(680px, 100vw);
+      height: 100vh;
+      background: #fff;
+      box-shadow: -6px 0 24px rgba(26, 20, 18, 0.16);
+      z-index: 85;
+      display: flex;
+      flex-direction: column;
+      transition: right 0.28s cubic-bezier(0.16, 1, 0.3, 1);
+      overflow-y: auto;
+    }
+    #drawer-detalhes.is-open { right: 0; }
+
+    #drawer-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(26, 20, 18, 0.45);
+      z-index: 80;
+      display: none;
+      backdrop-filter: blur(2px);
+    }
+    #drawer-overlay.is-open { display: block; }
+
+    /* ── Abas do Drawer ─────────────────────────────────────── */
+    .drawer-tab {
+      padding: 10px 16px;
+      font-size: 0.8rem;
+      font-weight: 600;
+      color: #78716c;
+      border-bottom: 2px solid transparent;
+      transition: all 0.15s ease;
+      cursor: pointer;
+    }
+    .drawer-tab.is-active {
+      color: #e85c2a;
+      border-bottom-color: #e85c2a;
+    }
+
+    /* ── Toasts ────────────────────────────────────────────── */
+    #toast-container {
+      position: fixed;
+      bottom: 24px;
+      right: 24px;
+      z-index: 100;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      pointer-events: none;
+    }
+    .toast {
+      padding: 12px 18px;
+      border-radius: 8px;
+      font-size: 0.85rem;
+      font-weight: 600;
+      color: #fff;
+      box-shadow: 0 4px 14px rgba(0,0,0,0.18);
+      pointer-events: auto;
+      opacity: 0;
+      transform: translateY(12px);
+      transition: all 0.22s ease-out;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .toast-show {
+      opacity: 1;
+      transform: translateY(0);
+    }
+    .toast-sucesso { background: #166534; border-left: 4px solid #4ade80; }
+    .toast-erro { background: #991b1b; border-left: 4px solid #f87171; }
+    .toast-info { background: #1e3a8a; border-left: 4px solid #60a5fa; }
+  </style>
+</head>
+<body class="bg-cream text-stone-900 font-sans antialiased">
+  <div class="app-shell" id="app-shell">
+    <main class="app-main">
+      <!-- Toolbar / Cabeçalho -->
+      <div class="page-toolbar">
+        <div>
+          <h1 class="page-title flex items-center gap-2">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="text-accent">
+              <path d="M6 22V4a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v18Z"/>
+              <path d="M6 12H4a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h2"/>
+              <path d="M18 9h2a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2h-2"/>
+              <path d="M10 6h4"/><path d="M10 10h4"/><path d="M10 14h4"/><path d="M10 18h4"/>
+            </svg>
+            Fornecedores
+          </h1>
+          <p class="page-subtitle">
+            Cadastro, consulta, controle de prazos e vínculo de produtos com fornecedores parceiros.
+          </p>
+        </div>
+        <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+          <button id="btn-atualizar" type="button" class="btn-ghost text-xs px-3 py-1.5 flex items-center gap-1.5 border-stone-300" title="Atualizar dados do servidor">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 2v6h-6"/><path d="M3 12a9 9 0 0 1 15-6.7L21 8"/><path d="M3 22v-6h6"/><path d="M21 12a9 9 0 0 1-15 6.7L3 16"/></svg>
+            Atualizar
+          </button>
+          <button id="btn-novo-fornecedor" type="button" class="btn-primary text-xs px-3.5 py-1.5 flex items-center gap-1.5 shadow-sm">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+            + Novo Fornecedor
+          </button>
+        </div>
+      </div>
+
+      <!-- Cards de Resumo Operacional (KPIs) -->
+      <section class="kpi-grid mb-5">
+        <div class="card kpi-card bg-white border border-stone-200">
+          <span class="text-xs text-stone-500 font-semibold uppercase tracking-wider block">Total de Fornecedores</span>
+          <span id="kpi-total-fornecedores" class="text-2xl font-extrabold text-stone-900 mt-1 block">0</span>
+          <span class="text-[11px] text-stone-400 mt-0.5 block">Fornecedores cadastrados</span>
+        </div>
+        <div class="card kpi-card bg-white border border-stone-200">
+          <span class="text-xs text-emerald-700 font-semibold uppercase tracking-wider block">Fornecedores Ativos</span>
+          <span id="kpi-fornecedores-ativos" class="text-2xl font-extrabold text-emerald-700 mt-1 block">0</span>
+          <span class="text-[11px] text-stone-400 mt-0.5 block">Disponíveis para novos pedidos</span>
+        </div>
+        <div class="card kpi-card bg-white border border-stone-200">
+          <span class="text-xs text-stone-500 font-semibold uppercase tracking-wider block">Fornecedores Inativos</span>
+          <span id="kpi-fornecedores-inativos" class="text-2xl font-extrabold text-stone-500 mt-1 block">0</span>
+          <span class="text-[11px] text-stone-400 mt-0.5 block">Bloqueados para novas compras</span>
+        </div>
+        <div class="card kpi-card bg-white border border-stone-200">
+          <span class="text-xs text-blue-700 font-semibold uppercase tracking-wider block">Lead Time Médio</span>
+          <span id="kpi-lead-time-medio" class="text-2xl font-extrabold text-blue-700 mt-1 block">—</span>
+          <span class="text-[11px] text-stone-400 mt-0.5 block">Média de entrega dos pedidos</span>
+        </div>
+      </section>
+
+      <!-- Barra de Filtros e Busca -->
+      <section class="card p-4 bg-white border border-stone-200 mb-5">
+        <div class="flex flex-col md:flex-row gap-3 items-stretch md:items-center justify-between">
+          <div class="flex-1 flex flex-col sm:flex-row gap-3">
+            <!-- Campo de Busca -->
+            <div class="relative flex-1">
+              <span class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-stone-400">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+              </span>
+              <input
+                id="filtro-busca"
+                type="text"
+                placeholder="Buscar por razão social, nome fantasia, CNPJ/CPF, e-mail ou contato..."
+                class="w-full pl-9 pr-8 py-2 text-xs border border-stone-300 rounded-md focus:outline-none focus:ring-1 focus:ring-accent focus:border-accent"
+              />
+              <button
+                id="btn-limpar-busca"
+                type="button"
+                class="absolute inset-y-0 right-0 pr-2.5 flex items-center text-stone-400 hover:text-stone-600 hidden"
+                title="Limpar busca"
+              >
+                ✕
+              </button>
+            </div>
+
+            <!-- Filtro de Status -->
+            <div class="w-full sm:w-48">
+              <select
+                id="filtro-status"
+                class="w-full py-2 px-3 text-xs border border-stone-300 rounded-md focus:outline-none focus:ring-1 focus:ring-accent focus:border-accent bg-white"
+              >
+                <option value="ALL">Todos os status</option>
+                <option value="ATIVO" selected>Apenas Ativos</option>
+                <option value="INATIVO">Apenas Inativos</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="flex items-center gap-2">
+            <button
+              id="btn-limpar-filtros"
+              type="button"
+              class="btn-ghost text-xs px-3 py-2 border-stone-300 text-stone-600 hover:bg-stone-50"
+            >
+              Limpar Filtros
+            </button>
+          </div>
+        </div>
+      </section>
+
+      <!-- Tabela de Fornecedores -->
+      <section class="card table-wrap bg-white border border-stone-200 overflow-hidden shadow-sm" style="padding:0;">
+        <div class="overflow-x-auto">
+          <table class="products-table" style="width: 100%; border-collapse: collapse;">
+            <thead>
+              <tr class="bg-stone-50 border-b border-stone-200 text-stone-600 uppercase text-[11px] font-bold tracking-wider">
+                <th class="py-3 px-4">Fornecedor / Razão Social</th>
+                <th class="py-3 px-4">CNPJ / CPF</th>
+                <th class="py-3 px-4">Contato</th>
+                <th class="py-3 px-4">Cidade / UF</th>
+                <th class="py-3 px-4 text-center">Prazo Médio</th>
+                <th class="py-3 px-4 text-center">Status</th>
+                <th class="py-3 px-4 text-right">Ações</th>
+              </tr>
+            </thead>
+            <tbody id="tabela-fornecedores-body" class="divide-y divide-stone-100">
+              <!-- Renderizado dinamicamente via fornecedores.js -->
+            </tbody>
+          </table>
+        </div>
+
+        <!-- Estado de Carregamento (Skeleton) -->
+        <div id="estado-loading" class="p-6 space-y-4" style="display:none;">
+          <div class="flex items-center gap-4"><div class="h-4 bg-stone-200 rounded w-48 animate-pulse"></div><div class="h-4 bg-stone-200 rounded w-20 animate-pulse"></div><div class="h-4 bg-stone-200 rounded w-32 animate-pulse"></div></div>
+          <div class="flex items-center gap-4"><div class="h-4 bg-stone-200 rounded w-44 animate-pulse"></div><div class="h-4 bg-stone-200 rounded w-24 animate-pulse"></div><div class="h-4 bg-stone-200 rounded w-28 animate-pulse"></div></div>
+        </div>
+
+        <!-- Estado Vazio -->
+        <div id="estado-vazio" class="py-12 px-4 text-center" style="display:none;">
+          <div class="w-12 h-12 mx-auto mb-3 text-stone-300">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect width="18" height="18" x="3" y="3" rx="2"/><path d="M3 9h18"/><path d="M9 21V9"/></svg>
+          </div>
+          <h3 class="text-sm font-bold text-stone-700">Nenhum fornecedor encontrado</h3>
+          <p class="text-xs text-stone-500 max-w-sm mx-auto mt-1 mb-4" id="mensagem-vazio">
+            Não encontramos nenhum fornecedor com os filtros aplicados.
+          </p>
+          <button id="btn-vazio-novo-fornecedor" type="button" class="btn-primary text-xs px-3.5 py-1.5 inline-flex items-center gap-1.5 shadow-sm">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+            Cadastrar Novo Fornecedor
+          </button>
+        </div>
+
+        <!-- Estado de Erro -->
+        <div id="estado-erro" class="py-12 px-4 text-center" style="display:none;">
+          <div class="w-12 h-12 mx-auto mb-3 text-red-400">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 9v4"/><path d="M12 17h.01"/><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/></svg>
+          </div>
+          <h3 class="text-sm font-bold text-stone-800">Falha ao carregar fornecedores</h3>
+          <p class="text-xs text-stone-500 max-w-sm mx-auto mt-1 mb-4" id="mensagem-erro">
+            Ocorreu um erro ao comunicar com o servidor.
+          </p>
+          <button id="btn-tentar-novamente" type="button" class="btn-ghost text-xs px-4 py-1.5 border-stone-300">
+            Tentar novamente
+          </button>
+        </div>
+
+        <!-- Barra de Paginação -->
+        <div id="paginacao-container" class="py-3 px-4 border-t border-stone-200 bg-stone-50 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-stone-600">
+          <div class="flex items-center gap-2">
+            <span>Mostrar</span>
+            <select id="paginacao-limite" class="border border-stone-300 rounded px-2 py-1 text-xs bg-white focus:outline-none focus:ring-1 focus:ring-accent">
+              <option value="10">10 por página</option>
+              <option value="25">25 por página</option>
+              <option value="50">50 por página</option>
+            </select>
+            <span id="paginacao-info" class="text-stone-500 ml-2">Mostrando 0 de 0 registros</span>
+          </div>
+
+          <div class="flex items-center gap-1">
+            <button id="btn-pag-anterior" type="button" class="btn-ghost text-xs px-2.5 py-1 border-stone-300 disabled:opacity-40 disabled:cursor-not-allowed" disabled>
+              ‹ Anterior
+            </button>
+            <div id="paginacao-botoes" class="flex items-center gap-1"></div>
+            <button id="btn-pag-proxima" type="button" class="btn-ghost text-xs px-2.5 py-1 border-stone-300 disabled:opacity-40 disabled:cursor-not-allowed" disabled>
+              Próxima ›
+            </button>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <!-- Modal de Cadastro de Fornecedor ────────────────────────────── -->
+  <div id="modal-novo-fornecedor" class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="modal-titulo">
+    <div class="modal-card">
+      <div class="p-4 border-b border-stone-200 flex items-center justify-between bg-stone-50">
+        <div>
+          <h2 id="modal-titulo" class="text-sm font-bold text-stone-900 flex items-center gap-2">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="text-accent">
+              <path d="M6 22V4a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v18Z"/>
+              <path d="M6 12H4a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h2"/>
+              <path d="M18 9h2a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2h-2"/>
+              <path d="M10 6h4"/><path d="M10 10h4"/>
+            </svg>
+            Novo Fornecedor
+          </h2>
+          <p class="text-[11px] text-stone-500 mt-0.5">
+            Cadastre os dados da empresa parceira para compras e cotações.
+          </p>
+        </div>
+        <button id="btn-fechar-modal-novo" type="button" class="text-stone-400 hover:text-stone-600 text-lg leading-none p-1" title="Fechar modal (Esc)">
+          ✕
+        </button>
+      </div>
+
+      <form id="form-novo-fornecedor" class="p-5 space-y-4">
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div>
+            <label for="campo-razao-social" class="block text-xs font-semibold text-stone-700 mb-1">
+              Razão Social / Nome <span class="text-red-500">*</span>
+            </label>
+            <input
+              type="text"
+              id="campo-razao-social"
+              name="razaoSocial"
+              required
+              placeholder="Ex.: Resil Indústria e Comércio LTDA"
+              class="w-full text-xs px-3 py-2 border border-stone-300 rounded-md focus:outline-none focus:ring-1 focus:ring-accent focus:border-accent"
+            />
+          </div>
+          <div>
+            <label for="campo-nome-fantasia" class="block text-xs font-semibold text-stone-700 mb-1">
+              Nome Fantasia <span class="text-[10px] text-stone-400 font-normal">(opcional)</span>
+            </label>
+            <input
+              type="text"
+              id="campo-nome-fantasia"
+              name="nomeFantasia"
+              placeholder="Ex.: Resil Extintores"
+              class="w-full text-xs px-3 py-2 border border-stone-300 rounded-md focus:outline-none focus:ring-1 focus:ring-accent focus:border-accent"
+            />
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div>
+            <label for="campo-cnpj" class="block text-xs font-semibold text-stone-700 mb-1">
+              CNPJ ou CPF <span class="text-red-500">*</span>
+            </label>
+            <input
+              type="text"
+              id="campo-cnpj"
+              name="cnpj"
+              required
+              placeholder="00.000.000/0000-00 ou 000.000.000-00"
+              class="w-full text-xs px-3 py-2 border border-stone-300 rounded-md focus:outline-none focus:ring-1 focus:ring-accent focus:border-accent"
+            />
+            <span id="erro-cnpj" class="text-[10px] text-red-500 mt-0.5 block hidden">CNPJ/CPF inválido</span>
+          </div>
+          <div>
+            <label for="campo-ie" class="block text-xs font-semibold text-stone-700 mb-1">
+              Inscrição Estadual <span class="text-[10px] text-stone-400 font-normal">(opcional)</span>
+            </label>
+            <input
+              type="text"
+              id="campo-ie"
+              name="inscricaoEstadual"
+              placeholder="Ex.: 123456789 ou ISENTO"
+              class="w-full text-xs px-3 py-2 border border-stone-300 rounded-md focus:outline-none focus:ring-1 focus:ring-accent focus:border-accent"
+            />
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <div>
+            <label for="campo-contato-nome" class="block text-xs font-semibold text-stone-700 mb-1">
+              Contato Principal
+            </label>
+            <input
+              type="text"
+              id="campo-contato-nome"
+              name="contatoNome"
+              placeholder="Nome do representante"
+              class="w-full text-xs px-3 py-2 border border-stone-300 rounded-md focus:outline-none focus:ring-1 focus:ring-accent focus:border-accent"
+            />
+          </div>
+          <div>
+            <label for="campo-telefone" class="block text-xs font-semibold text-stone-700 mb-1">
+              Telefone / WhatsApp
+            </label>
+            <input
+              type="text"
+              id="campo-telefone"
+              name="telefone"
+              placeholder="(00) 00000-0000"
+              class="w-full text-xs px-3 py-2 border border-stone-300 rounded-md focus:outline-none focus:ring-1 focus:ring-accent focus:border-accent"
+            />
+          </div>
+          <div>
+            <label for="campo-email" class="block text-xs font-semibold text-stone-700 mb-1">
+              E-mail
+            </label>
+            <input
+              type="email"
+              id="campo-email"
+              name="email"
+              placeholder="vendas@fornecedor.com.br"
+              class="w-full text-xs px-3 py-2 border border-stone-300 rounded-md focus:outline-none focus:ring-1 focus:ring-accent focus:border-accent"
+            />
+          </div>
+        </div>
+
+        <!-- Endereço -->
+        <div class="border-t border-stone-200 pt-3">
+          <span class="text-[11px] font-bold text-stone-600 uppercase tracking-wider block mb-2">Endereço & Localização</span>
+          <div class="grid grid-cols-1 sm:grid-cols-4 gap-3 mb-2">
+            <div>
+              <label for="campo-cep" class="block text-xs text-stone-700 mb-1">CEP</label>
+              <input
+                type="text"
+                id="campo-cep"
+                name="cep"
+                placeholder="00000-000"
+                class="w-full text-xs px-3 py-2 border border-stone-300 rounded-md focus:outline-none focus:ring-1 focus:ring-accent focus:border-accent"
+              />
+            </div>
+            <div class="sm:col-span-2">
+              <label for="campo-logradouro" class="block text-xs text-stone-700 mb-1">Logradouro</label>
+              <input
+                type="text"
+                id="campo-logradouro"
+                name="logradouro"
+                placeholder="Rua, Avenida, Rodovia..."
+                class="w-full text-xs px-3 py-2 border border-stone-300 rounded-md focus:outline-none focus:ring-1 focus:ring-accent focus:border-accent"
+              />
+            </div>
+            <div>
+              <label for="campo-numero" class="block text-xs text-stone-700 mb-1">Número</label>
+              <input
+                type="text"
+                id="campo-numero"
+                name="numero"
+                placeholder="Ex.: 1500"
+                class="w-full text-xs px-3 py-2 border border-stone-300 rounded-md focus:outline-none focus:ring-1 focus:ring-accent focus:border-accent"
+              />
+            </div>
+          </div>
+
+          <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <div>
+              <label for="campo-bairro" class="block text-xs text-stone-700 mb-1">Bairro</label>
+              <input
+                type="text"
+                id="campo-bairro"
+                name="bairro"
+                placeholder="Bairro ou Distrito"
+                class="w-full text-xs px-3 py-2 border border-stone-300 rounded-md focus:outline-none focus:ring-1 focus:ring-accent focus:border-accent"
+              />
+            </div>
+            <div>
+              <label for="campo-cidade" class="block text-xs text-stone-700 mb-1">Cidade</label>
+              <input
+                type="text"
+                id="campo-cidade"
+                name="cidade"
+                placeholder="Ex.: São Paulo"
+                class="w-full text-xs px-3 py-2 border border-stone-300 rounded-md focus:outline-none focus:ring-1 focus:ring-accent focus:border-accent"
+              />
+            </div>
+            <div>
+              <label for="campo-estado" class="block text-xs text-stone-700 mb-1">UF</label>
+              <select
+                id="campo-estado"
+                name="estado"
+                class="w-full text-xs px-3 py-2 border border-stone-300 rounded-md focus:outline-none focus:ring-1 focus:ring-accent focus:border-accent bg-white"
+              >
+                <option value="">Selecione...</option>
+                <option value="AC">AC</option><option value="AL">AL</option><option value="AP">AP</option>
+                <option value="AM">AM</option><option value="BA">BA</option><option value="CE">CE</option>
+                <option value="DF">DF</option><option value="ES">ES</option><option value="GO">GO</option>
+                <option value="MA">MA</option><option value="MT">MT</option><option value="MS">MS</option>
+                <option value="MG">MG</option><option value="PA">PA</option><option value="PB">PB</option>
+                <option value="PR">PR</option><option value="PE">PE</option><option value="PI">PI</option>
+                <option value="RJ">RJ</option><option value="RN">RN</option><option value="RS">RS</option>
+                <option value="RO">RO</option><option value="RR">RR</option><option value="SC">SC</option>
+                <option value="SP" selected>SP</option><option value="SE">SE</option><option value="TO">TO</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        <!-- Parâmetros Operacionais e Comerciais -->
+        <div class="border-t border-stone-200 pt-3">
+          <span class="text-[11px] font-bold text-stone-600 uppercase tracking-wider block mb-2">Prazos & Condições</span>
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-2">
+            <div>
+              <label for="campo-prazo" class="block text-xs font-semibold text-stone-700 mb-1">
+                Prazo de Entrega Padrão (dias)
+              </label>
+              <input
+                type="number"
+                id="campo-prazo"
+                name="prazoPadraoDias"
+                min="0"
+                value="7"
+                placeholder="Ex.: 5, 7, 10"
+                class="w-full text-xs px-3 py-2 border border-stone-300 rounded-md focus:outline-none focus:ring-1 focus:ring-accent focus:border-accent"
+              />
+            </div>
+            <div>
+              <label for="campo-condicoes" class="block text-xs font-semibold text-stone-700 mb-1">
+                Condições de Pagamento
+              </label>
+              <input
+                type="text"
+                id="campo-condicoes"
+                name="condicoesPagamento"
+                placeholder="Ex.: 28 DDL, Boleto faturado, À vista com 3% desc."
+                class="w-full text-xs px-3 py-2 border border-stone-300 rounded-md focus:outline-none focus:ring-1 focus:ring-accent focus:border-accent"
+              />
+            </div>
+          </div>
+
+          <div>
+            <label for="campo-observacoes" class="block text-xs font-semibold text-stone-700 mb-1">
+              Observações Gerais
+            </label>
+            <textarea
+              id="campo-observacoes"
+              name="observacoes"
+              rows="2"
+              placeholder="Ex.: Exige pedido mínimo de R$ 2.000, entrega própria às terças e quintas..."
+              class="w-full text-xs px-3 py-2 border border-stone-300 rounded-md focus:outline-none focus:ring-1 focus:ring-accent focus:border-accent"
+            ></textarea>
+          </div>
+        </div>
+
+        <div class="pt-3 border-t border-stone-200 flex items-center justify-end gap-2">
+          <button
+            type="button"
+            id="btn-cancelar-modal-novo"
+            class="btn-ghost text-xs px-4 py-2 border-stone-300"
+          >
+            Cancelar
+          </button>
+          <button
+            type="submit"
+            id="btn-salvar-novo-fornecedor"
+            class="btn-primary text-xs px-4 py-2 flex items-center gap-1.5 shadow-sm"
+          >
+            <span>Salvar Fornecedor</span>
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Drawer Lateral de Detalhes / Edição / Produtos Fornecidos ──── -->
+  <div id="drawer-overlay"></div>
+  <aside id="drawer-detalhes" role="dialog" aria-modal="true" aria-labelledby="drawer-titulo">
+    <div class="p-4 border-b border-stone-200 flex items-center justify-between bg-stone-50 sticky top-0 z-10">
+      <div>
+        <div class="flex items-center gap-2">
+          <h2 id="drawer-titulo" class="text-sm font-bold text-stone-900">
+            Detalhes do Fornecedor
+          </h2>
+          <span id="drawer-status-badge" class="badge-status badge-ativo">
+            <span class="badge-status-dot"></span> Ativo
+          </span>
+        </div>
+        <p class="text-[11px] text-stone-500 mt-0.5" id="drawer-subtitulo">
+          Cadastrado em —
+        </p>
+      </div>
+      <button id="btn-fechar-drawer" type="button" class="text-stone-400 hover:text-stone-600 text-lg p-1" title="Fechar painel (Esc)">
+        ✕
+      </button>
+    </div>
+
+    <!-- Navegação de Abas do Drawer -->
+    <div class="flex border-b border-stone-200 bg-white px-4">
+      <button type="button" class="drawer-tab is-active" data-tab="tab-cadastral">
+        Dados Cadastrais
+      </button>
+      <button type="button" class="drawer-tab" data-tab="tab-produtos">
+        Produtos Fornecidos (<span id="drawer-tab-qtd-produtos">0</span>)
+      </button>
+      <button type="button" class="drawer-tab" data-tab="tab-compras">
+        Resumo de Compras
+      </button>
+    </div>
+
+    <div class="p-5 flex-1 overflow-y-auto">
+      <!-- Aba 1: Dados Cadastrais -->
+      <div id="pane-tab-cadastral" class="space-y-4">
+        <form id="form-editar-fornecedor" class="space-y-4">
+          <input type="hidden" id="drawer-fornecedor-id" />
+
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <label class="block text-xs font-semibold text-stone-700 mb-1">Razão Social / Nome <span class="text-red-500">*</span></label>
+              <input
+                type="text"
+                id="drawer-campo-razao-social"
+                required
+                class="w-full text-xs px-3 py-2 border border-stone-300 rounded-md focus:outline-none focus:ring-1 focus:ring-accent"
+              />
+            </div>
+            <div>
+              <label class="block text-xs font-semibold text-stone-700 mb-1">Nome Fantasia</label>
+              <input
+                type="text"
+                id="drawer-campo-nome-fantasia"
+                class="w-full text-xs px-3 py-2 border border-stone-300 rounded-md focus:outline-none focus:ring-1 focus:ring-accent"
+              />
+            </div>
+          </div>
+
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <label class="block text-xs font-semibold text-stone-700 mb-1">CNPJ / CPF <span class="text-red-500">*</span></label>
+              <input
+                type="text"
+                id="drawer-campo-cnpj"
+                required
+                class="w-full text-xs px-3 py-2 border border-stone-300 rounded-md focus:outline-none focus:ring-1 focus:ring-accent"
+              />
+            </div>
+            <div>
+              <label class="block text-xs font-semibold text-stone-700 mb-1">Inscrição Estadual</label>
+              <input
+                type="text"
+                id="drawer-campo-ie"
+                class="w-full text-xs px-3 py-2 border border-stone-300 rounded-md focus:outline-none focus:ring-1 focus:ring-accent"
+              />
+            </div>
+          </div>
+
+          <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <div>
+              <label class="block text-xs font-semibold text-stone-700 mb-1">Contato Principal</label>
+              <input
+                type="text"
+                id="drawer-campo-contato-nome"
+                class="w-full text-xs px-3 py-2 border border-stone-300 rounded-md focus:outline-none focus:ring-1 focus:ring-accent"
+              />
+            </div>
+            <div>
+              <label class="block text-xs font-semibold text-stone-700 mb-1">Telefone</label>
+              <input
+                type="text"
+                id="drawer-campo-telefone"
+                class="w-full text-xs px-3 py-2 border border-stone-300 rounded-md focus:outline-none focus:ring-1 focus:ring-accent"
+              />
+            </div>
+            <div>
+              <label class="block text-xs font-semibold text-stone-700 mb-1">E-mail</label>
+              <input
+                type="email"
+                id="drawer-campo-email"
+                class="w-full text-xs px-3 py-2 border border-stone-300 rounded-md focus:outline-none focus:ring-1 focus:ring-accent"
+              />
+            </div>
+          </div>
+
+          <div class="border-t border-stone-200 pt-3">
+            <span class="text-[11px] font-bold text-stone-600 uppercase tracking-wider block mb-2">Endereço</span>
+            <div class="grid grid-cols-1 sm:grid-cols-4 gap-3 mb-2">
+              <div>
+                <label class="block text-xs text-stone-700 mb-1">CEP</label>
+                <input
+                  type="text"
+                  id="drawer-campo-cep"
+                  class="w-full text-xs px-3 py-2 border border-stone-300 rounded-md focus:outline-none focus:ring-1 focus:ring-accent"
+                />
+              </div>
+              <div class="sm:col-span-2">
+                <label class="block text-xs text-stone-700 mb-1">Logradouro</label>
+                <input
+                  type="text"
+                  id="drawer-campo-logradouro"
+                  class="w-full text-xs px-3 py-2 border border-stone-300 rounded-md focus:outline-none focus:ring-1 focus:ring-accent"
+                />
+              </div>
+              <div>
+                <label class="block text-xs text-stone-700 mb-1">Número</label>
+                <input
+                  type="text"
+                  id="drawer-campo-numero"
+                  class="w-full text-xs px-3 py-2 border border-stone-300 rounded-md focus:outline-none focus:ring-1 focus:ring-accent"
+                />
+              </div>
+            </div>
+
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <div>
+                <label class="block text-xs text-stone-700 mb-1">Bairro</label>
+                <input
+                  type="text"
+                  id="drawer-campo-bairro"
+                  class="w-full text-xs px-3 py-2 border border-stone-300 rounded-md focus:outline-none focus:ring-1 focus:ring-accent"
+                />
+              </div>
+              <div>
+                <label class="block text-xs text-stone-700 mb-1">Cidade</label>
+                <input
+                  type="text"
+                  id="drawer-campo-cidade"
+                  class="w-full text-xs px-3 py-2 border border-stone-300 rounded-md focus:outline-none focus:ring-1 focus:ring-accent"
+                />
+              </div>
+              <div>
+                <label class="block text-xs text-stone-700 mb-1">UF</label>
+                <input
+                  type="text"
+                  id="drawer-campo-estado"
+                  maxlength="2"
+                  class="w-full text-xs px-3 py-2 border border-stone-300 rounded-md focus:outline-none focus:ring-1 focus:ring-accent uppercase"
+                />
+              </div>
+            </div>
+          </div>
+
+          <div class="border-t border-stone-200 pt-3">
+            <span class="text-[11px] font-bold text-stone-600 uppercase tracking-wider block mb-2">Prazos & Condições</span>
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-2">
+              <div>
+                <label class="block text-xs font-semibold text-stone-700 mb-1">Prazo Padrão (dias)</label>
+                <input
+                  type="number"
+                  id="drawer-campo-prazo"
+                  min="0"
+                  class="w-full text-xs px-3 py-2 border border-stone-300 rounded-md focus:outline-none focus:ring-1 focus:ring-accent"
+                />
+              </div>
+              <div>
+                <label class="block text-xs font-semibold text-stone-700 mb-1">Condições de Pagamento</label>
+                <input
+                  type="text"
+                  id="drawer-campo-condicoes"
+                  class="w-full text-xs px-3 py-2 border border-stone-300 rounded-md focus:outline-none focus:ring-1 focus:ring-accent"
+                />
+              </div>
+            </div>
+
+            <div>
+              <label class="block text-xs font-semibold text-stone-700 mb-1">Observações Internas</label>
+              <textarea
+                id="drawer-campo-observacoes"
+                rows="2"
+                class="w-full text-xs px-3 py-2 border border-stone-300 rounded-md focus:outline-none focus:ring-1 focus:ring-accent"
+              ></textarea>
+            </div>
+          </div>
+
+          <div class="flex items-center justify-between pt-4 border-t border-stone-200">
+            <button
+              type="button"
+              id="btn-toggle-status-fornecedor"
+              class="btn-ghost text-xs px-3 py-2 border-stone-300"
+            >
+              Inativar Fornecedor
+            </button>
+            <button
+              type="submit"
+              id="btn-salvar-edicao"
+              class="btn-primary text-xs px-4 py-2 flex items-center gap-1.5 shadow-sm"
+            >
+              Salvar Alterações
+            </button>
+          </div>
+        </form>
+      </div>
+
+      <!-- Aba 2: Produtos Fornecidos -->
+      <div id="pane-tab-produtos" class="space-y-4 hidden">
+        <div class="flex items-center justify-between">
+          <div>
+            <h3 class="text-xs font-bold text-stone-800 uppercase tracking-wider">Produtos Vinculados</h3>
+            <p class="text-[11px] text-stone-500">Extintores e insumos que este fornecedor disponibiliza com custo padrão.</p>
+          </div>
+          <button
+            type="button"
+            id="btn-abrir-vincular-produto"
+            class="btn-primary text-xs px-3 py-1.5 flex items-center gap-1 shadow-sm"
+          >
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+            Vincular Produto
+          </button>
+        </div>
+
+        <div class="border border-stone-200 rounded-lg overflow-hidden bg-white shadow-sm">
+          <table class="w-full text-left border-collapse text-xs">
+            <thead>
+              <tr class="bg-stone-50 border-b border-stone-200 text-stone-600 font-bold uppercase text-[10px]">
+                <th class="py-2.5 px-3">SKU / Produto</th>
+                <th class="py-2.5 px-3 text-right">Custo de Compra</th>
+                <th class="py-2.5 px-3 text-center">Principal?</th>
+                <th class="py-2.5 px-3 text-right">Ação</th>
+              </tr>
+            </thead>
+            <tbody id="drawer-produtos-tbody" class="divide-y divide-stone-100">
+              <!-- Preenchido dinamicamente via JS -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Aba 3: Resumo de Compras -->
+      <div id="pane-tab-compras" class="space-y-4 hidden">
+        <div class="grid grid-cols-3 gap-3">
+          <div class="card p-3 bg-stone-50 border border-stone-200 rounded-lg">
+            <span class="text-[10px] text-stone-500 font-bold uppercase block">Gasto Total</span>
+            <span id="drawer-compras-total-gasto" class="text-base font-extrabold text-stone-900 block mt-0.5">R$ 0,00</span>
+          </div>
+          <div class="card p-3 bg-stone-50 border border-stone-200 rounded-lg">
+            <span class="text-[10px] text-stone-500 font-bold uppercase block">Nº de Pedidos</span>
+            <span id="drawer-compras-qtd-pedidos" class="text-base font-extrabold text-stone-900 block mt-0.5">0</span>
+          </div>
+          <div class="card p-3 bg-stone-50 border border-stone-200 rounded-lg">
+            <span class="text-[10px] text-stone-500 font-bold uppercase block">Lead Time Real</span>
+            <span id="drawer-compras-leadtime-real" class="text-base font-extrabold text-blue-700 block mt-0.5">—</span>
+          </div>
+        </div>
+
+        <div>
+          <h3 class="text-xs font-bold text-stone-800 uppercase tracking-wider mb-2 flex items-center gap-1.5">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4Z"/><path d="M3 6h18"/><path d="M16 10a4 4 0 0 1-8 0"/></svg>
+            Últimos Pedidos de Compra
+          </h3>
+          <div id="drawer-compras-lista-pedidos" class="space-y-2">
+            <!-- Preenchido dinamicamente -->
+          </div>
+        </div>
+      </div>
+    </div>
+  </aside>
+
+  <!-- Modal de Vínculo de Produto ────────────────────────────────── -->
+  <div id="modal-vincular-produto" class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="modal-vincular-titulo">
+    <div class="modal-card" style="max-width: 480px;">
+      <div class="p-4 border-b border-stone-200 flex items-center justify-between bg-stone-50">
+        <h2 id="modal-vincular-titulo" class="text-sm font-bold text-stone-900">
+          Vincular Produto ao Fornecedor
+        </h2>
+        <button id="btn-fechar-modal-vincular" type="button" class="text-stone-400 hover:text-stone-600 text-lg leading-none p-1">
+          ✕
+        </button>
+      </div>
+
+      <form id="form-vincular-produto" class="p-5 space-y-4">
+        <div>
+          <label for="campo-vincular-produto-select" class="block text-xs font-semibold text-stone-700 mb-1">
+            Selecione o Produto <span class="text-red-500">*</span>
+          </label>
+          <select
+            id="campo-vincular-produto-select"
+            required
+            class="w-full text-xs px-3 py-2 border border-stone-300 rounded-md focus:outline-none focus:ring-1 focus:ring-accent bg-white"
+          >
+            <option value="">Carregando catálogo de produtos...</option>
+          </select>
+        </div>
+
+        <div>
+          <label for="campo-vincular-custo" class="block text-xs font-semibold text-stone-700 mb-1">
+            Custo Padrão de Compra (R$) <span class="text-red-500">*</span>
+          </label>
+          <input
+            type="number"
+            step="0.01"
+            min="0"
+            id="campo-vincular-custo"
+            required
+            placeholder="0,00"
+            class="w-full text-xs px-3 py-2 border border-stone-300 rounded-md focus:outline-none focus:ring-1 focus:ring-accent"
+          />
+          <span class="text-[10px] text-stone-500 mt-0.5 block">Preço de tabela negociado com este fornecedor.</span>
+        </div>
+
+        <div class="flex items-center gap-2 pt-1">
+          <input
+            type="checkbox"
+            id="campo-vincular-principal"
+            class="h-4 w-4 rounded border-stone-300 text-accent focus:ring-accent"
+          />
+          <label for="campo-vincular-principal" class="text-xs text-stone-700 font-medium">
+            Definir como fornecedor principal deste produto
+          </label>
+        </div>
+
+        <div class="pt-3 border-t border-stone-200 flex items-center justify-end gap-2">
+          <button
+            type="button"
+            id="btn-cancelar-modal-vincular"
+            class="btn-ghost text-xs px-4 py-2 border-stone-300"
+          >
+            Cancelar
+          </button>
+          <button
+            type="submit"
+            id="btn-salvar-vincular-produto"
+            class="btn-primary text-xs px-4 py-2 flex items-center gap-1.5 shadow-sm"
+          >
+            Salvar Vínculo
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Modal de Confirmação de Inativação ────────────────────────── -->
+  <div id="modal-confirmar-inativacao" class="modal-overlay" role="dialog" aria-modal="true">
+    <div class="modal-card" style="max-width: 440px;">
+      <div class="p-5 text-center">
+        <div class="w-12 h-12 rounded-full bg-amber-100 text-amber-600 flex items-center justify-center mx-auto mb-3">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+        </div>
+        <h3 class="text-sm font-bold text-stone-900 mb-1" id="modal-inativacao-titulo">Inativar Fornecedor?</h3>
+        <p class="text-xs text-stone-600 mb-5 leading-relaxed" id="modal-inativacao-desc">
+          Este fornecedor não poderá ser selecionado para novos pedidos de compra, mas seu histórico de compras anteriores e produtos vinculados serão preservados com segurança.
+        </p>
+        <div class="flex items-center justify-center gap-2">
+          <button
+            type="button"
+            id="btn-cancelar-inativacao"
+            class="btn-ghost text-xs px-4 py-2 border-stone-300"
+          >
+            Cancelar
+          </button>
+          <button
+            type="button"
+            id="btn-confirmar-inativacao"
+            class="btn-primary text-xs px-4 py-2 bg-red-600 hover:bg-red-700 border-red-700 text-white shadow-sm"
+          >
+            Sim, Inativar
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="toast-container" aria-live="polite" aria-atomic="true"></div>
+
+  <!-- Scripts -->
+  <script src="js/mock-data.js"></script>
+  <script src="js/api.js"></script>
+  <script src="js/layout.js"></script>
+  <script src="js/fornecedores.js"></script>
+</body>
+</html>

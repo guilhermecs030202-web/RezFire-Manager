@@ -21,6 +21,13 @@ import {
   Notificacao,
   RespostaPadrao,
   LancamentoFinanceiro,
+  Customer,
+  Supplier,
+  PurchaseOrder,
+  PurchaseOrderItem,
+  ProdutoFornecedor,
+  Return,
+  ReturnItem,
 } from '../entities';
 
 export const AppDataSource = new DataSource({
@@ -51,6 +58,13 @@ export const AppDataSource = new DataSource({
     Notificacao,
     RespostaPadrao,
     LancamentoFinanceiro,
+    Customer,
+    Supplier,
+    PurchaseOrder,
+    PurchaseOrderItem,
+    ProdutoFornecedor,
+    Return,
+    ReturnItem,
   ],
   migrations: [path.join(__dirname, '../migrations/*{.ts,.js}')],
   subscribers: [],

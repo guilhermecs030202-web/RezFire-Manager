@@ -14,6 +14,9 @@ import usuarioRoutes from './usuario.routes';
 import notificacaoRoutes from './notificacao.routes';
 import respostaPadraoRoutes from './respostaPadrao.routes';
 import financeiroRoutes from './lancamentoFinanceiro.routes';
+import customerRoutes from './customer.routes';
+import supplierRoutes from './supplier.routes';
+import purchaseOrderRoutes from './purchaseOrder.routes';
 
 const router = Router();
 
@@ -32,5 +35,11 @@ router.use('/anuncios', anuncioRoutes);
 router.use('/notificacoes', notificacaoRoutes);
 router.use('/respostas-padrao', respostaPadraoRoutes);
 router.use('/financeiro', financeiroRoutes);
+router.use('/customers', customerRoutes);
+router.use('/clientes', customerRoutes);
+router.use('/suppliers', supplierRoutes);
+router.use('/fornecedores', supplierRoutes);
+router.use('/purchase-orders', purchaseOrderRoutes);
+router.use('/pedidos-compra', purchaseOrderRoutes);
 
 export default router;

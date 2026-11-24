@@ -45,12 +45,14 @@ export class AlertaService {
       const prazosPostagem = await this.pedidoService.obterAlertasPostagem();
       for (const p of prazosPostagem.pedidos) {
         if (p.criticidade === 'atrasado') {
+          const diasAtraso = Math.max(1, Math.round(Math.abs(p.horas_restantes) / 24));
+          const diasTexto = diasAtraso === 1 ? '1 dia' : `${diasAtraso} dias`;
           alertas.push({
             id: `postagem-${p.id_pedido}`,
             categoria: 'postagem',
             criticidade: 'critico',
             titulo: `Pedido ${p.codigo_pedido} com postagem ATRASADA`,
-            descricao: `Venceu há ${Math.abs(p.horas_restantes)}h (${p.itens_resumo || 'Itens diversos'}). Canal: ${p.origem}.`,
+            descricao: `Prazo de postagem venceu há ${diasTexto} (${p.itens_resumo || 'Itens diversos'}). Canal: ${p.origem}.`,
             impacto: 'Risco iminente de reclamação do cliente e penalidade de reputação no Mercado Livre.',
             acao_label: 'Despachar Pedido',
             acao_url: 'entregas.html',

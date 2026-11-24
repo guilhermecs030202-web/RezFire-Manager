@@ -19,13 +19,19 @@ function icon(name) {
       '<rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/><path d="M7 8h10"/><path d="M7 12h6"/>',
     users:
       '<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>',
+    shield:
+      '<path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>',
+    building:
+      '<path d="M6 22V4a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v18Z"/><path d="M6 12H4a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h2"/><path d="M18 9h2a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2h-2"/><path d="M10 6h4"/><path d="M10 10h4"/><path d="M10 14h4"/><path d="M10 18h4"/>',
+    clipboard:
+      '<path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1" ry="1"/><path d="M9 14h6"/><path d="M9 10h6"/><path d="M9 18h4"/>',
   };
 
   return `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${paths[name]}</svg>`;
 }
 
 function renderSidebar(active) {
-  const root = document.getElementById("app-shell");
+  const root = document.getElementById("app-shell") || document.getElementById("app-root") || document.querySelector(".app-shell, .app-layout");
   if (!root) return;
 
   const sidebar = document.createElement("aside");
@@ -48,6 +54,15 @@ function renderSidebar(active) {
       <a class="nav-item ${active === "pedidos" ? "is-active" : ""}" href="pedidos.html">
         ${icon("orders")} Pedidos
       </a>
+      <a class="nav-item ${active === "clientes" ? "is-active" : ""}" href="clientes.html">
+        ${icon("users")} Clientes
+      </a>
+      <a class="nav-item ${active === "fornecedores" ? "is-active" : ""}" href="fornecedores.html">
+        ${icon("building")} Fornecedores
+      </a>
+      <a class="nav-item ${active === "pedidos-compra" ? "is-active" : ""}" href="pedidos-compra.html">
+        ${icon("clipboard")} Pedidos de Compra
+      </a>
       <a class="nav-item ${active === "movimentacoes" ? "is-active" : ""}" href="movimentacoes.html">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:16px;height:16px;"><path d="M17 3v18"/><path d="m21 7-4-4-4 4"/><path d="M7 21V3"/><path d="m3 17 4 4 4-4"/></svg> Movimentações
       </a>
@@ -59,10 +74,10 @@ function renderSidebar(active) {
       </a>
       <a class="nav-item ${active === "alertas" ? "is-active" : ""}" href="alertas.html">
         ${icon("alert")} Central de Alertas
-        <span class="nav-badge" id="sidebar-alertas-badge">0</span>
+        <span class="nav-badge" id="sidebar-alertas-badge" style="display:none;">0</span>
       </a>
       <a class="nav-item ${active === "usuarios" ? "is-active" : ""}" href="usuarios.html" id="nav-item-usuarios">
-        ${icon("users")} Usuários & Acessos
+        ${icon("shield")} Usuários & Acessos
       </a>
     </nav>
     <div class="sidebar-footer">
@@ -75,6 +90,9 @@ function renderSidebar(active) {
   `;
 
   root.prepend(sidebar);
+
+  // Inicializa badge de alertas com valor em cache (se houver) e dispara sincronização global
+  sincronizarBadgeAlertasGlobal();
 
   // Carrega nome do usuário da sessão se disponível
   try {
@@ -114,4 +132,116 @@ function renderSidebar(active) {
   }
 }
 
-window.RezFireLayout = { renderSidebar };
+/**
+ * Atualiza o badge numérico da Central de Alertas no menu lateral esquerdo
+ */
+function updateAlertasBadge(total) {
+  const num = Number(total || 0);
+  try {
+    localStorage.setItem('rezfire_total_alertas', String(num));
+  } catch (e) {}
+
+  const badge = document.getElementById("sidebar-alertas-badge");
+  if (badge) {
+    badge.textContent = String(num);
+    badge.style.display = num > 0 ? "inline-flex" : "none";
+  }
+}
+
+/**
+ * Sincroniza o número real de alertas operacionais para refletir na barra lateral
+ */
+async function sincronizarBadgeAlertasGlobal() {
+  // 1. Aplica valor em cache imediatamente
+  try {
+    const cached = localStorage.getItem('rezfire_total_alertas');
+    if (cached !== null && !isNaN(Number(cached))) {
+      updateAlertasBadge(Number(cached));
+    }
+  } catch (e) {}
+
+  let total = null;
+
+  // 2. Se a API estiver disponível, tenta obter a contagem do backend
+  if (window.RezFireAPI && window.RezFireAPI.alertas && typeof window.RezFireAPI.alertas.obterCentral === "function") {
+    try {
+      const res = await window.RezFireAPI.alertas.obterCentral();
+      if (res && res.sucesso && res.resumo) {
+        total = Number(res.resumo.total || 0);
+      }
+    } catch (err) {
+      // Backend offline ou requisição com falha, usa cálculo local
+    }
+  }
+
+  // 3. Fallback: calcula localmente com base nos módulos já carregados
+  if (total === null) {
+    try {
+      let count = 0;
+      const agora = new Date();
+
+      // Prazos de Postagem
+      if (window.RezFireEntregas && typeof window.RezFireEntregas.loadEntregas === "function") {
+        const entregas = window.RezFireEntregas.loadEntregas();
+        for (const e of entregas) {
+          if (!e.data_despacho && e.status_interno !== "Cancelado" && e.prazo_despacho) {
+            const diffMs = new Date(e.prazo_despacho).getTime() - agora.getTime();
+            if (diffMs <= 24 * 3600 * 1000) count++;
+          }
+        }
+      }
+
+      // Estoque e Ruptura
+      if (window.RezFireData && typeof window.RezFireData.loadProducts === "function") {
+        const produtos = window.RezFireData.loadProducts();
+        for (const p of produtos) {
+          if (p.ativo === false) continue;
+          const saldo = Number(p.quantidade_atual || 0);
+          const min = Number(p.estoque_minimo || 0);
+          if (saldo <= min) count++;
+        }
+      }
+
+      // Validade FEFO
+      if (window.RezFireData && typeof window.RezFireData.loadLotes === "function") {
+        const lotes = window.RezFireData.loadLotes();
+        for (const l of lotes) {
+          if (!l.validade && !l.data_validade) continue;
+          const saldo = Number(l.quantidade_disponivel || 0);
+          if (saldo <= 0) continue;
+          const valDate = new Date(l.validade || l.data_validade);
+          const diffDias = Math.floor((valDate - agora) / 86400000);
+          if (diffDias <= 365) count++;
+        }
+      }
+
+      // Anúncios ML
+      if (window.RezFireAnuncios && typeof window.RezFireAnuncios.loadAnuncios === "function") {
+        const anuncios = window.RezFireAnuncios.loadAnuncios();
+        const produtos = window.RezFireData ? window.RezFireData.loadProducts() : [];
+        for (const a of anuncios) {
+          if (a.status === "Pausado") {
+            count++;
+          } else if (produtos.length > 0 && typeof window.RezFireAnuncios.analisarDivergencias === "function") {
+            const divs = window.RezFireAnuncios.analisarDivergencias(a, produtos);
+            if (divs.length > 0) count++;
+          }
+        }
+      }
+
+      if (window.RezFireEntregas || window.RezFireData || window.RezFireAnuncios) {
+        total = count;
+      }
+    } catch (e) {}
+  }
+
+  if (total !== null) {
+    updateAlertasBadge(total);
+  }
+}
+
+window.RezFireLayout = {
+  renderSidebar,
+  updateAlertasBadge,
+  sincronizarBadgeAlertasGlobal,
+};

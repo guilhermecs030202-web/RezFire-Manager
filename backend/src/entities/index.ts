@@ -16,4 +16,11 @@ export { MidiaAnuncio } from './MidiaAnuncio';
 export { Notificacao } from './Notificacao';
 export { RespostaPadrao } from './RespostaPadrao';
 export { LancamentoFinanceiro } from './LancamentoFinanceiro';
+export { Customer, CustomerSource } from './Customer';
+export { Supplier } from './Supplier';
+export { PurchaseOrder, PurchaseOrderStatus } from './PurchaseOrder';
+export { PurchaseOrderItem } from './PurchaseOrderItem';
+export { ProdutoFornecedor } from './ProdutoFornecedor';
+export { Return, ReturnStatus, ReturnResolutionType } from './Return';
+export { ReturnItem, ReturnReason, ReturnItemDestination } from './ReturnItem';
 

@@ -44,12 +44,16 @@
   /**
    * Carrega os alertas via API do backend com fallback gracioso para os dados locais
    */
-  async function carregarAlertas() {
+  async function carregarAlertas(isManualClick = false) {
     state.carregando = true;
     const btnSync = document.getElementById("btn-atualizar-alertas");
     const iconSync = document.getElementById("icon-sync");
+    const btnTexto = document.getElementById("btn-atualizar-texto");
+    const labelUltima = document.getElementById("label-ultima-atualizacao");
+
     if (btnSync) btnSync.disabled = true;
     if (iconSync) iconSync.classList.add("animate-spin");
+    if (btnTexto && isManualClick) btnTexto.textContent = "Atualizando...";
 
     try {
       let carregadoBackend = false;
@@ -79,9 +83,24 @@
       renderKPIs();
       renderStatusBanner();
       renderLista();
+
+      // Feedback visual e horário da última sincronização
+      const agora = new Date();
+      const horaFormatada = agora.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+      if (labelUltima) {
+        labelUltima.textContent = `Atualizado às ${horaFormatada}`;
+      }
+
+      if (btnTexto && isManualClick) {
+        btnTexto.textContent = "Atualizado!";
+        setTimeout(() => {
+          if (btnTexto) btnTexto.textContent = "Atualizar";
+        }, 1500);
+      }
     } catch (err) {
       console.error("Erro ao carregar central de alertas:", err);
       renderErro("Ocorreu um erro ao carregar os alertas operacionais.");
+      if (btnTexto && isManualClick) btnTexto.textContent = "Atualizar";
     } finally {
       state.carregando = false;
       if (btnSync) btnSync.disabled = false;
@@ -96,7 +115,7 @@
     const alertas = [];
     const agora = new Date();
 
-    // 1. Prazos de Postagem (#10)
+    // 1. Prazos de Postagem
     if (window.RezFireEntregas) {
       const entregas = window.RezFireEntregas.loadEntregas();
       const abertos = entregas.filter(
@@ -110,12 +129,15 @@
         const diffHoras = Math.round(diffMs / (1000 * 60 * 60));
 
         if (diffMs < 0) {
+          const diffDias = Math.max(1, Math.round(Math.abs(diffMs) / (1000 * 60 * 60 * 24)));
+          const diasTexto = diffDias === 1 ? "1 dia" : `${diffDias} dias`;
+
           alertas.push({
             id: `postagem-${e.id_entrega}`,
             categoria: "postagem",
             criticidade: "critico",
             titulo: `Pedido ${e.codigo_pedido_direto || e.codigo_pedido_ml || e.id_entrega} com postagem ATRASADA`,
-            descricao: `Prazo venceu há ${Math.abs(diffHoras)}h. Cliente: ${e.cliente || 'Consumidor'}. Itens: ${(e.itens || []).map(i => `${i.quantidade}x ${i.sku}`).join(', ')}.`,
+            descricao: `Prazo de postagem venceu há ${diasTexto}. Cliente: ${e.cliente || 'Consumidor'}. Itens: ${(e.itens || []).map(i => `${i.quantidade}x ${i.sku}`).join(', ')}.`,
             impacto: "Risco de penalidade imediata de reputação no Mercado Livre e cancelamento.",
             acao_label: "Despachar no Galpão",
             acao_url: "entregas.html",
@@ -286,10 +308,14 @@
   }
 
   function atualizarBadgeSidebar(total) {
-    const badge = document.getElementById("sidebar-alertas-badge");
-    if (badge) {
-      badge.textContent = String(total);
-      badge.style.display = total > 0 ? "inline-flex" : "none";
+    if (window.RezFireLayout && typeof window.RezFireLayout.updateAlertasBadge === "function") {
+      window.RezFireLayout.updateAlertasBadge(total);
+    } else {
+      const badge = document.getElementById("sidebar-alertas-badge");
+      if (badge) {
+        badge.textContent = String(total);
+        badge.style.display = total > 0 ? "inline-flex" : "none";
+      }
     }
     const badgeTopo = document.getElementById("badge-total-topo");
     if (badgeTopo) {
@@ -389,7 +415,7 @@
         critFiltro: "atencao",
       }),
       card({
-        label: "Postagem (#10)",
+        label: "Postagem",
         val: String(r.por_categoria.postagem),
         sublabel: "Atrasos e envios hoje",
         icon: "🚚",
@@ -397,7 +423,7 @@
         catFiltro: "postagem",
       }),
       card({
-        label: "Estoque (#4 & #8)",
+        label: "Estoque",
         val: String(r.por_categoria.estoque + r.por_categoria.validade),
         sublabel: "Ruptura & FEFO",
         icon: "📦",
@@ -482,10 +508,10 @@
 
     const catBadge = (cat) => {
       switch (cat) {
-        case "postagem": return `<span class="badge-categoria-tag cat-postagem">⏱️ Prazo de Postagem (#10)</span>`;
-        case "estoque":  return `<span class="badge-categoria-tag cat-estoque">📦 Estoque & Ruptura (#4)</span>`;
-        case "validade": return `<span class="badge-categoria-tag cat-validade">🛡️ Validade FEFO (#8)</span>`;
-        case "anuncio":  return `<span class="badge-categoria-tag cat-anuncio">📢 Mercado Livre (#13)</span>`;
+        case "postagem": return `<span class="badge-categoria-tag cat-postagem">⏱️ Prazo de Postagem</span>`;
+        case "estoque":  return `<span class="badge-categoria-tag cat-estoque">📦 Estoque & Ruptura</span>`;
+        case "validade": return `<span class="badge-categoria-tag cat-validade">🛡️ Validade FEFO</span>`;
+        case "anuncio":  return `<span class="badge-categoria-tag cat-anuncio">📢 Mercado Livre</span>`;
         default:         return `<span class="badge-categoria-tag cat-postagem">Geral</span>`;
       }
     };
@@ -581,7 +607,7 @@
     });
 
     document.getElementById("btn-limpar-filtros-alertas")?.addEventListener("click", limparFiltros);
-    document.getElementById("btn-atualizar-alertas")?.addEventListener("click", carregarAlertas);
+    document.getElementById("btn-atualizar-alertas")?.addEventListener("click", () => carregarAlertas(true));
   }
 
   function escapeHtml(str) {

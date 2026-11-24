@@ -13,98 +13,6 @@ async function renderDashboard() {
   RezFireLayout.renderSidebar("dashboard");
 
   let products = RezFireData.loadProducts();
-  let metrics = RezFireData.computeDashboard(products);
-  const money = RezFireData.formatMoney;
-
-  if (window.RezFireAPI) {
-    try {
-      const res = await window.RezFireAPI.dashboard.kpis(180);
-      if (res && res.sucesso && res.kpis) {
-        const k = res.kpis;
-        if (k.estoque) {
-          if (typeof k.estoque.total_unidades === 'number') metrics.quantidadeTotal = k.estoque.total_unidades;
-          if (typeof k.estoque.valor_total_venda === 'number') metrics.valorTotal = k.estoque.valor_total_venda;
-          if (typeof k.estoque.produtos_estoque_baixo === 'number') metrics.abaixoMinimo = k.estoque.produtos_estoque_baixo;
-          if (typeof k.estoque.cobertura_dias === 'number' && k.estoque.cobertura_dias > 0) metrics.coberturaDias = k.estoque.cobertura_dias;
-          if (typeof k.estoque.giro_estoque === 'number' && k.estoque.giro_estoque > 0) metrics.giroAno = k.estoque.giro_estoque;
-        }
-        if (k.movimentacoes) {
-          if (typeof k.movimentacoes.total_entradas === 'number') metrics.entradas = k.movimentacoes.total_entradas;
-          if (typeof k.movimentacoes.total_saidas === 'number') metrics.saidas = k.movimentacoes.total_saidas;
-          if (k.movimentacoes.total_movimentacoes) metrics.frequenciaMedia = Math.round(k.movimentacoes.total_movimentacoes / 6);
-        }
-        if (k.vendas && typeof k.vendas.ticket_medio === 'number' && k.vendas.ticket_medio > 0) {
-          metrics.ticketMedio = k.vendas.ticket_medio;
-        }
-      }
-    } catch (e) {
-      console.warn("[Dashboard] Usando métricas locais:", e);
-    }
-  }
-
-  document.getElementById("kpis-estoque").innerHTML = [
-    kpiCard("QUANTIDADE TOTAL", metrics.quantidadeTotal.toLocaleString("pt-BR"), "unidades em produtos ativos"),
-    kpiCard("VALOR TOTAL DE ESTOQUE", money(metrics.valorTotal), "saldo × preço de venda"),
-    kpiCard("PRODUTOS COM ESTOQUE BAIXO", String(metrics.abaixoMinimo), "saldo ≤ estoque mínimo"),
-    kpiCard("COBERTURA DE ESTOQUE", `${metrics.coberturaDias} dias`, "com base na saída média do período"),
-    kpiCard("GIRO DE ESTOQUE", `${metrics.giroAno}x`, "ao ano (ilustrativo)"),
-  ].join("");
-
-  document.getElementById("kpis-movimentacoes").innerHTML = [
-    kpiCard("ENTRADAS DE PRODUTOS", metrics.entradas.toLocaleString("pt-BR"), "unidades em 6 meses"),
-    kpiCard("SAÍDAS DE PRODUTOS", metrics.saidas.toLocaleString("pt-BR"), "unidades em 6 meses"),
-    kpiCard("FREQUÊNCIA MÉDIA", `${metrics.frequenciaMedia} / mês`, `${RezFireData.TOTAL_MOVIMENTACOES} movimentações no período`),
-  ].join("");
-
-  document.getElementById("kpis-vendas").innerHTML = [
-    kpiCard("TICKET MÉDIO DE VENDA", money(metrics.ticketMedio), "origem: pedidos de demonstração"),
-  ].join("");
-
-  const months = metrics.movimentacoesMensais.map((m) => m.mes);
-  const chartVisao = new ApexCharts(document.querySelector("#chart-movimentacoes"), {
-    chart: {
-      type: "bar",
-      height: 280,
-      toolbar: { show: false },
-      fontFamily: "Inter, sans-serif",
-      animations: { enabled: false },
-    },
-    series: [
-      { name: "entradas", data: metrics.movimentacoesMensais.map((m) => m.entradas) },
-      { name: "saídas", data: metrics.movimentacoesMensais.map((m) => m.saidas) },
-    ],
-    colors: ["#1a1412", "#e85c2a"],
-    plotOptions: {
-      bar: {
-        columnWidth: "46%",
-        borderRadius: 2,
-      },
-    },
-    dataLabels: { enabled: false },
-    grid: {
-      borderColor: "#eee8e0",
-      strokeDashArray: 0,
-    },
-    xaxis: {
-      categories: months,
-      axisBorder: { show: false },
-      axisTicks: { show: false },
-    },
-    yaxis: {
-      min: 0,
-      labels: {
-        formatter: (val) => val.toLocaleString("pt-BR"),
-      },
-    },
-    legend: {
-      position: "bottom",
-      markers: { radius: 2 },
-    },
-    tooltip: {
-      y: { formatter: (val) => `${val.toLocaleString("pt-BR")} un.` },
-    },
-  });
-  chartVisao.render();
 
   renderTabVendas(products);
   setupSalesFilters(products);
@@ -119,6 +27,9 @@ async function renderDashboard() {
     renderTabEntregas();
     setupDeliveryFilters();
   }
+  setupCustomerFilters();
+  setupPurchaseFilters();
+  setupReturnFilters();
   bindTabs();
   bindOrderModalEvents();
   bindStockModalEvents();
@@ -1195,6 +1106,12 @@ function bindTabs() {
 
       if (tabName === "ml") {
         renderTabML();
+      } else if (tabName === "clientes") {
+        renderTabClientes();
+      } else if (tabName === "compras") {
+        renderTabCompras();
+      } else if (tabName === "devolucoes") {
+        renderTabDevolucoes();
       }
 
       // Redimensiona ApexCharts após transição de abas para manter layout responsivo e nítido
@@ -1213,7 +1130,7 @@ function bindTabs() {
   // Suporte a parâmetro na URL: ex: dashboard.html?tab=estoque ou ?tab=financeiro
   const urlParams = new URLSearchParams(window.location.search);
   const initialTab = urlParams.get("tab");
-  if (initialTab) {
+  if (initialTab && initialTab !== "visao-geral") {
     activateTab(initialTab);
   }
 }
@@ -2564,6 +2481,2462 @@ function renderTabProdutos(products) {
     legend: { position: "bottom" },
     stroke: { show: false }
   }).render();
+}
+
+// ─── ABA 8: DASHBOARD DE CLIENTES (INDICADORES & SINAIS DE ATENÇÃO) ───────────
+let clientesCharts = {};
+
+function setupCustomerFilters() {
+  const selectPeriodo = document.getElementById("filtro-clientes-periodo");
+  const selectOrigem = document.getElementById("filtro-clientes-origem");
+  const selectInativo = document.getElementById("filtro-clientes-dias-inativo");
+  const btnRecarregar = document.getElementById("btn-recarregar-dash-clientes");
+  const btnTentar = document.getElementById("btn-tentar-novamente-dash-clientes");
+
+  if (selectPeriodo && !selectPeriodo.dataset.bound) {
+    selectPeriodo.dataset.bound = "true";
+    selectPeriodo.addEventListener("change", () => renderTabClientes());
+  }
+
+  if (selectOrigem && !selectOrigem.dataset.bound) {
+    selectOrigem.dataset.bound = "true";
+    selectOrigem.addEventListener("change", () => renderTabClientes());
+  }
+
+  if (selectInativo && !selectInativo.dataset.bound) {
+    selectInativo.dataset.bound = "true";
+    selectInativo.addEventListener("change", () => renderTabClientes());
+  }
+
+  if (btnRecarregar && !btnRecarregar.dataset.bound) {
+    btnRecarregar.dataset.bound = "true";
+    btnRecarregar.addEventListener("click", () => renderTabClientes());
+  }
+
+  if (btnTentar && !btnTentar.dataset.bound) {
+    btnTentar.dataset.bound = "true";
+    btnTentar.addEventListener("click", () => renderTabClientes());
+  }
+}
+
+async function renderTabClientes() {
+  const selectPeriodo = document.getElementById("filtro-clientes-periodo");
+  const selectOrigem = document.getElementById("filtro-clientes-origem");
+  const selectInativo = document.getElementById("filtro-clientes-dias-inativo");
+  const erroContainer = document.getElementById("erro-dash-clientes");
+  const msgErroEl = document.getElementById("mensagem-erro-dash-clientes");
+
+  const dias = selectPeriodo ? Number(selectPeriodo.value) || 30 : 30;
+  const source = selectOrigem ? selectOrigem.value : "ALL";
+  const diasInativo = selectInativo ? Number(selectInativo.value) || 90 : 90;
+
+  const money = (val) => {
+    return Number(val || 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+  };
+
+  try {
+    if (erroContainer) erroContainer.style.display = "none";
+
+    let dados = null;
+
+    if (window.RezFireAPI && window.RezFireAPI.dashboard && window.RezFireAPI.dashboard.customers) {
+      try {
+        const res = await window.RezFireAPI.dashboard.customers({
+          dias,
+          source,
+          diasInativo,
+        });
+        if (res && res.sucesso) {
+          dados = res;
+        }
+      } catch (apiErr) {
+        console.warn("[Dashboard Clientes] API indisponível, avaliando fallback local:", apiErr);
+      }
+    }
+
+    if (!dados) {
+      // Fallback de contingência local estruturado com dados demonstrativos
+      dados = gerarMetricasClientesFallback(dias, source, diasInativo);
+    }
+
+    renderKpisClientes(dados.kpis, money);
+    renderAlertasClientes(dados.alertas || []);
+    renderTabelaTopClientes(dados.graficos?.topClientesReceita || [], money);
+    renderGraficosClientes(dados.graficos, money);
+
+    setTimeout(() => {
+      window.dispatchEvent(new Event("resize"));
+    }, 150);
+  } catch (err) {
+    console.error("[Dashboard Clientes] Erro ao carregar aba:", err);
+    if (erroContainer) {
+      erroContainer.style.display = "block";
+      if (msgErroEl) msgErroEl.textContent = err.message || "Erro desconhecido ao processar dados.";
+    }
+  }
+}
+
+function renderKpisClientes(kpis, money) {
+  const container = document.getElementById("kpis-tab-clientes");
+  if (!container || !kpis) return;
+
+  const formatDelta = (delta, deltaSentidoBom, labelComp = "vs período anterior") => {
+    if (typeof delta !== "number" || isNaN(delta)) return "";
+    const isUp = deltaSentidoBom;
+    const deltaClass = isUp ? "kpi-delta up" : "kpi-delta down";
+    const sinal = delta > 0 ? "+" : "";
+    return `<span class="${deltaClass}">${sinal}${delta}%</span> ${labelComp}`;
+  };
+
+  const totalBase = kpis.totalClientesBase || {};
+  const novos = kpis.novosClientes || {};
+  const ativos = kpis.clientesAtivos || {};
+  const recorrencia = kpis.taxaRecorrencia || {};
+  const ticket = kpis.ticketMedioCliente || {};
+  const receita = kpis.receitaPorOrigem || {};
+  const inativos = kpis.clientesInativos || {};
+
+  container.innerHTML = [
+    kpiCard(
+      "TOTAL DE CLIENTES NA BASE",
+      Number(totalBase.valor || 0).toLocaleString("pt-BR"),
+      formatDelta(totalBase.deltaPercentual, totalBase.deltaSentidoBom),
+      totalBase.tooltip
+    ),
+    kpiCard(
+      "NOVOS CLIENTES NO PERÍODO",
+      Number(novos.valor || 0).toLocaleString("pt-BR"),
+      formatDelta(novos.deltaPercentual, novos.deltaSentidoBom),
+      novos.tooltip
+    ),
+    kpiCard(
+      "CLIENTES COMPRADORES ATIVOS",
+      Number(ativos.valor || 0).toLocaleString("pt-BR"),
+      formatDelta(ativos.deltaPercentual, ativos.deltaSentidoBom),
+      ativos.tooltip
+    ),
+    kpiCard(
+      "TAXA DE RECORRÊNCIA",
+      `${Number(recorrencia.valor || 0).toFixed(1)}%`,
+      formatDelta(recorrencia.deltaPercentual, recorrencia.deltaSentidoBom, "p.p. vs período ant."),
+      recorrencia.tooltip
+    ),
+    kpiCard(
+      "TICKET MÉDIO POR CLIENTE",
+      money(ticket.valor),
+      formatDelta(ticket.deltaPercentual, ticket.deltaSentidoBom),
+      ticket.tooltip
+    ),
+    kpiCard(
+      "PARTICIPAÇÃO POR ORIGEM",
+      `${Number(receita.sharePresencial || 0).toFixed(0)}% / ${Number(receita.shareMercadoLivre || 0).toFixed(0)}%`,
+      `<span style="color:#0284c7; font-weight:700;">Balcão:</span> ${money(receita.presencial)} • <span style="color:#e85c2a; font-weight:700;">ML:</span> ${money(receita.mercadoLivre)}`,
+      receita.tooltip
+    ),
+    kpiCard(
+      "CLIENTES INATIVOS",
+      `${Number(inativos.valor || 0)} (${Number(inativos.taxaPercentual || 0).toFixed(1)}%)`,
+      formatDelta(inativos.deltaPercentual, inativos.deltaSentidoBom, `sem compras há ${inativos.diasConfigurados || 90}d`),
+      inativos.tooltip
+    ),
+  ].join("");
+}
+
+function renderAlertasClientes(alertas) {
+  const container = document.getElementById("container-alertas-clientes");
+  if (!container) return;
+
+  if (!alertas || alertas.length === 0) {
+    container.innerHTML = `
+      <div style="background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 8px; padding: 12px 16px; display: flex; align-items: center; justify-content: space-between; gap: 12px;">
+        <div style="display: flex; align-items: center; gap: 10px;">
+          <span style="font-size: 1.2rem;">✅</span>
+          <div>
+            <span style="font-size: 0.84rem; font-weight: 700; color: #166534;">Saúde da Base Estável:</span>
+            <span style="font-size: 0.8rem; color: #14532d; margin-left: 4px;">Nenhum sinal crítico de inatividade, queda abrupta de captação ou dependência excessiva identificado.</span>
+          </div>
+        </div>
+        <a href="clientes.html" class="btn-ghost" style="padding: 4px 10px; font-size: 0.78rem; border-color: #86efac; color: #15803d; background: #fff; text-decoration: none;">
+          Ver Clientes →
+        </a>
+      </div>
+    `;
+    return;
+  }
+
+  container.innerHTML = alertas
+    .map((alerta) => {
+      const isCritico = alerta.severidade === "critico";
+      const bg = isCritico ? "#fef2f2" : "#fffbeb";
+      const border = isCritico ? "#f87171" : "#f59e0b";
+      const textTitle = isCritico ? "#991b1b" : "#92400e";
+      const textDesc = isCritico ? "#7f1d1d" : "#78350f";
+      const btnBorder = isCritico ? "#ef4444" : "#f59e0b";
+      const btnColor = isCritico ? "#b91c1c" : "#b45309";
+      const icon = isCritico ? "🛑" : "⚠️";
+
+      return `
+        <div style="background: ${bg}; border-left: 4px solid ${border}; border-top: 1px solid ${border}40; border-right: 1px solid ${border}40; border-bottom: 1px solid ${border}40; border-radius: 6px; padding: 10px 14px; display: flex; align-items: center; justify-content: space-between; gap: 14px; flex-wrap: wrap;">
+          <div style="display: flex; align-items: flex-start; gap: 10px; flex: 1; min-width: 260px;">
+            <span style="font-size: 1.1rem; line-height: 1.2;">${icon}</span>
+            <div>
+              <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+                <span style="font-size: 0.82rem; font-weight: 800; color: ${textTitle};">${escapeHtml(alerta.titulo)}</span>
+                <span style="font-size: 0.68rem; font-weight: 700; padding: 2px 6px; border-radius: 4px; background: ${isCritico ? '#fee2e2' : '#fef3c7'}; color: ${textTitle}; text-transform: uppercase;">
+                  ${isCritico ? 'Crítico' : 'Atenção'}
+                </span>
+                <span style="font-size: 0.72rem; color: #78716c;">(Limite: ${escapeHtml(String(alerta.limiteConfigurado))})</span>
+              </div>
+              <p style="margin: 3px 0 0; font-size: 0.79rem; color: ${textDesc}; line-height: 1.35;">
+                ${escapeHtml(alerta.mensagem)}
+              </p>
+            </div>
+          </div>
+          ${
+            alerta.acaoLink
+              ? `
+            <a href="${alerta.acaoLink}" class="btn-ghost" style="padding: 5px 12px; font-size: 0.78rem; border-color: ${btnBorder}; color: ${btnColor}; background: #fff; text-decoration: none; white-space: nowrap; font-weight: 600;">
+              ${escapeHtml(alerta.acaoTexto || 'Verificar')} →
+            </a>
+          `
+              : ""
+          }
+        </div>
+      `;
+    })
+    .join("");
+}
+
+function renderGraficosClientes(graficos, money) {
+  if (!graficos) return;
+
+  // 1. Destrói gráficos anteriores com segurança
+  Object.keys(clientesCharts).forEach((key) => {
+    if (clientesCharts[key]) {
+      try {
+        clientesCharts[key].destroy();
+      } catch (e) {}
+    }
+  });
+  clientesCharts = {};
+
+  if (typeof ApexCharts === "undefined") {
+    console.warn("[Dashboard Clientes] Biblioteca ApexCharts indisponível.");
+    ["chart-novos-clientes-timeline", "chart-clientes-origem", "chart-clientes-novos-recorrentes", "chart-clientes-geo"].forEach((id) => {
+      const el = document.getElementById(id);
+      if (el) el.innerHTML = '<div style="padding:40px; text-align:center; color:#78716c; font-size:0.85rem;">Gráfico indisponível (ApexCharts não carregado).</div>';
+    });
+    return;
+  }
+
+  // ── Gráfico 1: Timeline de Novos Clientes por Origem ───────────────────────
+  try {
+    const elTimeline = document.querySelector("#chart-novos-clientes-timeline");
+    if (elTimeline && graficos.timeline) {
+      const categories = graficos.timeline.categories?.length > 0 ? graficos.timeline.categories : [];
+      const presencial = graficos.timeline.presencial?.length > 0 ? graficos.timeline.presencial : [];
+      const ml = graficos.timeline.mercadoLivre?.length > 0 ? graficos.timeline.mercadoLivre : [];
+
+      const totalCadastros = presencial.reduce((a, b) => a + (Number(b) || 0), 0) + ml.reduce((a, b) => a + (Number(b) || 0), 0);
+
+      if (totalCadastros === 0 || categories.length === 0) {
+        elTimeline.innerHTML = `
+          <div style="height:280px; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:8px; color:#78716c; background:#faf8f5; border-radius:8px; border:1px dashed #e7e5e4;">
+            <span style="font-size:1.8rem;">📅</span>
+            <span style="font-size:0.86rem; font-weight:700; color:#44403c;">Nenhum novo cadastro no período</span>
+            <span style="font-size:0.76rem; color:#78716c;">Nenhum cliente presencial ou Mercado Livre foi cadastrado neste intervalo de datas.</span>
+          </div>
+        `;
+      } else {
+        elTimeline.innerHTML = "";
+        clientesCharts.timeline = new ApexCharts(elTimeline, {
+          chart: {
+            height: 280,
+            type: "bar",
+            stacked: true,
+            toolbar: { show: false },
+            fontFamily: "Inter, sans-serif",
+            animations: { enabled: false },
+          },
+          series: [
+            { name: "Presencial (Balcão)", data: presencial },
+            { name: "Mercado Livre", data: ml },
+          ],
+          colors: ["#0284c7", "#e85c2a"],
+          plotOptions: {
+            bar: {
+              horizontal: false,
+              columnWidth: "45%",
+              borderRadius: 3,
+            },
+          },
+          grid: {
+            borderColor: "#eee8e0",
+            strokeDashArray: 0,
+          },
+          dataLabels: { enabled: false },
+          xaxis: {
+            type: "category",
+            categories,
+            axisBorder: { show: false },
+            axisTicks: { show: false },
+            labels: {
+              style: { colors: "#78716c", fontSize: "11px", fontFamily: "Inter, sans-serif" },
+            },
+          },
+          yaxis: {
+            min: 0,
+            forceNiceScale: true,
+            labels: {
+              style: { colors: "#78716c", fontSize: "11px", fontFamily: "Inter, sans-serif" },
+              formatter: (val) => Math.round(Number(val) || 0),
+            },
+          },
+          legend: {
+            position: "top",
+            horizontalAlign: "right",
+            fontFamily: "Inter, sans-serif",
+            fontSize: "12px",
+          },
+          tooltip: {
+            shared: true,
+            intersect: false,
+            y: { formatter: (val) => `${val || 0} novo(s) cliente(s)` },
+          },
+        });
+        clientesCharts.timeline.render();
+      }
+    }
+  } catch (errTimeline) {
+    console.error("[Dashboard Clientes] Erro ao renderizar gráfico Timeline:", errTimeline);
+  }
+
+  // ── Gráfico 2: Distribuição por Canal (Origem) ─────────────────────────────
+  try {
+    const elOrigem = document.querySelector("#chart-clientes-origem");
+    if (elOrigem && graficos.distribuicaoOrigem) {
+      const rawSeries = graficos.distribuicaoOrigem.clientesSeries || [0, 0];
+      const sum = (Number(rawSeries[0]) || 0) + (Number(rawSeries[1]) || 0);
+
+      if (sum === 0) {
+        elOrigem.innerHTML = `
+          <div style="height:280px; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:8px; color:#78716c; background:#faf8f5; border-radius:8px; border:1px dashed #e7e5e4;">
+            <span style="font-size:1.8rem;">🛒</span>
+            <span style="font-size:0.86rem; font-weight:700; color:#44403c;">Sem movimentação de canais</span>
+            <span style="font-size:0.76rem; color:#78716c;">Nenhuma compra por balcão ou Mercado Livre no intervalo.</span>
+          </div>
+        `;
+      } else {
+        const series = [Number(rawSeries[0]) || 0, Number(rawSeries[1]) || 0];
+        const receitaSeries = graficos.distribuicaoOrigem.receitaSeries || [0, 0];
+        const labels = graficos.distribuicaoOrigem.labels || ["Presencial (Balcão)", "Mercado Livre"];
+
+        elOrigem.innerHTML = "";
+        clientesCharts.origem = new ApexCharts(elOrigem, {
+          chart: {
+            height: 280,
+            type: "donut",
+            fontFamily: "Inter, sans-serif",
+            animations: { enabled: false },
+          },
+          series,
+          labels,
+          colors: ["#0284c7", "#e85c2a"],
+          dataLabels: {
+            enabled: true,
+            formatter: (val) => `${Math.round(Number(val) || 0)}%`,
+          },
+          legend: { position: "bottom", fontFamily: "Inter, sans-serif", fontSize: "12px" },
+          stroke: { show: false },
+          tooltip: {
+            y: {
+              formatter: (val, opts) => {
+                const idx = opts?.seriesIndex ?? -1;
+                const rec = idx >= 0 && receitaSeries[idx] ? receitaSeries[idx] : 0;
+                return `${val || 0} clientes (${money(rec)})`;
+              },
+            },
+          },
+        });
+        clientesCharts.origem.render();
+      }
+    }
+  } catch (errOrigem) {
+    console.error("[Dashboard Clientes] Erro ao renderizar gráfico Origem:", errOrigem);
+  }
+
+  // ── Gráfico 3: Clientes Novos x Recorrentes ───────────────────────────────
+  try {
+    const elNovosRec = document.querySelector("#chart-clientes-novos-recorrentes");
+    if (elNovosRec && graficos.novosVsRecorrentes) {
+      const rawSeries = graficos.novosVsRecorrentes.series || [0, 0];
+      const sum = (Number(rawSeries[0]) || 0) + (Number(rawSeries[1]) || 0);
+
+      if (sum === 0) {
+        elNovosRec.innerHTML = `
+          <div style="height:280px; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:8px; color:#78716c; background:#faf8f5; border-radius:8px; border:1px dashed #e7e5e4;">
+            <span style="font-size:1.8rem;">👥</span>
+            <span style="font-size:0.86rem; font-weight:700; color:#44403c;">Sem compradores no período</span>
+            <span style="font-size:0.76rem; color:#78716c;">Nenhum comprador novo ou recorrente no intervalo.</span>
+          </div>
+        `;
+      } else {
+        const series = [Number(rawSeries[0]) || 0, Number(rawSeries[1]) || 0];
+        const labels = graficos.novosVsRecorrentes.labels || ["Novos Clientes", "Recorrentes (Recompra)"];
+
+        elNovosRec.innerHTML = "";
+        clientesCharts.novosRec = new ApexCharts(elNovosRec, {
+          chart: {
+            height: 280,
+            type: "donut",
+            fontFamily: "Inter, sans-serif",
+            animations: { enabled: false },
+          },
+          series,
+          labels,
+          colors: ["#10b981", "#1a1412"],
+          dataLabels: {
+            enabled: true,
+            formatter: (val) => `${Math.round(Number(val) || 0)}%`,
+          },
+          legend: { position: "bottom", fontFamily: "Inter, sans-serif", fontSize: "12px" },
+          stroke: { show: false },
+          tooltip: {
+            y: { formatter: (val) => `${val || 0} comprador(es)` },
+          },
+        });
+        clientesCharts.novosRec.render();
+      }
+    }
+  } catch (errNovosRec) {
+    console.error("[Dashboard Clientes] Erro ao renderizar gráfico Novos x Recorrentes:", errNovosRec);
+  }
+
+  // ── Gráfico 4: Presença Geográfica (Top Estados) ──────────────────────────
+  try {
+    const elGeo = document.querySelector("#chart-clientes-geo");
+    if (elGeo && graficos.distribuicaoGeografica) {
+      const ufs = graficos.distribuicaoGeografica.ufs || [];
+
+      if (ufs.length === 0) {
+        elGeo.innerHTML = `
+          <div style="height:280px; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:8px; color:#78716c; background:#faf8f5; border-radius:8px; border:1px dashed #e7e5e4;">
+            <span style="font-size:1.8rem;">📍</span>
+            <span style="font-size:0.86rem; font-weight:700; color:#44403c;">Sem dados geográficos no período</span>
+            <span style="font-size:0.76rem; color:#78716c;">Nenhum cliente com estado (UF) registrado nas compras do período.</span>
+          </div>
+        `;
+      } else {
+        const categories = ufs.map((u) => u.uf || "—");
+        const dataClientes = ufs.map((u) => Number(u.totalClientes) || 0);
+
+        elGeo.innerHTML = "";
+        clientesCharts.geo = new ApexCharts(elGeo, {
+          chart: {
+            height: 280,
+            type: "bar",
+            toolbar: { show: false },
+            fontFamily: "Inter, sans-serif",
+            animations: { enabled: false },
+          },
+          plotOptions: {
+            bar: {
+              horizontal: true,
+              barHeight: "50%",
+              borderRadius: 3,
+            },
+          },
+          grid: {
+            borderColor: "#eee8e0",
+            strokeDashArray: 0,
+          },
+          series: [
+            { name: "Clientes Cadastrados", data: dataClientes },
+          ],
+          colors: ["#e85c2a"],
+          dataLabels: { enabled: true },
+          xaxis: {
+            categories,
+            labels: { formatter: (val) => Math.round(Number(val) || 0) },
+          },
+          tooltip: {
+            y: {
+              formatter: (val, opts) => {
+                const idx = opts?.dataPointIndex ?? -1;
+                const item = idx >= 0 && ufs[idx] ? ufs[idx] : null;
+                return `${val || 0} clientes (${money(item ? item.receita : 0)})`;
+              },
+            },
+          },
+        });
+        clientesCharts.geo.render();
+      }
+    }
+  } catch (errGeo) {
+    console.error("[Dashboard Clientes] Erro ao renderizar gráfico Geográfico:", errGeo);
+  }
+}
+
+function renderTabelaTopClientes(topClientes, money) {
+  const tbody = document.getElementById("tbody-top-clientes");
+  if (!tbody) return;
+
+  if (!topClientes || topClientes.length === 0) {
+    tbody.innerHTML = `
+      <tr>
+        <td colspan="8" style="text-align:center; padding: 24px; color: var(--muted);">
+          Nenhum cliente com pedidos registrados no período selecionado.
+        </td>
+      </tr>
+    `;
+    return;
+  }
+
+  const formatDataSimples = (iso) => {
+    if (!iso) return "—";
+    try {
+      const d = new Date(iso);
+      if (isNaN(d.getTime())) return "—";
+      return d.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit", year: "numeric" });
+    } catch {
+      return "—";
+    }
+  };
+
+  tbody.innerHTML = topClientes
+    .map((c, index) => {
+      const isML = c.origem === "MERCADO_LIVRE";
+      const badgeOrigem = isML
+        ? `<span class="badge-origem badge-ml"><span class="badge-origem-dot"></span>Mercado Livre</span>`
+        : `<span class="badge-origem badge-presencial"><span class="badge-origem-dot"></span>Presencial</span>`;
+
+      const nomeCliente = c.nome || "Cliente sem nome";
+      const cidadeUf = `${c.cidade || "—"} / ${c.uf || "—"}`;
+      const totalPed = Number(c.totalPedidos) || 0;
+      const receita = Number(c.receitaTotal) || 0;
+
+      return `
+        <tr style="border-bottom: 1px solid var(--line);">
+          <td style="padding: 10px 8px; font-weight: 700; color: #78716c;">
+            #${index + 1}
+          </td>
+          <td style="padding: 10px 8px; font-weight: 700; color: var(--ink);">
+            ${escapeHtml(nomeCliente)}
+          </td>
+          <td style="padding: 10px 8px;">
+            ${badgeOrigem}
+          </td>
+          <td style="padding: 10px 8px; color: var(--muted); font-size: 0.8rem;">
+            ${escapeHtml(cidadeUf)}
+          </td>
+          <td style="padding: 10px 8px; text-align: center; font-weight: 700;">
+            ${totalPed}
+          </td>
+          <td style="padding: 10px 8px; text-align: right; font-weight: 800; color: var(--ink);">
+            ${money(receita)}
+          </td>
+          <td style="padding: 10px 8px; text-align: right; color: var(--muted); font-size: 0.8rem;">
+            ${formatDataSimples(c.ultimoPedido)}
+          </td>
+          <td style="padding: 10px 8px; text-align: right;">
+            <a href="clientes.html?busca=${encodeURIComponent(nomeCliente)}" class="btn-ghost" style="padding: 4px 8px; font-size: 0.74rem; text-decoration: none;">
+              Ver Cadastro
+            </a>
+          </td>
+        </tr>
+      `;
+    })
+    .join("");
+}
+
+function gerarMetricasClientesFallback(dias, source, diasInativo) {
+  return {
+    sucesso: true,
+    periodo: { dias, source },
+    kpis: {
+      totalClientesBase: { valor: 9, deltaPercentual: 12.5, deltaSentidoBom: true, tooltip: "Total de clientes na base." },
+      novosClientes: { valor: 4, deltaPercentual: -20.0, deltaSentidoBom: false, tooltip: "Clientes novos cadastrados no período." },
+      clientesAtivos: { valor: 5, deltaPercentual: 25.0, deltaSentidoBom: true, tooltip: "Clientes com compras no período." },
+      taxaRecorrencia: { valor: 28.6, deltaPercentual: 3.2, deltaSentidoBom: true, tooltip: "Taxa de recompras." },
+      ticketMedioCliente: { valor: 1467.12, deltaPercentual: 8.4, deltaSentidoBom: true, tooltip: "Receita média por cliente." },
+      receitaPorOrigem: { valorTotal: 7335.6, presencial: 6350.0, mercadoLivre: 985.6, sharePresencial: 86.6, shareMercadoLivre: 13.4, tooltip: "Divisão de receita." },
+      clientesInativos: { valor: 3, taxaPercentual: 33.3, deltaPercentual: 0, deltaSentidoBom: false, diasConfigurados: diasInativo, tooltip: "Clientes sem compras." },
+    },
+    alertas: [
+      {
+        id: "alerta-dependencia-balcao",
+        tipo: "dependencia_canal",
+        severidade: "atencao",
+        titulo: "Alta dependência do balcão presencial (86.6% do faturamento)",
+        mensagem: "As vendas físicas locais concentram a maioria da receita. Acelere os anúncios no Mercado Livre.",
+        valorAtual: "86.6%",
+        limiteConfigurado: "75%",
+        acaoTexto: "Ver Anúncios ML",
+        acaoLink: "anuncios.html",
+      },
+      {
+        id: "alerta-inativos",
+        tipo: "alto_inativos",
+        severidade: "atencao",
+        titulo: "33.3% da base está inativa há mais de 90 dias",
+        mensagem: "3 clientes corporativos não realizam nenhum pedido há mais de 3 meses. Recomendado contato para recarga anual.",
+        valorAtual: "33.3%",
+        limiteConfigurado: "30%",
+        acaoTexto: "Filtrar Clientes Inativos",
+        acaoLink: "clientes.html?filtro=inativos",
+      },
+    ],
+    graficos: {
+      timeline: {
+        categories: ["10/11", "12/11", "15/11", "18/11"],
+        presencial: [1, 1, 0, 1],
+        mercadoLivre: [0, 0, 1, 1],
+      },
+      distribuicaoOrigem: {
+        labels: ["Presencial (Balcão)", "Mercado Livre"],
+        clientesSeries: [6, 3],
+        receitaSeries: [6350, 985.6],
+      },
+      novosVsRecorrentes: {
+        labels: ["Novos Clientes", "Recorrentes (Recompra)"],
+        series: [4, 2],
+      },
+      topClientesReceita: [
+        { id: 10, nome: "Indústria Metalúrgica Paranaense SA", origem: "PRESENCIAL", cidade: "São José dos Pinhais", uf: "PR", totalPedidos: 2, receitaTotal: 4200.0, ultimoPedido: "2026-11-09T00:00:00Z" },
+        { id: 12, nome: "Logística & Transportes Catarinense", origem: "PRESENCIAL", cidade: "Joinville", uf: "SC", totalPedidos: 1, receitaTotal: 2150.0, ultimoPedido: "2026-11-07T00:00:00Z" },
+        { id: 11, nome: "Auto Posto PetroSul LTDA", origem: "PRESENCIAL", cidade: "Maringá", uf: "PR", totalPedidos: 1, receitaTotal: 1850.0, ultimoPedido: "2026-09-09T00:00:00Z" },
+        { id: 3, nome: "Marcos Vinicius Santos (COMPRADOR_ML_OFICIAL)", origem: "MERCADO_LIVRE", cidade: "São Paulo", uf: "SP", totalPedidos: 2, receitaTotal: 418.8, ultimoPedido: "2026-11-11T00:00:00Z" },
+        { id: 13, nome: "Juliana Andrade (COMPRADOR_ML_SP)", origem: "MERCADO_LIVRE", cidade: "Campinas", uf: "SP", totalPedidos: 1, receitaTotal: 378.0, ultimoPedido: "2026-11-01T00:00:00Z" },
+      ],
+      distribuicaoGeografica: {
+        ufs: [
+          { uf: "PR", totalClientes: 4, receita: 6350.0 },
+          { uf: "SP", totalClientes: 2, receita: 796.8 },
+          { uf: "SC", totalClientes: 1, receita: 2150.0 },
+          { uf: "RJ", totalClientes: 1, receita: 188.8 },
+          { uf: "MG", totalClientes: 1, receita: 980.0 },
+        ],
+      },
+    },
+  };
+}
+
+// ─── ABA 9: DASHBOARD DE COMPRAS & FORNECEDORES ──────────────────────────────
+let comprasCharts = {};
+let scorecardDataAtual = [];
+let scorecardOrdenacao = { coluna: "totalGasto", ascendente: false };
+
+function setupPurchaseFilters() {
+  const selectPeriodo = document.getElementById("filtro-compras-periodo");
+  const selectFornecedor = document.getElementById("filtro-compras-fornecedor");
+  const selectCategoria = document.getElementById("filtro-compras-categoria");
+  const btnRecarregar = document.getElementById("btn-recarregar-dash-compras");
+  const btnTentar = document.getElementById("btn-tentar-novamente-dash-compras");
+
+  if (selectPeriodo && !selectPeriodo.dataset.bound) {
+    selectPeriodo.dataset.bound = "true";
+    selectPeriodo.addEventListener("change", () => renderTabCompras());
+  }
+
+  if (selectFornecedor && !selectFornecedor.dataset.bound) {
+    selectFornecedor.dataset.bound = "true";
+    selectFornecedor.addEventListener("change", () => renderTabCompras());
+  }
+
+  if (selectCategoria && !selectCategoria.dataset.bound) {
+    selectCategoria.dataset.bound = "true";
+    selectCategoria.addEventListener("change", () => renderTabCompras());
+  }
+
+  if (btnRecarregar && !btnRecarregar.dataset.bound) {
+    btnRecarregar.dataset.bound = "true";
+    btnRecarregar.addEventListener("click", () => renderTabCompras());
+  }
+
+  if (btnTentar && !btnTentar.dataset.bound) {
+    btnTentar.dataset.bound = "true";
+    btnTentar.addEventListener("click", () => renderTabCompras());
+  }
+
+  // Bind de ordenação do Scorecard
+  const thHeaders = document.querySelectorAll("#tabela-scorecard-compras th[data-sort]");
+  thHeaders.forEach((th) => {
+    if (!th.dataset.bound) {
+      th.dataset.bound = "true";
+      th.addEventListener("click", () => {
+        const coluna = th.getAttribute("data-sort");
+        if (scorecardOrdenacao.coluna === coluna) {
+          scorecardOrdenacao.ascendente = !scorecardOrdenacao.ascendente;
+        } else {
+          scorecardOrdenacao.coluna = coluna;
+          scorecardOrdenacao.ascendente = false; // Maior primeiro por padrão
+        }
+        const money = (val) => Number(val || 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+        renderScorecardCompras(scorecardDataAtual, money);
+      });
+    }
+  });
+}
+
+async function renderTabCompras() {
+  const selectPeriodo = document.getElementById("filtro-compras-periodo");
+  const selectFornecedor = document.getElementById("filtro-compras-fornecedor");
+  const selectCategoria = document.getElementById("filtro-compras-categoria");
+  const erroContainer = document.getElementById("erro-dash-compras");
+  const msgErroEl = document.getElementById("mensagem-erro-dash-compras");
+
+  const dias = selectPeriodo ? Number(selectPeriodo.value) || 30 : 30;
+  const supplierId = selectFornecedor && selectFornecedor.value !== "ALL" ? selectFornecedor.value : "ALL";
+  const categoryId = selectCategoria && selectCategoria.value !== "ALL" ? selectCategoria.value : "ALL";
+
+  const money = (val) => Number(val || 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+
+  try {
+    if (erroContainer) erroContainer.style.display = "none";
+
+    let dados = null;
+
+    if (window.RezFireAPI && window.RezFireAPI.dashboard && window.RezFireAPI.dashboard.purchases) {
+      try {
+        const res = await window.RezFireAPI.dashboard.purchases({
+          dias,
+          supplierId,
+          categoryId,
+        });
+        if (res && res.sucesso) {
+          dados = res;
+        }
+      } catch (apiErr) {
+        console.warn("[Dashboard Compras] API indisponível, usando fallback demonstrativo:", apiErr);
+      }
+    }
+
+    if (!dados) {
+      dados = gerarMetricasComprasFallback(dias, supplierId, categoryId);
+    }
+
+    // Atualiza opções do select de fornecedores dinamicamente se ainda não preenchido
+    if (selectFornecedor && Array.isArray(dados.fornecedoresFiltro) && (!selectFornecedor.options || selectFornecedor.options.length <= 1)) {
+      const valorAtual = selectFornecedor.value;
+      dados.fornecedoresFiltro.forEach((f) => {
+        const opt = document.createElement ? document.createElement("option") : {};
+        opt.value = f.id_fornecedor;
+        opt.textContent = f.nome;
+        if (selectFornecedor.appendChild) selectFornecedor.appendChild(opt);
+      });
+      selectFornecedor.value = valorAtual;
+    }
+
+    renderKpisCompras(dados.kpis, money);
+    renderAlertasCompras(dados.alertas || []);
+    renderScorecardCompras(dados.scorecard || [], money);
+    renderGraficosCompras(dados.graficos, money);
+
+    setTimeout(() => {
+      window.dispatchEvent(new Event("resize"));
+    }, 150);
+  } catch (err) {
+    console.error("[Dashboard Compras] Erro ao carregar aba:", err);
+    if (erroContainer) {
+      erroContainer.style.display = "block";
+      if (msgErroEl) msgErroEl.textContent = err.message || "Erro desconhecido ao processar dados de compras.";
+    }
+  }
+}
+
+function renderKpisCompras(kpis, money) {
+  const container = document.getElementById("kpis-tab-compras");
+  if (!container || !kpis) return;
+
+  const formatDelta = (delta, deltaSentidoBom, labelComp = "vs período anterior") => {
+    if (typeof delta !== "number" || isNaN(delta)) return "";
+    const isUp = deltaSentidoBom ? delta > 0 : delta < 0;
+    const deltaClass = isUp ? "kpi-delta up" : "kpi-delta down";
+    const sinal = delta > 0 ? "+" : "";
+    return `<span class="${deltaClass}">${sinal}${delta}%</span> ${labelComp}`;
+  };
+
+  const gasto = kpis.gastoTotal || {};
+  const pedidos = kpis.pedidosCompra || {};
+  const ticket = kpis.ticketMedio || {};
+  const prazo = kpis.prazoMedioEntrega || {};
+  const pontualidade = kpis.entregasNoPrazo || {};
+  const atrasados = kpis.pedidosAtrasados || {};
+  const variacaoCusto = kpis.variacaoCustoCompra || {};
+  const ativos = kpis.fornecedoresAtivos || {};
+  const concentracao = kpis.concentracaoCompras || {};
+
+  container.innerHTML = [
+    kpiCard(
+      "GASTO TOTAL EM COMPRAS",
+      gasto.semDados ? "Sem dados" : (gasto.valorFormatado || money(gasto.valor)),
+      formatDelta(gasto.deltaPercentual, gasto.deltaSentidoBom),
+      gasto.tooltip
+    ),
+    kpiCard(
+      "PEDIDOS DE COMPRA",
+      pedidos.semDados ? "Sem dados" : String(pedidos.valor ?? 0),
+      formatDelta(pedidos.deltaPercentual, pedidos.deltaSentidoBom),
+      pedidos.tooltip
+    ),
+    kpiCard(
+      "TICKET MÉDIO POR PEDIDO",
+      ticket.semDados ? "Sem dados" : (ticket.valorFormatado || money(ticket.valor)),
+      formatDelta(ticket.deltaPercentual, ticket.deltaSentidoBom),
+      ticket.tooltip
+    ),
+    kpiCard(
+      "PRAZO MÉDIO DE ENTREGA",
+      prazo.semDados ? "Sem dados" : (prazo.valorFormatado || `${prazo.valor} dias`),
+      formatDelta(prazo.deltaPercentual, prazo.deltaSentidoBom),
+      prazo.tooltip
+    ),
+    kpiCard(
+      "ENTREGAS NO PRAZO",
+      pontualidade.semDados ? "Sem dados" : (pontualidade.valorFormatado || `${pontualidade.valor}%`),
+      pontualidade.deltaPercentual !== null ? formatDelta(pontualidade.deltaPercentual, pontualidade.deltaSentidoBom, "p.p. vs ant.") : "",
+      pontualidade.tooltip
+    ),
+    kpiCard(
+      "PEDIDOS ATRASADOS EM ABERTO",
+      atrasados.semDados ? "0 no prazo" : (atrasados.valorFormatado || `${atrasados.valor} em atraso`),
+      atrasados.valor > 0 ? `<span class="kpi-delta down">⚠️ Ação urgente necessária</span>` : `<span class="kpi-delta up">✓ SLA em dia</span>`,
+      atrasados.tooltip
+    ),
+    kpiCard(
+      "VARIAÇÃO DO CUSTO DE COMPRA",
+      variacaoCusto.semDados ? "Sem dados comp." : (variacaoCusto.valorFormatado || `${variacaoCusto.valor}%`),
+      variacaoCusto.valor !== null ? (variacaoCusto.valor > 0 ? `<span class="kpi-delta down">+${variacaoCusto.valor}% inflação insumos</span>` : `<span class="kpi-delta up">${variacaoCusto.valor}% economia</span>`) : "",
+      variacaoCusto.tooltip
+    ),
+    kpiCard(
+      "FORNECEDORES ATIVOS",
+      ativos.semDados ? "Nenhum" : (ativos.valorFormatado || `${ativos.valor} ativos`),
+      `${ativos.valor || 0} parceiros com pedidos`,
+      ativos.tooltip
+    ),
+    kpiCard(
+      "CONCENTRAÇÃO DE COMPRAS",
+      concentracao.semDados ? "Sem dados" : (concentracao.valorFormatado || `${concentracao.valor}%`),
+      concentracao.fornecedorNome ? `<span style="font-size:0.72rem; color:#78716c;">Maior: <strong>${escapeHtml(concentracao.fornecedorNome)}</strong></span>` : "",
+      concentracao.tooltip
+    ),
+  ].join("");
+}
+
+function renderAlertasCompras(alertas) {
+  const container = document.getElementById("container-alertas-compras");
+  if (!container) return;
+
+  if (!alertas || alertas.length === 0) {
+    container.innerHTML = `
+      <div style="background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 8px; padding: 12px 16px; display: flex; align-items: center; justify-content: space-between; gap: 12px;">
+        <div style="display: flex; align-items: center; gap: 10px;">
+          <span style="font-size: 1.2rem;">✅</span>
+          <div>
+            <span style="font-size: 0.84rem; font-weight: 700; color: #166534;">Cadeia de Suprimentos Saudável:</span>
+            <span style="font-size: 0.8rem; color: #14532d; margin-left: 4px;">Nenhum atraso recorrente, inflação crítica ou dependência excessiva de fornecedor detectada no período.</span>
+          </div>
+        </div>
+      </div>
+    `;
+    return;
+  }
+
+  container.innerHTML = alertas
+    .map((alerta) => {
+      const isCritico = alerta.severidade === "critico";
+      const bg = isCritico ? "#fef2f2" : "#fffbeb";
+      const border = isCritico ? "#f87171" : "#f59e0b";
+      const textTitle = isCritico ? "#991b1b" : "#92400e";
+      const textDesc = isCritico ? "#7f1d1d" : "#78350f";
+      const btnBorder = isCritico ? "#ef4444" : "#f59e0b";
+      const btnColor = isCritico ? "#b91c1c" : "#b45309";
+      const icon = isCritico ? "🛑" : "⚠️";
+
+      return `
+        <div style="background: ${bg}; border-left: 4px solid ${border}; border-top: 1px solid ${border}40; border-right: 1px solid ${border}40; border-bottom: 1px solid ${border}40; border-radius: 6px; padding: 10px 14px; display: flex; align-items: center; justify-content: space-between; gap: 14px; flex-wrap: wrap;">
+          <div style="display: flex; align-items: flex-start; gap: 10px; flex: 1; min-width: 260px;">
+            <span style="font-size: 1.1rem; line-height: 1.2;">${icon}</span>
+            <div>
+              <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+                <span style="font-size: 0.82rem; font-weight: 800; color: ${textTitle};">${escapeHtml(alerta.titulo)}</span>
+                <span style="font-size: 0.68rem; font-weight: 700; padding: 2px 6px; border-radius: 4px; background: ${isCritico ? '#fee2e2' : '#fef3c7'}; color: ${textTitle}; text-transform: uppercase;">
+                  ${isCritico ? 'Crítico' : 'Atenção'}
+                </span>
+                <span style="font-size: 0.72rem; color: #78716c;">(Limite: ${escapeHtml(String(alerta.limiteConfigurado))})</span>
+              </div>
+              <p style="margin: 3px 0 0; font-size: 0.79rem; color: ${textDesc}; line-height: 1.35;">
+                ${escapeHtml(alerta.mensagem)}
+              </p>
+            </div>
+          </div>
+          ${
+            alerta.acaoLink
+              ? `
+            <a href="${alerta.acaoLink}" class="btn-ghost" style="padding: 5px 12px; font-size: 0.78rem; border-color: ${btnBorder}; color: ${btnColor}; background: #fff; text-decoration: none; white-space: nowrap; font-weight: 600;">
+              ${escapeHtml(alerta.acaoTexto || 'Verificar')} →
+            </a>
+          `
+              : ""
+          }
+        </div>
+      `;
+    })
+    .join("");
+}
+
+function renderScorecardCompras(scorecard, money) {
+  const tbody = document.getElementById("tbody-scorecard-compras");
+  const badgeTotal = document.getElementById("badge-total-fornecedores-scorecard");
+  if (!tbody) return;
+
+  scorecardDataAtual = scorecard || [];
+
+  if (badgeTotal) {
+    badgeTotal.textContent = `${scorecardDataAtual.length} fornecedor(es)`;
+  }
+
+  if (!scorecardDataAtual || scorecardDataAtual.length === 0) {
+    tbody.innerHTML = `
+      <tr>
+        <td colspan="9" style="text-align:center; padding: 30px; color: var(--muted);">
+          Nenhum dado de compras encontrado para os filtros selecionados.
+        </td>
+      </tr>
+    `;
+    return;
+  }
+
+  // Ordenação dinâmica
+  const sorted = [...scorecardDataAtual].sort((a, b) => {
+    let valA = a[scorecardOrdenacao.coluna];
+    let valB = b[scorecardOrdenacao.coluna];
+
+    if (valA === null || valA === undefined) valA = -999999;
+    if (valB === null || valB === undefined) valB = -999999;
+
+    if (typeof valA === "string") {
+      return scorecardOrdenacao.ascendente
+        ? valA.localeCompare(String(valB))
+        : String(valB).localeCompare(valA);
+    }
+    return scorecardOrdenacao.ascendente ? Number(valA) - Number(valB) : Number(valB) - Number(valA);
+  });
+
+  tbody.innerHTML = sorted
+    .map((s) => {
+      let badgeStatus = "";
+      if (s.statusOperacional === "Excelente") {
+        badgeStatus = `<span style="background:#dcfce7; color:#15803d; font-weight:700; padding:3px 8px; border-radius:4px; font-size:0.74rem;">✓ Excelente</span>`;
+      } else if (s.statusOperacional === "Crítico") {
+        badgeStatus = `<span style="background:#fee2e2; color:#b91c1c; font-weight:700; padding:3px 8px; border-radius:4px; font-size:0.74rem;">🛑 Crítico</span>`;
+      } else if (s.statusOperacional === "Alerta") {
+        badgeStatus = `<span style="background:#fef3c7; color:#b45309; font-weight:700; padding:3px 8px; border-radius:4px; font-size:0.74rem;">⚠️ Alerta</span>`;
+      } else {
+        badgeStatus = `<span style="background:#f3f4f6; color:#4b5563; font-weight:600; padding:3px 8px; border-radius:4px; font-size:0.74rem;">Normal</span>`;
+      }
+
+      const pontualidadeLabel = s.pontualidadePct !== null ? `${s.pontualidadePct}%` : "—";
+      const pontualidadeClass = s.pontualidadePct !== null && s.pontualidadePct < 80 ? "color:#b91c1c; font-weight:800;" : "font-weight:700;";
+
+      return `
+        <tr style="border-bottom: 1px solid var(--line);">
+          <td style="padding: 10px 8px;">
+            <div style="font-weight: 700; color: var(--ink);">${escapeHtml(s.nome)}</div>
+            <div style="font-size: 0.72rem; color: var(--muted);">${escapeHtml(s.cnpj || '—')}</div>
+          </td>
+          <td style="padding: 10px 8px; font-size: 0.8rem; color: var(--muted);">
+            ${escapeHtml(s.cidadeUf)}
+          </td>
+          <td style="padding: 10px 8px; text-align: center; font-weight: 700;">
+            ${s.totalPedidos}
+          </td>
+          <td style="padding: 10px 8px; text-align: right; font-weight: 800; color: var(--ink);">
+            ${money(s.totalGasto)}
+          </td>
+          <td style="padding: 10px 8px; text-align: center; ${pontualidadeClass}">
+            ${pontualidadeLabel}
+          </td>
+          <td style="padding: 10px 8px; text-align: center; font-size: 0.82rem;">
+            ${s.leadTimeMedioDias} dias
+          </td>
+          <td style="padding: 10px 8px; text-align: center;">
+            ${s.pedidosAtrasados > 0 ? `<span style="color:#b91c1c; font-weight:800;">${s.pedidosAtrasados}</span>` : `<span style="color:#15803d;">0</span>`}
+          </td>
+          <td style="padding: 10px 8px; text-align: center; font-size: 0.8rem; color: ${s.taxaDevolucaoPct > 0 ? '#b91c1c; font-weight:700;' : 'var(--muted);'}">
+            ${s.taxaDevolucaoPct}%
+          </td>
+          <td style="padding: 10px 8px; text-align: center;">
+            ${badgeStatus}
+          </td>
+        </tr>
+      `;
+    })
+    .join("");
+}
+
+function renderGraficosCompras(graficos, money) {
+  if (!graficos) return;
+
+  // 1. Destrói instâncias anteriores com segurança
+  Object.keys(comprasCharts).forEach((key) => {
+    if (comprasCharts[key]) {
+      try {
+        comprasCharts[key].destroy();
+      } catch (e) {}
+    }
+  });
+  comprasCharts = {};
+
+  if (typeof ApexCharts === "undefined") {
+    console.warn("[Dashboard Compras] Biblioteca ApexCharts indisponível.");
+    ["chart-compras-timeline", "chart-compras-top-fornecedores", "chart-compras-prazos", "chart-compras-categorias", "chart-compras-status", "chart-compras-evolucao-preco"].forEach((id) => {
+      const el = document.getElementById(id);
+      if (el) el.innerHTML = '<div style="padding:40px; text-align:center; color:#78716c; font-size:0.85rem;">Gráfico indisponível (ApexCharts não carregado).</div>';
+    });
+    return;
+  }
+
+  // ── Gráfico 1: Timeline do Gasto em Compras ──────────────────────────────
+  try {
+    const elTimeline = document.querySelector("#chart-compras-timeline");
+    if (elTimeline && graficos.timeline) {
+      const categories = graficos.timeline.categories || [];
+      const gasto = graficos.timeline.gasto || [];
+
+      if (gasto.length === 0 || categories.length === 0) {
+        elTimeline.innerHTML = `
+          <div style="height:280px; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:8px; color:#78716c; background:#faf8f5; border-radius:8px; border:1px dashed #e7e5e4;">
+            <span style="font-size:1.8rem;">📦</span>
+            <span style="font-size:0.86rem; font-weight:700; color:#44403c;">Nenhuma compra no período</span>
+            <span style="font-size:0.76rem; color:#78716c;">Nenhum pedido de compra foi emitido no intervalo de datas selecionado.</span>
+          </div>
+        `;
+      } else {
+        elTimeline.innerHTML = "";
+        comprasCharts.timeline = new ApexCharts(elTimeline, {
+          chart: {
+            height: 280,
+            type: "area",
+            toolbar: { show: false },
+            fontFamily: "Inter, sans-serif",
+            animations: { enabled: false },
+          },
+          series: [
+            { name: "Gasto em Compras", data: gasto },
+          ],
+          colors: ["#1a1412"],
+          stroke: { curve: "smooth", width: 2 },
+          fill: {
+            type: "gradient",
+            gradient: {
+              shadeIntensity: 1,
+              opacityFrom: 0.45,
+              opacityTo: 0.05,
+              stops: [0, 95, 100],
+            },
+          },
+          grid: { borderColor: "#eee8e0", strokeDashArray: 0 },
+          dataLabels: { enabled: false },
+          xaxis: {
+            categories,
+            axisBorder: { show: false },
+            axisTicks: { show: false },
+            labels: { style: { colors: "#78716c", fontSize: "11px", fontFamily: "Inter, sans-serif" } },
+          },
+          yaxis: {
+            min: 0,
+            labels: {
+              style: { colors: "#78716c", fontSize: "11px", fontFamily: "Inter, sans-serif" },
+              formatter: (val) => money(val),
+            },
+          },
+          tooltip: {
+            y: { formatter: (val) => money(val) },
+          },
+        });
+        comprasCharts.timeline.render();
+      }
+    }
+  } catch (errTimeline) {
+    console.error("[Dashboard Compras] Erro no gráfico Timeline:", errTimeline);
+  }
+
+  // ── Gráfico 2: Top Fornecedores por Gasto (Barras Horizontais) ───────────
+  try {
+    const elTopForn = document.querySelector("#chart-compras-top-fornecedores");
+    if (elTopForn && graficos.topFornecedores) {
+      const top = graficos.topFornecedores || [];
+
+      if (top.length === 0) {
+        elTopForn.innerHTML = `
+          <div style="height:280px; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:8px; color:#78716c; background:#faf8f5; border-radius:8px; border:1px dashed #e7e5e4;">
+            <span style="font-size:1.8rem;">🏢</span>
+            <span style="font-size:0.86rem; font-weight:700; color:#44403c;">Sem compras por fornecedor</span>
+          </div>
+        `;
+      } else {
+        const categories = top.map((t) => t.nome);
+        const dataValores = top.map((t) => t.gasto);
+
+        elTopForn.innerHTML = "";
+        comprasCharts.topFornecedores = new ApexCharts(elTopForn, {
+          chart: {
+            height: 280,
+            type: "bar",
+            toolbar: { show: false },
+            fontFamily: "Inter, sans-serif",
+            animations: { enabled: false },
+          },
+          plotOptions: {
+            bar: {
+              horizontal: true,
+              barHeight: "50%",
+              borderRadius: 3,
+            },
+          },
+          colors: ["#e85c2a"],
+          dataLabels: {
+            enabled: true,
+            formatter: (val, opt) => {
+              const item = top[opt.dataPointIndex];
+              return `${money(val)} (${item?.participacao || 0}%)`;
+            },
+            style: { fontSize: "10px", colors: ["#fff"] },
+          },
+          grid: { borderColor: "#eee8e0", strokeDashArray: 0 },
+          xaxis: {
+            categories,
+            labels: { formatter: (val) => money(val) },
+          },
+          tooltip: {
+            y: {
+              formatter: (val, opt) => {
+                const item = top[opt.dataPointIndex];
+                return `${money(val)} (${item?.participacao || 0}% do gasto total)`;
+              },
+            },
+          },
+        });
+        comprasCharts.topFornecedores.render();
+      }
+    }
+  } catch (errTopForn) {
+    console.error("[Dashboard Compras] Erro no gráfico Top Fornecedores:", errTopForn);
+  }
+
+  // ── Gráfico 3: Prazo Previsto x Realizado por Fornecedor ───────────────────
+  try {
+    const elPrazos = document.querySelector("#chart-compras-prazos");
+    if (elPrazos && graficos.prazosPorFornecedor) {
+      const labels = graficos.prazosPorFornecedor.labels || [];
+      const previsto = graficos.prazosPorFornecedor.previsto || [];
+      const realizado = graficos.prazosPorFornecedor.realizado || [];
+
+      if (labels.length === 0) {
+        elPrazos.innerHTML = `
+          <div style="height:280px; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:8px; color:#78716c; background:#faf8f5; border-radius:8px; border:1px dashed #e7e5e4;">
+            <span style="font-size:1.8rem;">⏱️</span>
+            <span style="font-size:0.86rem; font-weight:700; color:#44403c;">Sem pedidos entregues no período</span>
+          </div>
+        `;
+      } else {
+        elPrazos.innerHTML = "";
+        comprasCharts.prazos = new ApexCharts(elPrazos, {
+          chart: {
+            height: 280,
+            type: "bar",
+            toolbar: { show: false },
+            fontFamily: "Inter, sans-serif",
+            animations: { enabled: false },
+          },
+          plotOptions: {
+            bar: {
+              horizontal: false,
+              columnWidth: "45%",
+              borderRadius: 3,
+            },
+          },
+          colors: ["#0284c7", "#f59e0b"],
+          series: [
+            { name: "Prazo Previsto (dias)", data: previsto },
+            { name: "Prazo Realizado (dias)", data: realizado },
+          ],
+          grid: { borderColor: "#eee8e0", strokeDashArray: 0 },
+          dataLabels: { enabled: false },
+          xaxis: {
+            categories: labels,
+            labels: { style: { colors: "#78716c", fontSize: "11px", fontFamily: "Inter, sans-serif" } },
+          },
+          yaxis: {
+            min: 0,
+            labels: { formatter: (val) => `${Math.round(val)}d` },
+          },
+          legend: { position: "top", horizontalAlign: "right", fontFamily: "Inter, sans-serif" },
+          tooltip: {
+            shared: true,
+            intersect: false,
+            y: { formatter: (val) => `${val} dias` },
+          },
+        });
+        comprasCharts.prazos.render();
+      }
+    }
+  } catch (errPrazos) {
+    console.error("[Dashboard Compras] Erro no gráfico Prazos:", errPrazos);
+  }
+
+  // ── Gráfico 4: Gasto por Categoria de Produto (Donut) ─────────────────────
+  try {
+    const elCat = document.querySelector("#chart-compras-categorias");
+    if (elCat && graficos.categoriasChart) {
+      const labels = graficos.categoriasChart.labels || [];
+      const series = graficos.categoriasChart.series || [];
+      const sum = series.reduce((a, b) => a + (Number(b) || 0), 0);
+
+      if (sum === 0 || series.length === 0) {
+        elCat.innerHTML = `
+          <div style="height:280px; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:8px; color:#78716c; background:#faf8f5; border-radius:8px; border:1px dashed #e7e5e4;">
+            <span style="font-size:1.8rem;">🏷️</span>
+            <span style="font-size:0.86rem; font-weight:700; color:#44403c;">Sem gastos por categoria</span>
+          </div>
+        `;
+      } else {
+        elCat.innerHTML = "";
+        comprasCharts.categorias = new ApexCharts(elCat, {
+          chart: {
+            height: 280,
+            type: "donut",
+            fontFamily: "Inter, sans-serif",
+            animations: { enabled: false },
+          },
+          series,
+          labels,
+          colors: ["#1a1412", "#e85c2a", "#0284c7", "#10b981", "#8b5cf6"],
+          dataLabels: {
+            enabled: true,
+            formatter: (val) => `${Math.round(Number(val) || 0)}%`,
+          },
+          legend: { position: "bottom", fontFamily: "Inter, sans-serif", fontSize: "12px" },
+          stroke: { show: false },
+          tooltip: {
+            y: { formatter: (val) => money(val) },
+          },
+        });
+        comprasCharts.categorias.render();
+      }
+    }
+  } catch (errCat) {
+    console.error("[Dashboard Compras] Erro no gráfico Categorias:", errCat);
+  }
+
+  // ── Gráfico 5: Pedidos de Compra por Status (Donut) ────────────────────────
+  try {
+    const elStatus = document.querySelector("#chart-compras-status");
+    if (elStatus && graficos.statusChart) {
+      const labels = graficos.statusChart.labels || [];
+      const series = graficos.statusChart.series || [];
+      const sum = series.reduce((a, b) => a + (Number(b) || 0), 0);
+
+      if (sum === 0) {
+        elStatus.innerHTML = `
+          <div style="height:280px; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:8px; color:#78716c; background:#faf8f5; border-radius:8px; border:1px dashed #e7e5e4;">
+            <span style="font-size:1.8rem;">📊</span>
+            <span style="font-size:0.86rem; font-weight:700; color:#44403c;">Nenhum pedido de compra</span>
+          </div>
+        `;
+      } else {
+        elStatus.innerHTML = "";
+        comprasCharts.status = new ApexCharts(elStatus, {
+          chart: {
+            height: 280,
+            type: "donut",
+            fontFamily: "Inter, sans-serif",
+            animations: { enabled: false },
+          },
+          series,
+          labels,
+          colors: ["#10b981", "#0284c7", "#ef4444", "#f59e0b", "#9ca3af"],
+          dataLabels: {
+            enabled: true,
+            formatter: (val, opt) => `${opt.w.globals.series[opt.seriesIndex]} un`,
+          },
+          legend: { position: "bottom", fontFamily: "Inter, sans-serif", fontSize: "12px" },
+          stroke: { show: false },
+          tooltip: {
+            y: {
+              formatter: (val, opt) => {
+                const idx = opt?.seriesIndex ?? -1;
+                const v = graficos.statusChart.valores?.[idx] || 0;
+                return `${val} pedidos (${money(v)})`;
+              },
+            },
+          },
+        });
+        comprasCharts.status.render();
+      }
+    }
+  } catch (errStatus) {
+    console.error("[Dashboard Compras] Erro no gráfico Status:", errStatus);
+  }
+
+  // ── Gráfico 6: Evolução do Preço dos Itens Mais Comprados ─────────────────
+  try {
+    const elPreco = document.querySelector("#chart-compras-evolucao-preco");
+    const selectItemPreco = document.getElementById("filtro-compras-produto-preco");
+    const itens = graficos.itensHistoricoPreco || [];
+
+    if (elPreco) {
+      if (itens.length === 0) {
+        elPreco.innerHTML = `
+          <div style="height:280px; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:8px; color:#78716c; background:#faf8f5; border-radius:8px; border:1px dashed #e7e5e4;">
+            <span style="font-size:1.8rem;">📈</span>
+            <span style="font-size:0.86rem; font-weight:700; color:#44403c;">Sem histórico de preços registrado</span>
+          </div>
+        `;
+      } else {
+        // Popula o select de produtos caso ainda não preenchido
+        if (selectItemPreco && (!selectItemPreco.options || selectItemPreco.options.length <= 1)) {
+          itens.forEach((it, idx) => {
+            const opt = document.createElement ? document.createElement("option") : {};
+            opt.value = it.idProduto;
+            opt.textContent = it.nome;
+            if (idx === 0) opt.selected = true;
+            if (selectItemPreco.appendChild) selectItemPreco.appendChild(opt);
+          });
+
+          if (!selectItemPreco.dataset.bound) {
+            selectItemPreco.dataset.bound = "true";
+            selectItemPreco.addEventListener("change", () => {
+              renderizarGraficoEvolucaoPrecoItem(Number(selectItemPreco.value), itens, elPreco, money);
+            });
+          }
+        }
+
+        const produtoIdInicial = selectItemPreco && selectItemPreco.value ? Number(selectItemPreco.value) : itens[0].idProduto;
+        renderizarGraficoEvolucaoPrecoItem(produtoIdInicial, itens, elPreco, money);
+      }
+    }
+  } catch (errPreco) {
+    console.error("[Dashboard Compras] Erro no gráfico Evolução de Preços:", errPreco);
+  }
+}
+
+function renderizarGraficoEvolucaoPrecoItem(idProduto, itens, containerEl, money) {
+  if (comprasCharts.precoItem) {
+    try {
+      comprasCharts.precoItem.destroy();
+    } catch (e) {}
+  }
+
+  const itemSel = itens.find((i) => i.idProduto === idProduto) || itens[0];
+  if (!itemSel || !itemSel.pontos || itemSel.pontos.length === 0) {
+    containerEl.innerHTML = `
+      <div style="height:280px; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:8px; color:#78716c; background:#faf8f5; border-radius:8px; border:1px dashed #e7e5e4;">
+        <span style="font-size:0.86rem; font-weight:700; color:#44403c;">Sem histórico para este item</span>
+      </div>
+    `;
+    return;
+  }
+
+  const categories = itemSel.pontos.map((p) => p.data);
+  const dataPrecos = itemSel.pontos.map((p) => p.preco);
+
+  containerEl.innerHTML = "";
+  comprasCharts.precoItem = new ApexCharts(containerEl, {
+    chart: {
+      height: 280,
+      type: "line",
+      toolbar: { show: false },
+      fontFamily: "Inter, sans-serif",
+      animations: { enabled: false },
+    },
+    series: [
+      { name: "Preço Unitário Pago", data: dataPrecos },
+    ],
+    colors: ["#e85c2a"],
+    stroke: { width: 3, curve: "stepline" },
+    markers: { size: 5, strokeColors: "#fff", strokeWidth: 2 },
+    grid: { borderColor: "#eee8e0", strokeDashArray: 0 },
+    xaxis: {
+      categories,
+      labels: { style: { colors: "#78716c", fontSize: "11px", fontFamily: "Inter, sans-serif" } },
+    },
+    yaxis: {
+      labels: {
+        style: { colors: "#78716c", fontSize: "11px", fontFamily: "Inter, sans-serif" },
+        formatter: (val) => money(val),
+      },
+    },
+    tooltip: {
+      y: {
+        formatter: (val, opt) => {
+          const pt = itemSel.pontos[opt.dataPointIndex];
+          return `${money(val)} (Fornecedor: ${pt?.fornecedor || 'N/A'})`;
+        },
+      },
+    },
+  });
+  comprasCharts.precoItem.render();
+}
+
+function gerarMetricasComprasFallback(dias, supplierId, categoryId) {
+  return {
+    sucesso: true,
+    periodo: { dias, supplierId, categoryId },
+    fornecedoresFiltro: [
+      { id_fornecedor: 1, nome: "Resil Extintores" },
+      { id_fornecedor: 2, nome: "Bucka Fire Systems" },
+      { id_fornecedor: 3, nome: "Extinpel Brasil" },
+      { id_fornecedor: 4, nome: "Sinalize Placas" },
+    ],
+    kpis: {
+      gastoTotal: { valor: 34980, valorFormatado: "R$ 34.980,00", deltaPercentual: 53.1, deltaSentidoBom: false, tooltip: "Soma total dos valores de pedidos de compra emitidos no período." },
+      pedidosCompra: { valor: 6, valorFormatado: "6 pedidos", deltaPercentual: 50.0, deltaSentidoBom: true, tooltip: "Quantidade de ordens de compra geradas." },
+      ticketMedio: { valor: 5830, valorFormatado: "R$ 5.830,00", deltaPercentual: 2.1, deltaSentidoBom: true, tooltip: "Valor médio por pedido de compra." },
+      prazoMedioEntrega: { valor: 7.3, valorFormatado: "7.3 dias", deltaPercentual: 38.1, deltaSentidoBom: false, tooltip: "Tempo médio decorrido da emissão ao recebimento." },
+      entregasNoPrazo: { valor: 75.0, valorFormatado: "75.0%", deltaPercentual: 0, deltaSentidoBom: true, tooltip: "Percentual de pedidos entregues no prazo previsto." },
+      pedidosAtrasados: { valor: 1, valorFormatado: "1 em atraso", deltaPercentual: null, deltaSentidoBom: false, tooltip: "Pedidos pendentes com prazo vencido." },
+      variacaoCustoCompra: { valor: 7.2, valorFormatado: "+7.2%", deltaPercentual: 7.2, deltaSentidoBom: false, tooltip: "Variação média de custo unitário de insumos." },
+      fornecedoresAtivos: { valor: 4, valorFormatado: "4 ativos", deltaPercentual: null, deltaSentidoBom: true, tooltip: "Fornecedores parceiros com compras no período." },
+      concentracaoCompras: { valor: 64.3, valorFormatado: "64.3%", deltaPercentual: null, deltaSentidoBom: false, fornecedorNome: "Resil Extintores", tooltip: "Percentual do gasto concentrado no maior parceiro." },
+    },
+    alertas: [
+      {
+        id: "alerta-atraso-2",
+        tipo: "atraso_fornecedor",
+        severidade: "critico",
+        titulo: "Fornecedor Bucka Fire Systems com 100.0% de pedidos atrasados",
+        mensagem: "O parceiro entregou fora da data acordada em 100.0% das remessas recentes (limite seguro: 20%). Recomendado renegociar SLA.",
+        valorAtual: "100.0%",
+        limiteConfigurado: "20%",
+        acaoTexto: "Filtrar Fornecedor",
+        acaoLink: "dashboard.html?tab=compras&supplierId=2",
+      },
+      {
+        id: "alerta-custo-12",
+        tipo: "aumento_custo",
+        severidade: "atencao",
+        titulo: "Aumento de custo em Extintor Pó Químico Seco ABC 4kg: +13.3%",
+        mensagem: "O preço médio unitário subiu de R$ 60,00 para R$ 68,00. Esse reajuste impacta diretamente a margem de venda.",
+        valorAtual: "+13.3%",
+        limiteConfigurado: "+10%",
+        acaoTexto: "Ver Produtos",
+        acaoLink: "produtos.html",
+      },
+      {
+        id: "alerta-concentracao",
+        tipo: "alta_concentracao",
+        severidade: "atencao",
+        titulo: "Alta dependência de compras: Resil Extintores concentra 64.3% dos gastos",
+        mensagem: "Mais da metade do capital de compras está concentrado em um único fornecedor.",
+        valorAtual: "64.3%",
+        limiteConfigurado: "50%",
+        acaoTexto: "Ver Scorecard",
+        acaoLink: "#tabela-scorecard-compras",
+      },
+    ],
+    graficos: {
+      timeline: {
+        categories: ["25/10", "01/11", "05/11", "09/11", "13/11", "16/11"],
+        gasto: [14280, 4560, 3400, 1560, 8200, 2980],
+        pedidos: [1, 1, 1, 1, 1, 1],
+      },
+      topFornecedores: [
+        { id: 1, nome: "Resil Extintores", gasto: 22480, participacao: 64.3 },
+        { id: 2, nome: "Bucka Fire Systems", gasto: 7540, participacao: 21.6 },
+        { id: 3, nome: "Extinpel Brasil", gasto: 3400, participacao: 9.7 },
+        { id: 4, nome: "Sinalize Placas", gasto: 1560, participacao: 4.5 },
+      ],
+      prazosPorFornecedor: {
+        labels: ["Resil Extintores", "Bucka Fire Systems", "Extinpel Brasil", "Sinalize Placas"],
+        previsto: [5.0, 7.0, 10.0, 4.0],
+        realizado: [5.0, 10.0, 10.0, 4.0],
+      },
+      statusChart: {
+        labels: ["Recebido", "Aberto", "Atrasado", "Parcial", "Cancelado"],
+        series: [4, 1, 1, 0, 0],
+        valores: [23800, 2980, 8200, 0, 0],
+      },
+      categoriasChart: {
+        labels: ["Extintores", "Acessórios", "Sinalização", "Detecção"],
+        series: [25960, 4460, 1560, 3000],
+      },
+      itensHistoricoPreco: [
+        {
+          idProduto: 12,
+          nome: "Extintor Pó Químico Seco ABC 4kg",
+          pontos: [
+            { data: "28/09/2026", preco: 60.0, fornecedor: "Resil Extintores" },
+            { data: "25/10/2026", preco: 68.0, fornecedor: "Resil Extintores" },
+            { data: "05/11/2026", preco: 68.0, fornecedor: "Extinpel Brasil" },
+          ],
+        },
+        {
+          idProduto: 17,
+          nome: "Suporte Universal de Parede",
+          pontos: [
+            { data: "02/10/2026", preco: 6.0, fornecedor: "Bucka Fire Systems" },
+            { data: "01/11/2026", preco: 6.5, fornecedor: "Bucka Fire Systems" },
+          ],
+        },
+      ],
+    },
+    scorecard: [
+      { idFornecedor: 1, nome: "Resil Extintores", cnpj: "61.123.456/0001-90", cidadeUf: "São Paulo/SP", totalPedidos: 2, totalGasto: 22480, pontualidadePct: 100, leadTimeMedioDias: 5.0, pedidosAtrasados: 1, taxaDevolucaoPct: 0, statusOperacional: "Alerta" },
+      { idFornecedor: 2, nome: "Bucka Fire Systems", cnpj: "52.987.654/0001-12", cidadeUf: "Guarulhos/SP", totalPedidos: 2, totalGasto: 7540, pontualidadePct: 0, leadTimeMedioDias: 10.0, pedidosAtrasados: 0, taxaDevolucaoPct: 0, statusOperacional: "Crítico" },
+      { idFornecedor: 3, nome: "Extinpel Brasil", cnpj: "14.555.777/0001-33", cidadeUf: "Curitiba/PR", totalPedidos: 1, totalGasto: 3400, pontualidadePct: 100, leadTimeMedioDias: 10.0, pedidosAtrasados: 0, taxaDevolucaoPct: 0, statusOperacional: "Excelente" },
+      { idFornecedor: 4, nome: "Sinalize Placas", cnpj: "08.222.333/0001-44", cidadeUf: "Joinville/SC", totalPedidos: 1, totalGasto: 1560, pontualidadePct: 100, leadTimeMedioDias: 4.0, pedidosAtrasados: 0, taxaDevolucaoPct: 0, statusOperacional: "Excelente" },
+    ],
+  };
+}
+
+// ─── ABA 10: DEVOLUÇÕES & QUALIDADE ──────────────────────────────────────────
+let devolucoesCharts = {};
+let devolucoesPaginacao = { page: 1, limit: 10, totalPages: 1, total: 0 };
+
+function setupReturnFilters() {
+  const selectPeriodo = document.getElementById("filtro-devolucoes-periodo");
+  const selectMotivo = document.getElementById("filtro-devolucoes-motivo");
+  const selectCategoria = document.getElementById("filtro-devolucoes-categoria");
+  const selectFornecedor = document.getElementById("filtro-devolucoes-fornecedor");
+  const btnRecarregar = document.getElementById("btn-recarregar-dash-devolucoes");
+  const btnTentar = document.getElementById("btn-tentar-novamente-dash-devolucoes");
+  const btnPrev = document.getElementById("btn-pag-prev-devolucoes");
+  const btnNext = document.getElementById("btn-pag-next-devolucoes");
+
+  const triggers = [selectPeriodo, selectMotivo, selectCategoria, selectFornecedor, btnRecarregar, btnTentar];
+  triggers.forEach((el) => {
+    if (el && !el.dataset.bound) {
+      el.dataset.bound = "true";
+      const evt = el.tagName === "SELECT" ? "change" : "click";
+      el.addEventListener(evt, () => {
+        devolucoesPaginacao.page = 1;
+        renderTabDevolucoes();
+      });
+    }
+  });
+
+  if (btnPrev && !btnPrev.dataset.bound) {
+    btnPrev.dataset.bound = "true";
+    btnPrev.addEventListener("click", () => {
+      if (devolucoesPaginacao.page > 1) {
+        renderTabelaDevolucoesRecentes(devolucoesPaginacao.page - 1);
+      }
+    });
+  }
+
+  if (btnNext && !btnNext.dataset.bound) {
+    btnNext.dataset.bound = "true";
+    btnNext.addEventListener("click", () => {
+      if (devolucoesPaginacao.page < devolucoesPaginacao.totalPages) {
+        renderTabelaDevolucoesRecentes(devolucoesPaginacao.page + 1);
+      }
+    });
+  }
+}
+
+async function renderTabDevolucoes() {
+  const selectPeriodo = document.getElementById("filtro-devolucoes-periodo");
+  const selectMotivo = document.getElementById("filtro-devolucoes-motivo");
+  const selectCategoria = document.getElementById("filtro-devolucoes-categoria");
+  const selectFornecedor = document.getElementById("filtro-devolucoes-fornecedor");
+  const erroContainer = document.getElementById("erro-dash-devolucoes");
+  const msgErroEl = document.getElementById("mensagem-erro-dash-devolucoes");
+
+  const dias = selectPeriodo ? Number(selectPeriodo.value) || 30 : 30;
+  const motivo = selectMotivo ? selectMotivo.value : "ALL";
+  const categoryId = selectCategoria ? selectCategoria.value : "ALL";
+  const supplierId = selectFornecedor ? selectFornecedor.value : "ALL";
+
+  const money = (val) => {
+    return Number(val || 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+  };
+
+  try {
+    if (erroContainer) erroContainer.style.display = "none";
+
+    let dados = null;
+
+    if (window.RezFireAPI && window.RezFireAPI.dashboard && window.RezFireAPI.dashboard.returns) {
+      try {
+        const res = await window.RezFireAPI.dashboard.returns({
+          dias,
+          motivo,
+          categoryId,
+          supplierId,
+        });
+        if (res && res.sucesso) {
+          dados = res;
+        }
+      } catch (apiErr) {
+        console.warn("[Dashboard Devoluções] API indisponível, avaliando fallback local:", apiErr);
+      }
+    }
+
+    if (!dados) {
+      dados = gerarMetricasDevolucoesFallback(dias, motivo, categoryId, supplierId);
+    }
+
+    renderKpisDevolucoes(dados.kpis, money);
+    renderAlertasDevolucoes(dados.alertas || []);
+    renderGraficosDevolucoes(dados.graficos, money);
+    await renderTabelaDevolucoesRecentes(devolucoesPaginacao.page);
+
+    setTimeout(() => {
+      window.dispatchEvent(new Event("resize"));
+    }, 150);
+  } catch (err) {
+    console.error("[Dashboard Devoluções] Erro ao carregar aba:", err);
+    if (erroContainer) {
+      erroContainer.style.display = "block";
+      if (msgErroEl) msgErroEl.textContent = err.message || "Erro desconhecido ao processar dados.";
+    }
+  }
+}
+
+function renderKpisDevolucoes(kpis, money) {
+  const container = document.getElementById("kpis-tab-devolucoes");
+  if (!container || !kpis) return;
+
+  const formatDelta = (delta, deltaSentidoBom, labelComp = "vs período anterior") => {
+    if (typeof delta !== "number" || isNaN(delta)) return "";
+    const isUp = deltaSentidoBom;
+    const deltaClass = isUp ? "kpi-delta up" : "kpi-delta down";
+    const sinal = delta > 0 ? "+" : "";
+    return `<span class="${deltaClass}">${sinal}${delta}%</span> ${labelComp}`;
+  };
+
+  const totalDev = kpis.totalDevolucoes || {};
+  const taxaDev = kpis.taxaDevolucao || {};
+  const valReemb = kpis.valorReembolsado || {};
+  const custoTotal = kpis.custoTotalDevolucoes || {};
+  const tempoMed = kpis.tempoMedioResolucao || {};
+  const abertas = kpis.devolucoesAbertas || {};
+  const trocaReemb = kpis.trocaVsReembolso || {};
+  const recPerd = kpis.itensRecuperadosVsPerdidos || {};
+
+  container.innerHTML = [
+    kpiCard(
+      "TOTAL DE DEVOLUÇÕES",
+      Number(totalDev.valor || 0).toLocaleString("pt-BR"),
+      formatDelta(totalDev.deltaPercentual, totalDev.deltaSentidoBom),
+      totalDev.tooltip
+    ),
+    kpiCard(
+      "TAXA DE DEVOLUÇÃO",
+      `${Number(taxaDev.valor || 0).toFixed(1)}%`,
+      formatDelta(taxaDev.deltaPercentual, taxaDev.deltaSentidoBom, `em itens (${Number(taxaDev.taxaValorPercentual || 0).toFixed(1)}% em R$)`),
+      taxaDev.tooltip
+    ),
+    kpiCard(
+      "VALOR REEMBOLSADO",
+      money(valReemb.valor),
+      formatDelta(valReemb.deltaPercentual, valReemb.deltaSentidoBom),
+      valReemb.tooltip
+    ),
+    kpiCard(
+      "CUSTO ESTIMADO TOTAL",
+      money(custoTotal.valor),
+      `<span style="color:#78716c; font-size:0.75rem;">Frete: ${money(custoTotal.freteReverso)} • Descarte: ${money(custoTotal.perdaDescarte)}</span>`,
+      custoTotal.tooltip
+    ),
+    kpiCard(
+      "TEMPO MÉDIO DE RESOLUÇÃO",
+      typeof tempoMed.valor === "number" ? `${tempoMed.valor} dias` : String(tempoMed.valor || "—"),
+      formatDelta(tempoMed.deltaPercentual, tempoMed.deltaSentidoBom, "dias úteis"),
+      tempoMed.tooltip
+    ),
+    kpiCard(
+      "CASOS EM ABERTO",
+      Number(abertas.valor || 0).toLocaleString("pt-BR"),
+      Number(abertas.atrasadas || 0) > 0
+        ? `<span class="kpi-delta down font-bold">${abertas.atrasadas} além do prazo!</span>`
+        : `<span class="kpi-delta up font-bold">100% no prazo</span>`,
+      abertas.tooltip
+    ),
+    kpiCard(
+      "TROCA × REEMBOLSO",
+      trocaReemb.valor || "—",
+      `<span style="color:#0284c7; font-weight:700;">Troca:</span> ${trocaReemb.shareTroca || 0}% • <span style="color:#e85c2a; font-weight:700;">Reembolso:</span> ${trocaReemb.shareReembolso || 0}%`,
+      trocaReemb.tooltip
+    ),
+    kpiCard(
+      "RECUPERADOS × PERDIDOS",
+      recPerd.valor || "0 / 0",
+      `<span style="color:#10b981; font-weight:700;">Estoque:</span> ${recPerd.recuperados || 0} un • <span style="color:#ef4444; font-weight:700;">Descarte:</span> ${recPerd.descartados || 0} un`,
+      recPerd.tooltip
+    ),
+  ].join("");
+}
+
+function renderAlertasDevolucoes(alertas) {
+  const container = document.getElementById("container-alertas-devolucoes");
+  if (!container) return;
+
+  if (!alertas || alertas.length === 0) {
+    container.innerHTML = `
+      <div style="background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 8px; padding: 12px 16px; display: flex; align-items: center; justify-content: space-between; gap: 12px;">
+        <div style="display: flex; align-items: center; gap: 10px;">
+          <span style="font-size: 1.2rem;">✅</span>
+          <div>
+            <span style="font-size: 0.85rem; font-weight: 700; color: #166534;">Qualidade operacional sob controle</span>
+            <p style="margin: 2px 0 0; font-size: 0.78rem; color: #15803d;">Nenhuma inconformidade crítica, estouro de SLA de devolução ou índice excessivo de defeitos no período.</p>
+          </div>
+        </div>
+        <span style="font-size: 0.75rem; font-weight: 600; color: #16a34a; background: #dcfce7; padding: 3px 8px; border-radius: 4px;">Padrão Aprovado</span>
+      </div>
+    `;
+    return;
+  }
+
+  container.innerHTML = alertas
+    .map((alerta) => {
+      const isCritico = alerta.severidade === "critico";
+      const bg = isCritico ? "#fef2f2" : "#fffbeb";
+      const border = isCritico ? "#f87171" : "#f59e0b";
+      const textTitle = isCritico ? "#991b1b" : "#92400e";
+      const textDesc = isCritico ? "#7f1d1d" : "#78350f";
+      const btnBorder = isCritico ? "#ef4444" : "#f59e0b";
+      const btnColor = isCritico ? "#b91c1c" : "#b45309";
+      const icon = isCritico ? "🛑" : "⚠️";
+
+      return `
+        <div style="background: ${bg}; border-left: 4px solid ${border}; border-top: 1px solid ${border}40; border-right: 1px solid ${border}40; border-bottom: 1px solid ${border}40; border-radius: 6px; padding: 10px 14px; display: flex; align-items: center; justify-content: space-between; gap: 14px; flex-wrap: wrap;">
+          <div style="display: flex; align-items: flex-start; gap: 10px; flex: 1; min-width: 260px;">
+            <span style="font-size: 1.1rem; line-height: 1.2;">${icon}</span>
+            <div>
+              <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+                <span style="font-size: 0.82rem; font-weight: 800; color: ${textTitle};">${escapeHtml(alerta.titulo)}</span>
+                <span style="font-size: 0.68rem; font-weight: 700; padding: 2px 6px; border-radius: 4px; background: ${isCritico ? '#fee2e2' : '#fef3c7'}; color: ${textTitle}; text-transform: uppercase;">
+                  ${isCritico ? 'Crítico' : 'Atenção'}
+                </span>
+                <span style="font-size: 0.72rem; color: #78716c;">(Limite seguro: ${escapeHtml(String(alerta.limiteConfigurado))})</span>
+              </div>
+              <p style="margin: 3px 0 0; font-size: 0.79rem; color: ${textDesc}; line-height: 1.35;">
+                ${escapeHtml(alerta.mensagem)}
+              </p>
+            </div>
+          </div>
+          ${
+            alerta.acaoLink
+              ? `
+            <a href="${alerta.acaoLink}" class="btn-ghost" style="padding: 5px 12px; font-size: 0.78rem; border-color: ${btnBorder}; color: ${btnColor}; background: #fff; text-decoration: none; white-space: nowrap; font-weight: 600;">
+              ${escapeHtml(alerta.acaoTexto || 'Verificar')} →
+            </a>
+          `
+              : ""
+          }
+        </div>
+      `;
+    })
+    .join("");
+}
+
+function renderGraficosDevolucoes(graficos, money) {
+  if (!graficos) return;
+
+  // 1. Destrói gráficos anteriores com segurança
+  Object.keys(devolucoesCharts).forEach((key) => {
+    if (devolucoesCharts[key]) {
+      try {
+        devolucoesCharts[key].destroy();
+      } catch (e) {}
+    }
+  });
+  devolucoesCharts = {};
+
+  if (typeof ApexCharts === "undefined") {
+    console.warn("[Dashboard Devoluções] Biblioteca ApexCharts indisponível.");
+    ["chart-devolucoes-timeline", "chart-devolucoes-pareto", "chart-devolucoes-top-produtos", "chart-devolucoes-categorias", "chart-devolucoes-fornecedores", "chart-devolucoes-status"].forEach((id) => {
+      const el = document.getElementById(id);
+      if (el) el.innerHTML = '<div style="padding:40px; text-align:center; color:#78716c; font-size:0.85rem;">Gráfico indisponível (ApexCharts não carregado).</div>';
+    });
+    return;
+  }
+
+  // ── Gráfico 1: Timeline de Devoluções & Itens ──────────────────────────────
+  try {
+    const elTimeline = document.querySelector("#chart-devolucoes-timeline");
+    if (elTimeline && graficos.timeline) {
+      const categories = graficos.timeline.categories?.length > 0 ? graficos.timeline.categories : [];
+      const devolucoes = graficos.timeline.devolucoes?.length > 0 ? graficos.timeline.devolucoes : [];
+      const itens = graficos.timeline.itens?.length > 0 ? graficos.timeline.itens : [];
+      const totalCasos = devolucoes.reduce((a, b) => a + (Number(b) || 0), 0);
+
+      if (totalCasos === 0 || categories.length === 0) {
+        elTimeline.innerHTML = `
+          <div style="height:280px; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:8px; color:#78716c; background:#faf8f5; border-radius:8px; border:1px dashed #e7e5e4;">
+            <span style="font-size:1.8rem;">📦</span>
+            <span style="font-size:0.86rem; font-weight:700; color:#44403c;">Nenhuma devolução no período</span>
+            <span style="font-size:0.76rem; color:#78716c;">Nenhum chamado de devolução ou troca foi registrado nas datas selecionadas.</span>
+          </div>
+        `;
+      } else {
+        elTimeline.innerHTML = "";
+        devolucoesCharts.timeline = new ApexCharts(elTimeline, {
+          chart: {
+            height: 280,
+            type: "bar",
+            toolbar: { show: false },
+            fontFamily: "Inter, sans-serif",
+            animations: { enabled: false },
+          },
+          series: [
+            { name: "Casos Abertos", data: devolucoes },
+            { name: "Unidades Devolvidas", data: itens },
+          ],
+          colors: ["#e85c2a", "#1a1412"],
+          plotOptions: {
+            bar: {
+              horizontal: false,
+              columnWidth: "45%",
+              borderRadius: 3,
+            },
+          },
+          grid: { borderColor: "#eee8e0", strokeDashArray: 0 },
+          dataLabels: { enabled: false },
+          xaxis: {
+            type: "category",
+            categories,
+            axisBorder: { show: false },
+            axisTicks: { show: false },
+            labels: { style: { colors: "#78716c", fontSize: "11px", fontFamily: "Inter, sans-serif" } },
+          },
+          yaxis: {
+            min: 0,
+            forceNiceScale: true,
+            labels: {
+              style: { colors: "#78716c", fontSize: "11px", fontFamily: "Inter, sans-serif" },
+              formatter: (val) => Math.round(Number(val) || 0),
+            },
+          },
+          legend: { position: "top", horizontalAlign: "right", fontFamily: "Inter, sans-serif", fontSize: "12px" },
+          tooltip: { shared: true, intersect: false },
+        });
+        devolucoesCharts.timeline.render();
+      }
+    }
+  } catch (errTimeline) {
+    console.error("[Dashboard Devoluções] Erro ao renderizar Timeline:", errTimeline);
+  }
+
+  // ── Gráfico 2: Diagrama de Pareto de Motivos ───────────────────────────────
+  try {
+    const elPareto = document.querySelector("#chart-devolucoes-pareto");
+    if (elPareto && graficos.pareto) {
+      const labels = graficos.pareto.labels || [];
+      const ocorrencias = graficos.pareto.ocorrencias || [];
+      const acumulado = graficos.pareto.acumuladoPct || [];
+
+      if (labels.length === 0 || ocorrencias.length === 0) {
+        elPareto.innerHTML = `
+          <div style="height:280px; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:8px; color:#78716c; background:#faf8f5; border-radius:8px; border:1px dashed #e7e5e4;">
+            <span style="font-size:1.8rem;">📊</span>
+            <span style="font-size:0.86rem; font-weight:700; color:#44403c;">Sem motivos registrados</span>
+            <span style="font-size:0.76rem; color:#78716c;">Nenhum chamado disponível para montagem do diagrama de Pareto.</span>
+          </div>
+        `;
+      } else {
+        elPareto.innerHTML = "";
+        devolucoesCharts.pareto = new ApexCharts(elPareto, {
+          chart: {
+            height: 280,
+            type: "line",
+            toolbar: { show: false },
+            fontFamily: "Inter, sans-serif",
+            animations: { enabled: false },
+          },
+          stroke: { width: [0, 3], curve: "smooth" },
+          plotOptions: {
+            bar: {
+              columnWidth: "40%",
+              borderRadius: 3,
+            },
+          },
+          series: [
+            { name: "Ocorrências", type: "column", data: ocorrencias },
+            { name: "% Acumulada", type: "line", data: acumulado },
+          ],
+          colors: ["#0284c7", "#ef4444"],
+          grid: { borderColor: "#eee8e0", strokeDashArray: 0 },
+          dataLabels: { enabled: false },
+          xaxis: {
+            categories: labels,
+            axisBorder: { show: false },
+            axisTicks: { show: false },
+            labels: {
+              style: { colors: "#78716c", fontSize: "11px", fontFamily: "Inter, sans-serif" },
+              rotate: -20,
+              trim: true,
+              maxHeight: 60,
+            },
+          },
+          yaxis: [
+            {
+              title: { text: "Chamados", style: { color: "#78716c", fontSize: "11px" } },
+              min: 0,
+              forceNiceScale: true,
+              labels: { formatter: (val) => Math.round(Number(val) || 0) },
+            },
+            {
+              opposite: true,
+              title: { text: "% Acumulado", style: { color: "#ef4444", fontSize: "11px" } },
+              min: 0,
+              max: 100,
+              labels: { formatter: (val) => `${Math.round(Number(val) || 0)}%` },
+            },
+          ],
+          legend: { position: "top", horizontalAlign: "right", fontFamily: "Inter, sans-serif", fontSize: "12px" },
+          tooltip: {
+            shared: true,
+            intersect: false,
+            y: {
+              formatter: (val, opts) => {
+                if (opts.seriesIndex === 1) return `${Number(val || 0).toFixed(1)}%`;
+                return `${val || 0} caso(s)`;
+              },
+            },
+          },
+        });
+        devolucoesCharts.pareto.render();
+      }
+    }
+  } catch (errPareto) {
+    console.error("[Dashboard Devoluções] Erro ao renderizar Pareto:", errPareto);
+  }
+
+  // ── Gráfico 3: Top Produtos com Mais Devoluções ────────────────────────────
+  try {
+    const elTopProd = document.querySelector("#chart-devolucoes-top-produtos");
+    if (elTopProd && graficos.topProdutos) {
+      const top = graficos.topProdutos || [];
+      if (top.length === 0) {
+        elTopProd.innerHTML = `
+          <div style="height:280px; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:8px; color:#78716c; background:#faf8f5; border-radius:8px; border:1px dashed #e7e5e4;">
+            <span style="font-size:1.8rem;">🧯</span>
+            <span style="font-size:0.86rem; font-weight:700; color:#44403c;">Nenhum produto devolvido</span>
+            <span style="font-size:0.76rem; color:#78716c;">Índice 100% perfeito de conformidade no período.</span>
+          </div>
+        `;
+      } else {
+        const categories = top.map((t) => t.nome?.substring(0, 26) + (t.nome?.length > 26 ? "..." : ""));
+        const dataDev = top.map((t) => Number(t.qtdDevolvida) || 0);
+
+        elTopProd.innerHTML = "";
+        devolucoesCharts.topProd = new ApexCharts(elTopProd, {
+          chart: {
+            height: 280,
+            type: "bar",
+            toolbar: { show: false },
+            fontFamily: "Inter, sans-serif",
+            animations: { enabled: false },
+          },
+          plotOptions: {
+            bar: {
+              horizontal: true,
+              barHeight: "50%",
+              borderRadius: 3,
+            },
+          },
+          colors: ["#e85c2a"],
+          grid: { borderColor: "#eee8e0", strokeDashArray: 0 },
+          series: [{ name: "Qtd Devolvida", data: dataDev }],
+          xaxis: {
+            categories,
+            labels: {
+              style: { colors: "#78716c", fontSize: "11px", fontFamily: "Inter, sans-serif" },
+              formatter: (val) => Math.round(Number(val) || 0),
+            },
+          },
+          yaxis: {
+            labels: {
+              style: { colors: "#44403c", fontSize: "11px", fontFamily: "Inter, sans-serif", fontWeight: 600 },
+            },
+          },
+          tooltip: {
+            y: {
+              formatter: (val, opts) => {
+                const idx = opts?.dataPointIndex ?? -1;
+                const item = idx >= 0 && top[idx] ? top[idx] : null;
+                const taxa = item ? item.taxaDevolucaoPct : 0;
+                const vendidas = item ? item.qtdVendida : 0;
+                return `${val || 0} devoluções (Taxa: ${taxa}% sobre ${vendidas} vendidos)`;
+              },
+            },
+          },
+        });
+        devolucoesCharts.topProd.render();
+      }
+    }
+  } catch (errTopProd) {
+    console.error("[Dashboard Devoluções] Erro ao renderizar Top Produtos:", errTopProd);
+  }
+
+  // ── Gráfico 4: Taxa por Categoria ──────────────────────────────────────────
+  try {
+    const elCat = document.querySelector("#chart-devolucoes-categorias");
+    if (elCat && graficos.categorias) {
+      const labels = graficos.categorias.labels || [];
+      const series = graficos.categorias.series || [];
+      const total = series.reduce((a, b) => a + (Number(b) || 0), 0);
+
+      if (total === 0 || labels.length === 0) {
+        elCat.innerHTML = `
+          <div style="height:280px; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:8px; color:#78716c; background:#faf8f5; border-radius:8px; border:1px dashed #e7e5e4;">
+            <span style="font-size:1.8rem;">🏷️</span>
+            <span style="font-size:0.86rem; font-weight:700; color:#44403c;">Sem devoluções por categoria</span>
+            <span style="font-size:0.76rem; color:#78716c;">Nenhuma linha de produto com inconformidades no filtro.</span>
+          </div>
+        `;
+      } else {
+        elCat.innerHTML = "";
+        devolucoesCharts.categorias = new ApexCharts(elCat, {
+          chart: {
+            height: 280,
+            type: "donut",
+            fontFamily: "Inter, sans-serif",
+            animations: { enabled: false },
+          },
+          series,
+          labels,
+          colors: ["#e85c2a", "#0284c7", "#10b981", "#f59e0b", "#64748b"],
+          dataLabels: {
+            enabled: true,
+            formatter: (val) => `${Math.round(Number(val) || 0)}%`,
+          },
+          legend: { position: "bottom", fontFamily: "Inter, sans-serif", fontSize: "12px" },
+          stroke: { show: false },
+          tooltip: {
+            y: { formatter: (val) => `${val || 0} unidade(s) devolvida(s)` },
+          },
+        });
+        devolucoesCharts.categorias.render();
+      }
+    }
+  } catch (errCat) {
+    console.error("[Dashboard Devoluções] Erro ao renderizar Categorias:", errCat);
+  }
+
+  // ── Gráfico 5: Taxa de Problemas por Fornecedor ────────────────────────────
+  try {
+    const elForn = document.querySelector("#chart-devolucoes-fornecedores");
+    if (elForn && graficos.fornecedores) {
+      const labels = graficos.fornecedores.labels || [];
+      const series = graficos.fornecedores.series || [];
+      const total = series.reduce((a, b) => a + (Number(b) || 0), 0);
+
+      if (total === 0 || labels.length === 0) {
+        elForn.innerHTML = `
+          <div style="height:280px; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:8px; color:#78716c; background:#faf8f5; border-radius:8px; border:1px dashed #e7e5e4;">
+            <span style="font-size:1.8rem;">🏭</span>
+            <span style="font-size:0.86rem; font-weight:700; color:#44403c;">Nenhum defeito de fornecedor</span>
+            <span style="font-size:0.76rem; color:#78716c;">Parceiros comerciais sem registro de avarias ou inconformidades.</span>
+          </div>
+        `;
+      } else {
+        elForn.innerHTML = "";
+        devolucoesCharts.fornecedores = new ApexCharts(elForn, {
+          chart: {
+            height: 280,
+            type: "bar",
+            toolbar: { show: false },
+            fontFamily: "Inter, sans-serif",
+            animations: { enabled: false },
+          },
+          plotOptions: {
+            bar: {
+              columnWidth: "40%",
+              borderRadius: 3,
+            },
+          },
+          colors: ["#b91c1c"],
+          grid: { borderColor: "#eee8e0", strokeDashArray: 0 },
+          series: [{ name: "Itens com Defeito", data: series }],
+          xaxis: {
+            categories: labels,
+            axisBorder: { show: false },
+            axisTicks: { show: false },
+            labels: {
+              style: { colors: "#78716c", fontSize: "11px", fontFamily: "Inter, sans-serif" },
+            },
+          },
+          yaxis: {
+            min: 0,
+            forceNiceScale: true,
+            labels: {
+              style: { colors: "#78716c", fontSize: "11px", fontFamily: "Inter, sans-serif" },
+              formatter: (val) => Math.round(Number(val) || 0),
+            },
+          },
+          legend: { position: "top", horizontalAlign: "right", fontFamily: "Inter, sans-serif", fontSize: "12px" },
+          tooltip: {
+            y: { formatter: (val) => `${val || 0} item(ns) reprovado(s)` },
+          },
+        });
+        devolucoesCharts.fornecedores.render();
+      }
+    }
+  } catch (errForn) {
+    console.error("[Dashboard Devoluções] Erro ao renderizar Fornecedores:", errForn);
+  }
+
+  // ── Gráfico 6: Devoluções por Status e SLA Médio ───────────────────────────
+  try {
+    const elStatus = document.querySelector("#chart-devolucoes-status");
+    if (elStatus && graficos.status) {
+      const labels = graficos.status.labels || ["Aberta", "Em Análise", "Concluída", "Recusada"];
+      const counts = graficos.status.counts || [0, 0, 0, 0];
+      const diasMedio = graficos.status.diasMedio || [0, 0, 0, 0];
+
+      elStatus.innerHTML = "";
+      devolucoesCharts.status = new ApexCharts(elStatus, {
+        chart: {
+          height: 280,
+          type: "bar",
+          toolbar: { show: false },
+          fontFamily: "Inter, sans-serif",
+          animations: { enabled: false },
+        },
+        plotOptions: {
+          bar: {
+            columnWidth: "45%",
+            borderRadius: 3,
+          },
+        },
+        colors: ["#0284c7", "#f59e0b"],
+        grid: { borderColor: "#eee8e0", strokeDashArray: 0 },
+        series: [
+          { name: "Total de Casos", data: counts },
+          { name: "Tempo Médio (Dias)", data: diasMedio },
+        ],
+        xaxis: {
+          categories: labels,
+          axisBorder: { show: false },
+          axisTicks: { show: false },
+          labels: {
+            style: { colors: "#78716c", fontSize: "11px", fontFamily: "Inter, sans-serif" },
+          },
+        },
+        yaxis: {
+          min: 0,
+          forceNiceScale: true,
+          labels: {
+            style: { colors: "#78716c", fontSize: "11px", fontFamily: "Inter, sans-serif" },
+            formatter: (val) => Math.round(Number(val) || 0),
+          },
+        },
+        legend: { position: "top", horizontalAlign: "right", fontFamily: "Inter, sans-serif", fontSize: "12px" },
+        tooltip: {
+          shared: true,
+          intersect: false,
+          y: {
+            formatter: (val, opts) => {
+              if (opts.seriesIndex === 1) return `${val || 0} dia(s) em média`;
+              return `${val || 0} caso(s)`;
+            },
+          },
+        },
+      });
+      devolucoesCharts.status.render();
+    }
+  } catch (errStatus) {
+    console.error("[Dashboard Devoluções] Erro ao renderizar Status:", errStatus);
+  }
+}
+
+async function renderTabelaDevolucoesRecentes(page = 1) {
+  const tbody = document.getElementById("tbody-devolucoes-recentes");
+  const badgeTotal = document.getElementById("badge-total-devolucoes-recentes");
+  const infoPaginacao = document.getElementById("info-paginacao-devolucoes");
+  const numPagina = document.getElementById("num-pagina-devolucoes");
+  const btnPrev = document.getElementById("btn-pag-prev-devolucoes");
+  const btnNext = document.getElementById("btn-pag-next-devolucoes");
+
+  if (!tbody) return;
+
+  const selectPeriodo = document.getElementById("filtro-devolucoes-periodo");
+  const selectMotivo = document.getElementById("filtro-devolucoes-motivo");
+  const selectCategoria = document.getElementById("filtro-devolucoes-categoria");
+  const selectFornecedor = document.getElementById("filtro-devolucoes-fornecedor");
+
+  const motivo = selectMotivo ? selectMotivo.value : "ALL";
+  const categoryId = selectCategoria ? selectCategoria.value : "ALL";
+  const supplierId = selectFornecedor ? selectFornecedor.value : "ALL";
+
+  tbody.innerHTML = `
+    <tr>
+      <td colspan="9" style="text-align: center; padding: 24px; color: var(--muted);">
+        Carregando ocorrências de devolução...
+      </td>
+    </tr>
+  `;
+
+  let responseData = null;
+
+  if (window.RezFireAPI && window.RezFireAPI.dashboard && window.RezFireAPI.dashboard.recentReturns) {
+    try {
+      const apiParams = { page, limit: 10 };
+      if (motivo && motivo !== "ALL") apiParams.motivo = motivo;
+      if (categoryId && categoryId !== "ALL") apiParams.categoryId = categoryId;
+      if (supplierId && supplierId !== "ALL") apiParams.supplierId = supplierId;
+
+      responseData = await window.RezFireAPI.dashboard.recentReturns(apiParams);
+    } catch (e) {
+      console.warn("[Dashboard Devoluções] Falha na consulta de recentes via API:", e);
+    }
+  }
+
+  if (!responseData || !responseData.sucesso) {
+    // Fallback local caso backend esteja offline
+    responseData = {
+      sucesso: true,
+      paginacao: { page: 1, limit: 10, total: 5, totalPages: 1 },
+      dados: [
+        {
+          idDevolucao: 1,
+          codigoDevolucao: "DEV-2026-001",
+          idPedido: 1,
+          codigoPedido: "PED-2026-001",
+          clienteNome: "Condomínio Edifício Solar",
+          status: "CONCLUIDA",
+          tipoResolucao: "REEMBOLSO",
+          custoTotalCaso: 148.5,
+          prazoLimiteDias: 7,
+          diasDecorridos: 3,
+          emAtraso: false,
+          produto: {
+            nome: "Extintor Pó Químico Seco ABC 4kg",
+            sku: "EXT-ABC-04KG",
+            quantidade: 1,
+            motivo: "DEFEITO",
+            destinoItem: "DESCARTADO",
+            fornecedorNome: "Resil Extintores",
+          },
+        },
+        {
+          idDevolucao: 2,
+          codigoDevolucao: "DEV-2026-002",
+          idPedido: 2,
+          codigoPedido: "PED-2026-002",
+          clienteNome: "Comércio de Materiais Rezende",
+          status: "CONCLUIDA",
+          tipoResolucao: "TROCA",
+          custoTotalCaso: 182.0,
+          prazoLimiteDias: 7,
+          diasDecorridos: 4,
+          emAtraso: false,
+          produto: {
+            nome: "Extintor Dióxido de Carbono CO2 6kg",
+            sku: "EXT-CO2-06KG",
+            quantidade: 1,
+            motivo: "AVARIA_TRANSPORTE",
+            destinoItem: "DESCARTADO",
+            fornecedorNome: "Bucka Fire Systems",
+          },
+        },
+        {
+          idDevolucao: 4,
+          codigoDevolucao: "DEV-2026-004",
+          idPedido: 4,
+          codigoPedido: "PED-2026-004",
+          clienteNome: "Transportadora Rápido Sul",
+          status: "EM_ANALISE",
+          tipoResolucao: "TROCA",
+          custoTotalCaso: 30.0,
+          prazoLimiteDias: 7,
+          diasDecorridos: 9,
+          emAtraso: true,
+          produto: {
+            nome: "Extintor Pó Químico Seco ABC 4kg",
+            sku: "EXT-ABC-04KG",
+            quantidade: 1,
+            motivo: "DEFEITO",
+            destinoItem: "EM_AVALIACAO",
+            fornecedorNome: "Resil Extintores",
+          },
+        },
+      ],
+    };
+  }
+
+  const pag = responseData.paginacao || { page: 1, limit: 10, total: 0, totalPages: 1 };
+  devolucoesPaginacao = pag;
+
+  if (badgeTotal) {
+    badgeTotal.textContent = `${pag.total} ocorrência(s)`;
+  }
+
+  if (infoPaginacao) {
+    const start = pag.total === 0 ? 0 : (pag.page - 1) * pag.limit + 1;
+    const end = Math.min(pag.page * pag.limit, pag.total);
+    infoPaginacao.textContent = `Mostrando ${start} a ${end} de ${pag.total} ocorrência(s)`;
+  }
+
+  if (numPagina) {
+    numPagina.textContent = `${pag.page} / ${pag.totalPages || 1}`;
+  }
+
+  if (btnPrev) btnPrev.disabled = pag.page <= 1;
+  if (btnNext) btnNext.disabled = pag.page >= pag.totalPages;
+
+  const itens = responseData.dados || [];
+
+  if (itens.length === 0) {
+    tbody.innerHTML = `
+      <tr>
+        <td colspan="9" style="text-align: center; padding: 24px; color: var(--muted);">
+          Nenhuma ocorrência de devolução encontrada com os filtros selecionados.
+        </td>
+      </tr>
+    `;
+    return;
+  }
+
+  const money = (val) => Number(val || 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+
+  const motivoMap = {
+    DEFEITO: { label: "Defeito", color: "#dc2626", bg: "#fef2f2" },
+    AVARIA_TRANSPORTE: { label: "Avaria Frete", color: "#d97706", bg: "#fffbeb" },
+    PRODUTO_ERRADO: { label: "Produto Errado", color: "#7c3aed", bg: "#f5f3ff" },
+    DIVERGENCIA_DESCRICAO: { label: "Divergência", color: "#0284c7", bg: "#f0f9ff" },
+    ARREPENDIMENTO: { label: "Arrependimento", color: "#16a34a", bg: "#f0fdf4" },
+    OUTRO: { label: "Outro", color: "#64748b", bg: "#f8fafc" },
+  };
+
+  const statusMap = {
+    ABERTA: { label: "Aberta", color: "#0284c7", bg: "#f0f9ff" },
+    EM_ANALISE: { label: "Em Análise", color: "#d97706", bg: "#fffbeb" },
+    CONCLUIDA: { label: "Concluída", color: "#16a34a", bg: "#f0fdf4" },
+    RECUSADA: { label: "Recusada", color: "#dc2626", bg: "#fef2f2" },
+  };
+
+  const destinoMap = {
+    RECUPERADO: { label: "Estoque", icon: "🟢" },
+    DESCARTADO: { label: "Descarte", icon: "🔴" },
+    EM_AVALIACAO: { label: "Avaliação", icon: "🟡" },
+  };
+
+  tbody.innerHTML = itens
+    .map((item) => {
+      const mot = motivoMap[item.produto.motivo] || { label: item.produto.motivo, color: "#64748b", bg: "#f8fafc" };
+      const st = statusMap[item.status] || { label: item.status, color: "#64748b", bg: "#f8fafc" };
+      const dest = destinoMap[item.produto.destinoItem] || { label: item.produto.destinoItem, icon: "⚪" };
+
+      const slaBadge = item.emAtraso
+        ? `<span class="badge" style="background:#fee2e2; color:#991b1b; font-weight:700;">⚠️ ${item.diasDecorridos}d (Atrasado)</span>`
+        : `<span style="color:#78716c; font-size:0.8rem;">${item.diasDecorridos}d / limite ${item.prazoLimiteDias}d</span>`;
+
+      return `
+        <tr style="border-bottom: 1px solid var(--line);">
+          <td style="padding: 10px 8px; font-weight: 700; color: var(--ink);">
+            ${escapeHtml(item.codigoDevolucao)}
+          </td>
+          <td style="padding: 10px 8px;">
+            <div style="font-weight: 600; color: var(--ink);">${escapeHtml(item.clienteNome)}</div>
+            <div style="font-size: 0.73rem; color: #78716c;">Pedido: ${escapeHtml(item.codigoPedido || "—")}</div>
+          </td>
+          <td style="padding: 10px 8px;">
+            <div style="font-weight: 600; color: var(--ink);">${escapeHtml(item.produto.nome)}</div>
+            <div style="font-size: 0.73rem; color: #78716c;">${item.produto.quantidade}x • Fornecedor: ${escapeHtml(item.produto.fornecedorNome)}</div>
+          </td>
+          <td style="padding: 10px 8px; text-align: center;">
+            <span style="font-size: 0.72rem; font-weight: 700; padding: 3px 8px; border-radius: 4px; background: ${mot.bg}; color: ${mot.color};">
+              ${mot.label}
+            </span>
+          </td>
+          <td style="padding: 10px 8px; text-align: center;">
+            <span style="font-size: 0.72rem; font-weight: 700; padding: 3px 8px; border-radius: 4px; background: ${st.bg}; color: ${st.color};">
+              ${st.label}
+            </span>
+          </td>
+          <td style="padding: 10px 8px; text-align: center; font-weight: 600; font-size: 0.8rem; color: #44403c;">
+            ${escapeHtml(item.tipoResolucao)}
+          </td>
+          <td style="padding: 10px 8px; text-align: center; font-size: 0.8rem;">
+            ${dest.icon} ${dest.label}
+          </td>
+          <td style="padding: 10px 8px; text-align: right; font-weight: 700; color: var(--ink);">
+            ${money(item.custoTotalCaso)}
+          </td>
+          <td style="padding: 10px 8px; text-align: center;">
+            ${slaBadge}
+          </td>
+        </tr>
+      `;
+    })
+    .join("");
+}
+
+function gerarMetricasDevolucoesFallback(dias, motivo, categoryId, supplierId) {
+  return {
+    sucesso: true,
+    kpis: {
+      totalDevolucoes: { valor: 5, deltaPercentual: 400, deltaSentidoBom: false, tooltip: "Quantidade total de devoluções no período." },
+      taxaDevolucao: { valor: 2.1, taxaValorPercentual: 1.8, deltaPercentual: 25.0, deltaSentidoBom: false, tooltip: "Percentual de itens devolvidos em relação ao total vendido." },
+      valorReembolsado: { valor: 319.8, deltaPercentual: 113.3, deltaSentidoBom: false, tooltip: "Total ressarcido diretamente aos clientes." },
+      custoTotalDevolucoes: { valor: 715.1, freteReverso: 115.5, perdaDescarte: 279.8, deltaPercentual: 120.2, deltaSentidoBom: false, tooltip: "Impacto total: Reembolso + Frete reverso + Descarte." },
+      tempoMedioResolucao: { valor: 3.3, deltaPercentual: -17.5, deltaSentidoBom: true, tooltip: "Média de dias de resolução." },
+      devolucoesAbertas: { valor: 2, atrasadas: 1, deltaPercentual: null, deltaSentidoBom: false, tooltip: "Casos em aberto e atrasados." },
+      trocaVsReembolso: { valor: "60% / 40%", shareTroca: 60, shareReembolso: 40, deltaPercentual: null, deltaSentidoBom: true, tooltip: "Troca vs Reembolso." },
+      itensRecuperadosVsPerdidos: { valor: "1 / 2", recuperados: 1, descartados: 2, emAvaliacao: 2, deltaPercentual: null, deltaSentidoBom: false, tooltip: "Estoque vs Descarte." },
+    },
+    alertas: [
+      {
+        id: "alerta-sla-atrasadas",
+        tipo: "sla_estourado",
+        severidade: "critico",
+        titulo: "1 devolução pendente além do prazo de 7 dias",
+        mensagem: "Existe 1 processo de devolução/troca em aberto há mais tempo que o SLA estabelecido. Risco iminente de penalidade no Mercado Livre.",
+        valorAtual: "1 caso(s)",
+        limiteConfigurado: "7 dias",
+        acaoTexto: "Filtrar Pendentes",
+        acaoLink: "#tabela-devolucoes-recentes",
+      },
+      {
+        id: "alerta-dominancia-motivo",
+        tipo: "dominancia_motivo",
+        severidade: "atencao",
+        titulo: 'Alta concentração em "Defeito de Fabricação": 40.0% dos chamados',
+        mensagem: "O motivo principal concentra 40.0% de todas as devoluções registradas no período. Requer plano de ação focado na causa raiz.",
+        valorAtual: "40.0%",
+        limiteConfigurado: "40%",
+        acaoTexto: "Ver Motivos",
+        acaoLink: "#chart-devolucoes-pareto",
+      },
+    ],
+    graficos: {
+      timeline: {
+        categories: ["10/11", "12/11", "14/11", "16/11", "18/11"],
+        devolucoes: [1, 1, 1, 1, 1],
+        itens: [1, 1, 1, 1, 1],
+      },
+      pareto: {
+        labels: ["Defeito de Fabricação", "Avaria de Transporte", "Arrependimento / Desistência", "Produto Errado (Expedição)"],
+        ocorrencias: [2, 1, 1, 1],
+        acumuladoPct: [40, 60, 80, 100],
+      },
+      topProdutos: [
+        { idProduto: 12, nome: "Extintor Pó Químico Seco ABC 4kg", sku: "EXT-ABC-04KG", qtdDevolvida: 2, qtdVendida: 18, taxaDevolucaoPct: 11.1, valorDevolvido: 136.0 },
+        { idProduto: 13, nome: "Extintor Dióxido de Carbono CO2 6kg", sku: "EXT-CO2-06KG", qtdDevolvida: 1, qtdVendida: 12, taxaDevolucaoPct: 8.3, valorDevolvido: 180.0 },
+        { idProduto: 15, nome: "Extintor Água Pressurizada 10L", sku: "EXT-AP-10L", qtdDevolvida: 1, qtdVendida: 15, taxaDevolucaoPct: 6.7, valorDevolvido: 85.0 },
+      ],
+      categorias: {
+        labels: ["Extintores", "Acessórios", "Sinalização"],
+        series: [4, 1, 0],
+      },
+      fornecedores: {
+        labels: ["Resil Extintores", "Bucka Fire Systems"],
+        series: [2, 1],
+      },
+      status: {
+        labels: ["Aberta", "Em Análise", "Concluída", "Recusada"],
+        counts: [1, 1, 3, 0],
+        diasMedio: [2.0, 9.0, 3.3, 0],
+      },
+    },
+  };
 }
 
 renderDashboard();

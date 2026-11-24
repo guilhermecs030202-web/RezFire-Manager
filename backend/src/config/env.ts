@@ -39,6 +39,10 @@ export const env = {
     10
   ),
   SEFAZ_PRAZO_CCE_DIAS: parseInt(process.env.SEFAZ_PRAZO_CCE_DIAS || '30', 10),
+  SEFAZ_PRAZO_CCE_HORAS: parseInt(
+    process.env.SEFAZ_PRAZO_CCE_HORAS || String(parseInt(process.env.SEFAZ_PRAZO_CCE_DIAS || '30', 10) * 24),
+    10
+  ),
   FISCAL_ALERTA_CERTIFICADO_DIAS: parseInt(process.env.FISCAL_ALERTA_CERTIFICADO_DIAS || '30', 10),
 };
 

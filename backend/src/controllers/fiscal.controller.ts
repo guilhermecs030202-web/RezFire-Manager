@@ -228,6 +228,7 @@ export class FiscalController {
       if (error.codigo_bloqueio) body.codigo_bloqueio = error.codigo_bloqueio;
       if (error.orientacao_extemporaneo) body.orientacao_extemporaneo = error.orientacao_extemporaneo;
       if (error.cancelamento_info) body.cancelamento_info = error.cancelamento_info;
+      if (error.carta_correcao_info) body.carta_correcao_info = error.carta_correcao_info;
       return res.status(status).json(body);
     }
   }
@@ -247,6 +248,7 @@ export class FiscalController {
       if (error.codigo_bloqueio) body.codigo_bloqueio = error.codigo_bloqueio;
       if (error.orientacao_extemporaneo) body.orientacao_extemporaneo = error.orientacao_extemporaneo;
       if (error.cancelamento_info) body.cancelamento_info = error.cancelamento_info;
+      if (error.carta_correcao_info) body.carta_correcao_info = error.carta_correcao_info;
       return res.status(status).json(body);
     }
   }
@@ -293,6 +295,7 @@ export class FiscalController {
       if (error.codigo_bloqueio) body.codigo_bloqueio = error.codigo_bloqueio;
       if (error.orientacao_extemporaneo) body.orientacao_extemporaneo = error.orientacao_extemporaneo;
       if (error.cancelamento_info) body.cancelamento_info = error.cancelamento_info;
+      if (error.carta_correcao_info) body.carta_correcao_info = error.carta_correcao_info;
       return res.status(status).json(body);
     }
   }
@@ -326,6 +329,7 @@ export class FiscalController {
       if (error.codigo_bloqueio) body.codigo_bloqueio = error.codigo_bloqueio;
       if (error.orientacao_extemporaneo) body.orientacao_extemporaneo = error.orientacao_extemporaneo;
       if (error.cancelamento_info) body.cancelamento_info = error.cancelamento_info;
+      if (error.carta_correcao_info) body.carta_correcao_info = error.carta_correcao_info;
       return res.status(status).json(body);
     }
   }
@@ -369,6 +373,7 @@ export class FiscalController {
       if (error.codigo_bloqueio) body.codigo_bloqueio = error.codigo_bloqueio;
       if (error.orientacao_extemporaneo) body.orientacao_extemporaneo = error.orientacao_extemporaneo;
       if (error.cancelamento_info) body.cancelamento_info = error.cancelamento_info;
+      if (error.carta_correcao_info) body.carta_correcao_info = error.carta_correcao_info;
       return res.status(status).json(body);
     }
   }
@@ -391,6 +396,7 @@ export class FiscalController {
       if (error.codigo_bloqueio) body.codigo_bloqueio = error.codigo_bloqueio;
       if (error.orientacao_extemporaneo) body.orientacao_extemporaneo = error.orientacao_extemporaneo;
       if (error.cancelamento_info) body.cancelamento_info = error.cancelamento_info;
+      if (error.carta_correcao_info) body.carta_correcao_info = error.carta_correcao_info;
       return res.status(status).json(body);
     }
   }
@@ -417,6 +423,7 @@ export class FiscalController {
       if (error.codigo_bloqueio) body.codigo_bloqueio = error.codigo_bloqueio;
       if (error.orientacao_extemporaneo) body.orientacao_extemporaneo = error.orientacao_extemporaneo;
       if (error.cancelamento_info) body.cancelamento_info = error.cancelamento_info;
+      if (error.carta_correcao_info) body.carta_correcao_info = error.carta_correcao_info;
       return res.status(status).json(body);
     }
   }
@@ -470,6 +477,7 @@ export class FiscalController {
       if (error.codigo_bloqueio) body.codigo_bloqueio = error.codigo_bloqueio;
       if (error.orientacao_extemporaneo) body.orientacao_extemporaneo = error.orientacao_extemporaneo;
       if (error.cancelamento_info) body.cancelamento_info = error.cancelamento_info;
+      if (error.carta_correcao_info) body.carta_correcao_info = error.carta_correcao_info;
       return res.status(status).json(body);
     }
   }

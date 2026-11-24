@@ -882,6 +882,16 @@ export class FiscalService {
     ]);
 
     const cancelamentoInfo = this.calcularInfoCancelamentoNFe(notaFiscal, pedido);
+    const qtdCceNotaAtual = notaFiscal
+      ? eventosRes.eventos.filter(
+          (ev) =>
+            ev.id_nota_fiscal === notaFiscal.id_nota_fiscal &&
+            ev.tipo_evento === 'carta_correcao' &&
+            ev.status === 'registrado'
+        ).length
+      : 0;
+    const cartaCorrecaoInfo = this.calcularInfoCartaCorrecaoNFe(notaFiscal, qtdCceNotaAtual);
+    const cartasCorrecao = eventosRes.eventos.filter((ev) => ev.tipo_evento === 'carta_correcao');
     const eventoCancelAtual = notaFiscal
       ? eventosRes.eventos.find(
           (ev) =>
@@ -928,8 +938,10 @@ export class FiscalService {
       historico_notas: historicoNotas,
       transmissoes: permissoesTransmissoes.transmissoes,
       eventos: eventosRes.eventos,
+      cartas_correcao: cartasCorrecao,
       cancelamento_info: cancelamentoInfo,
       cancelamento_auditoria: cancelamentoAuditoria,
+      carta_correcao_info: cartaCorrecaoInfo,
       prontidao_atual: {
         apto: erros.length === 0,
         erros_validacao: erros,
@@ -2132,6 +2144,111 @@ export class FiscalService {
     };
   }
 
+  private calcularInfoCartaCorrecaoNFe(nota: NotaFiscal | null, qtdCceRegistradas = 0) {
+    const prazoLimiteHoras = Number(
+      env.SEFAZ_PRAZO_CCE_HORAS || Number(env.SEFAZ_PRAZO_CCE_DIAS || 30) * 24 || 720
+    );
+    const prazoLimiteDias = Math.round(prazoLimiteHoras / 24);
+    const limiteMaximoEventos = 20;
+    const camposProibidos = [
+      'Valores da operação (valor total, unitário, frete, desconto)',
+      'Campos do cálculo do imposto (base de cálculo, alíquota, diferença de preço ou quantidade)',
+      'Dados cadastrais que impliquem mudança de remetente ou destinatário (CNPJ/CPF/Razão Social)',
+      'Data de emissão ou data de saída da NF-e',
+    ];
+    const orientacaoErroProibido =
+      'Quando o erro estiver nessa lista, a Carta de Correção não tem validade fiscal: cancele a NF-e (se ainda estiver dentro do prazo) e emita uma nova NF-e correta.';
+
+    if (!nota || nota.status !== 'autorizada') {
+      const isCancelada = nota?.status === 'cancelada';
+      return {
+        aplicavel: false,
+        permitido: false,
+        codigo_bloqueio: isCancelada
+          ? 'STATUS_CANCELADA'
+          : nota
+            ? `STATUS_${String(nota.status).toUpperCase()}`
+            : 'SEM_NOTA',
+        motivo_bloqueio: isCancelada
+          ? 'Carta de Correção não é permitida para NF-e cancelada. Emita uma nova NF-e se necessário.'
+          : nota
+            ? `Carta de Correção só é permitida para NF-e autorizada (status atual: "${nota.status}").`
+            : 'Pedido sem NF-e autorizada.',
+        prazo_limite_horas: prazoLimiteHoras,
+        prazo_limite_dias: prazoLimiteDias,
+        prazo_expira_em: null as string | null,
+        horas_decorridas: null as number | null,
+        horas_restantes: 0,
+        dias_restantes: 0,
+        prazo_restante_texto: null as string | null,
+        dentro_prazo: false,
+        total_registradas: qtdCceRegistradas,
+        limite_maximo_eventos: limiteMaximoEventos,
+        proxima_sequencia: Math.min(qtdCceRegistradas + 1, limiteMaximoEventos),
+        campos_proibidos: camposProibidos,
+        orientacao_erro_proibido: orientacaoErroProibido,
+      };
+    }
+
+    const agoraMs = Date.now();
+    const refAut = nota.autorizada_em || nota.emitida_em;
+    const refMs = refAut ? new Date(refAut).getTime() : agoraMs;
+    const expiraEmDate = new Date(refMs + prazoLimiteHoras * 3600000);
+    const msRestantes = expiraEmDate.getTime() - agoraMs;
+    const horasDecorridas = Math.max(0, (agoraMs - refMs) / 3600000);
+    const dentroPrazo = msRestantes > 0;
+    const horasRestantes = dentroPrazo ? Math.floor(msRestantes / 3600000) : 0;
+    const diasRestantes = dentroPrazo ? Math.floor(horasRestantes / 24) : 0;
+
+    const expiraFormatado = expiraEmDate.toLocaleString('pt-BR', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+
+    const prazoRestanteTexto = dentroPrazo
+      ? diasRestantes >= 1
+        ? `Restam ${diasRestantes} dia(s) e ${horasRestantes % 24}h (até ${expiraFormatado})`
+        : `Restam ${horasRestantes}h para Carta de Correção (até ${expiraFormatado})`
+      : `Prazo regulamentar de ${prazoLimiteHoras}h (${prazoLimiteDias} dias) expirado em ${expiraFormatado}`;
+
+    let permitido = true;
+    let codigoBloqueio: string | null = null;
+    let motivoBloqueio: string | null = null;
+
+    if (!dentroPrazo) {
+      permitido = false;
+      codigoBloqueio = 'PRAZO_CCE_EXPIRADO';
+      motivoBloqueio = `Prazo regulamentar para Carta de Correção (${prazoLimiteHoras}h / ${prazoLimiteDias} dias) expirado (${Math.floor(horasDecorridas)}h / ${Math.floor(horasDecorridas / 24)} dias após autorização).`;
+    } else if (qtdCceRegistradas >= limiteMaximoEventos) {
+      permitido = false;
+      codigoBloqueio = 'LIMITE_20_CCE_ATINGIDO';
+      motivoBloqueio = `Limite máximo de ${limiteMaximoEventos} Cartas de Correção por NF-e atingido.`;
+    }
+
+    return {
+      aplicavel: true,
+      permitido,
+      codigo_bloqueio: codigoBloqueio,
+      motivo_bloqueio: motivoBloqueio,
+      prazo_limite_horas: prazoLimiteHoras,
+      prazo_limite_dias: prazoLimiteDias,
+      prazo_expira_em: expiraEmDate.toISOString(),
+      horas_decorridas: Number(horasDecorridas.toFixed(2)),
+      horas_restantes: horasRestantes,
+      dias_restantes: diasRestantes,
+      prazo_restante_texto: prazoRestanteTexto,
+      dentro_prazo: dentroPrazo,
+      total_registradas: qtdCceRegistradas,
+      limite_maximo_eventos: limiteMaximoEventos,
+      proxima_sequencia: qtdCceRegistradas + 1,
+      campos_proibidos: camposProibidos,
+      orientacao_erro_proibido: orientacaoErroProibido,
+    };
+  }
+
   private arquivarXmlComplementarEmDisco(relPath: string, xmlConteudo: string): string {
     const absPath = this.resolverCaminhoAbsolutoArquivoXml(relPath);
     fs.mkdirSync(path.dirname(absPath), { recursive: true });
@@ -2473,14 +2590,17 @@ export class FiscalService {
     const tipoCorrecao = String(payload.tipo_correcao || '').trim().toLowerCase();
     const tiposVedados: Record<string, string> = {
       valor_imposto:
-        'A legislação da CC-e proíbe alterar valores de operação, quantidade, preço, base de cálculo ou alíquota de impostos.',
+        'A legislação da CC-e proíbe alterar valores de operação, quantidade, preço, base de cálculo ou alíquota de impostos. Quando o erro estiver nessa lista, cancele a NF-e (se ainda estiver no prazo) e emita uma nova nota.',
       mudanca_destinatario:
-        'A legislação da CC-e proíbe alterar dados cadastrais que impliquem mudança de remetente ou destinatário.',
+        'A legislação da CC-e proíbe alterar dados cadastrais que impliquem mudança de remetente ou destinatário. Quando o erro estiver nessa lista, cancele a NF-e (se ainda estiver no prazo) e emita uma nova nota.',
       data_emissao_saida:
-        'A legislação da CC-e proíbe alterar a data de emissão ou data de saída da NF-e.',
+        'A legislação da CC-e proíbe alterar a data de emissão ou data de saída da NF-e. Quando o erro estiver nessa lista, cancele a NF-e (se ainda estiver no prazo) e emita uma nova nota.',
     };
     if (tipoCorrecao && tiposVedados[tipoCorrecao]) {
-      throw Object.assign(new Error(tiposVedados[tipoCorrecao]), { statusCode: 422 });
+      throw Object.assign(new Error(tiposVedados[tipoCorrecao]), {
+        statusCode: 422,
+        codigo_bloqueio: 'CAMPO_PROIBIDO_CCE',
+      });
     }
 
     const textoCorrecao = String(payload.texto_correcao || '').trim();
@@ -2496,24 +2616,10 @@ export class FiscalService {
     if (TEXTO_VEDADO_CCE_RX.test(textoCorrecao)) {
       throw Object.assign(
         new Error(
-          'Texto bloqueado pelas regras da CC-e: não é permitido alterar valores/impostos, quantidades, CNPJ/CPF (partes) ou datas de emissão/saída por Carta de Correção.'
+          'Texto bloqueado pelas regras da CC-e: não é permitido alterar valores/impostos, quantidades, CNPJ/CPF (remetente/destinatário) ou datas de emissão/saída por Carta de Correção. Cancele a NF-e (se ainda for possível) e emita uma nova nota.'
         ),
-        { statusCode: 422 }
+        { statusCode: 422, codigo_bloqueio: 'CAMPO_PROIBIDO_CCE' }
       );
-    }
-
-    const refAut = nota.autorizada_em || nota.emitida_em;
-    if (refAut) {
-      const limiteDias = Number(env.SEFAZ_PRAZO_CCE_DIAS || 30);
-      const diasDecorridos = (Date.now() - new Date(refAut).getTime()) / 86400000;
-      if (diasDecorridos > limiteDias) {
-        throw Object.assign(
-          new Error(
-            `Prazo regulamentar para Carta de Correção (${limiteDias} dias) expirado (${Math.floor(diasDecorridos)} dias após autorização).`
-          ),
-          { statusCode: 422 }
-        );
-      }
     }
 
     const qtdCceExistentes = await this.eventoRepo.count({
@@ -2523,10 +2629,16 @@ export class FiscalService {
         status: 'registrado',
       },
     });
-    if (qtdCceExistentes >= 20) {
+
+    const infoCce = this.calcularInfoCartaCorrecaoNFe(nota, qtdCceExistentes);
+    if (!infoCce.permitido) {
       throw Object.assign(
-        new Error('Limite máximo de 20 Cartas de Correção por NF-e atingido.'),
-        { statusCode: 422 }
+        new Error(infoCce.motivo_bloqueio || 'Carta de Correção bloqueada para esta NF-e.'),
+        {
+          statusCode: 422,
+          codigo_bloqueio: infoCce.codigo_bloqueio,
+          carta_correcao_info: infoCce,
+        }
       );
     }
 
@@ -2614,6 +2726,12 @@ export class FiscalService {
         this.listarEventosDoPedido(id_pedido),
       ]);
 
+      const eventoResumoAtual =
+        histEvt.eventos.find((ev) => ev.id_evento === eventoSalvo.id_evento) ||
+        this.serializarEventoResumo(eventoSalvo);
+      const totalCceAtual = aceito ? sequencia : qtdCceExistentes;
+      const cartaCorrecaoInfoAtual = this.calcularInfoCartaCorrecaoNFe(notaAtualizada, totalCceAtual);
+
       return {
         sucesso: !chamada.indisponivel,
         indisponivel: chamada.indisponivel,
@@ -2624,8 +2742,9 @@ export class FiscalService {
             ? `Carta de Correção #${sequencia} registrada com sucesso! Protocolo: ${chamada.nProt || '—'}`
             : `Carta de Correção rejeitada pela SEFAZ (${chamada.cStat}): ${chamada.interpretacao.mensagemAmigavel}`,
         nota_fiscal: notaAtualizada,
-        evento: this.serializarEventoResumo(eventoSalvo),
+        evento: eventoResumoAtual,
         eventos: histEvt.eventos,
+        carta_correcao_info: cartaCorrecaoInfoAtual,
         interpretacao: chamada.interpretacao,
       };
     } finally {

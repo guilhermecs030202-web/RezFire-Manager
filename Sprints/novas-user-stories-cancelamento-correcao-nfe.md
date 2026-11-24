@@ -63,13 +63,13 @@ As duas podem ser feitas em qualquer ordem, depois da 33d.
 
 **Critérios de aceite**
 
-- [ ] A ação "Corrigir NF-e" só aparece para notas autorizadas, nunca para notas canceladas.
-- [ ] Antes do envio, o sistema avisa o que a carta não pode corrigir (valores, campos do cálculo do imposto, remetente, destinatário e datas) e orienta cancelar e reemitir quando o erro estiver nessa lista.
-- [ ] O gestor escreve o texto da correção, e o sistema o envia à SEFAZ e mostra o resultado.
-- [ ] É possível registrar mais de uma carta na mesma nota, com a sequência de cada uma, e o histórico fica visível no pedido.
-- [ ] Fora do prazo permitido, o sistema bloqueia e explica o motivo.
-- [ ] O XML de cada evento fica guardado.
-- [ ] (DoD) A funcionalidade continua utilizável sem a conta do Mercado Livre conectada (modo manual, #34).
+- [x] A ação "Corrigir NF-e" só aparece para notas autorizadas, nunca para notas canceladas.
+- [x] Antes do envio, o sistema avisa o que a carta não pode corrigir (valores, campos do cálculo do imposto, remetente, destinatário e datas) e orienta cancelar e reemitir quando o erro estiver nessa lista.
+- [x] O gestor escreve o texto da correção, e o sistema o envia à SEFAZ e mostra o resultado.
+- [x] É possível registrar mais de uma carta na mesma nota, com a sequência de cada uma, e o histórico fica visível no pedido.
+- [x] Fora do prazo permitido, o sistema bloqueia e explica o motivo.
+- [x] O XML de cada evento fica guardado.
+- [x] (DoD) A funcionalidade continua utilizável sem a conta do Mercado Livre conectada (modo manual, #34).
 
 **Definition of Ready (DoR): não pronto até que...**
 

@@ -111,14 +111,14 @@ function normalizarPedido(p) {
   const statusMapeado = (p.status === "Concluido" || p.status === "Concluído") ? "Concluído" : p.status;
   const itensMapeados = Array.isArray(p.itens)
     ? p.itens.map((it) => ({
-        id_item: it.id_item,
-        id_produto: it.id_produto || it.produto?.id_produto,
-        sku: it.produto?.sku || it.sku || `PROD-${it.id_produto}`,
-        nome: it.produto?.nome || it.nome || "Produto",
-        quantidade: Number(it.quantidade || 1),
-        preco_unitario: Number(it.preco_unitario || it.produto?.preco || 0),
-        subtotal: Number(it.subtotal || (Number(it.quantidade || 1) * Number(it.preco_unitario || it.produto?.preco || 0))),
-      }))
+      id_item: it.id_item,
+      id_produto: it.id_produto || it.produto?.id_produto,
+      sku: it.produto?.sku || it.sku || `PROD-${it.id_produto}`,
+      nome: it.produto?.nome || it.nome || "Produto",
+      quantidade: Number(it.quantidade || 1),
+      preco_unitario: Number(it.preco_unitario || it.produto?.preco || 0),
+      subtotal: Number(it.subtotal || (Number(it.quantidade || 1) * Number(it.preco_unitario || it.produto?.preco || 0))),
+    }))
     : [];
 
   return {
@@ -189,14 +189,14 @@ function getBadgeStatusFiscal(pedido) {
   const nf = pedido?.nota_fiscal_resumo || null;
   const st = pedido?.status_fiscal || (nf ? nf.status : "sem_nota") || "sem_nota";
   const estilos = {
-    sem_nota:         { bg: "#f1f5f9", color: "#475569", border: "#cbd5e1", label: "Sem NF-e" },
-    rascunho:         { bg: "#fefce8", color: "#854d0e", border: "#fde047", label: "NF-e Rascunho" },
-    assinada:         { bg: "#eff6ff", color: "#1d4ed8", border: "#bfdbfe", label: "NF-e Assinada" },
+    sem_nota: { bg: "#f1f5f9", color: "#475569", border: "#cbd5e1", label: "Sem NF-e" },
+    rascunho: { bg: "#fefce8", color: "#854d0e", border: "#fde047", label: "NF-e Rascunho" },
+    assinada: { bg: "#eff6ff", color: "#1d4ed8", border: "#bfdbfe", label: "NF-e Assinada" },
     em_processamento: { bg: "#fff7ed", color: "#c2410c", border: "#fdba74", label: "Processando SEFAZ" },
-    autorizada:       { bg: "#ecfdf5", color: "#065f46", border: "#86efac", label: "NF-e Autorizada" },
-    rejeitada:        { bg: "#fef2f2", color: "#b91c1c", border: "#fca5a5", label: "NF-e Rejeitada" },
-    denegada:         { bg: "#450a0a", color: "#fef2f2", border: "#991b1b", label: "NF-e Denegada" },
-    cancelada:        { bg: "#f3f4f6", color: "#6b7280", border: "#d1d5db", label: "NF-e Cancelada" },
+    autorizada: { bg: "#ecfdf5", color: "#065f46", border: "#86efac", label: "NF-e Autorizada" },
+    rejeitada: { bg: "#fef2f2", color: "#b91c1c", border: "#fca5a5", label: "NF-e Rejeitada" },
+    denegada: { bg: "#450a0a", color: "#fef2f2", border: "#991b1b", label: "NF-e Denegada" },
+    cancelada: { bg: "#f3f4f6", color: "#6b7280", border: "#d1d5db", label: "NF-e Cancelada" },
   };
   const cfg = estilos[st] || estilos.sem_nota;
   const sufixoNum = nf && nf.numero ? ` #${nf.numero}` : "";
@@ -227,9 +227,9 @@ function getBadgeModalidadeEnvio(mod) {
 function getBadgeStatusComercial(status) {
   const map = {
     "Confirmado": { cls: "badge-confirmado", label: "Confirmado" },
-    "Concluído":  { cls: "badge-concluido", label: "Concluído" },
-    "Concluido":  { cls: "badge-concluido", label: "Concluído" },
-    "Cancelado":  { cls: "badge-cancelado", label: "Cancelado" },
+    "Concluído": { cls: "badge-concluido", label: "Concluído" },
+    "Concluido": { cls: "badge-concluido", label: "Concluído" },
+    "Cancelado": { cls: "badge-cancelado", label: "Cancelado" },
   };
   const cfg = map[status] || { cls: "badge-confirmado", label: status };
   return `<span class="status-comercial ${cfg.cls}"><span class="status-dot"></span>${cfg.label}</span>`;
@@ -241,8 +241,8 @@ function getLogisticsBadgeForPedido(pedido) {
   const entregas = window.RezFireEntregas.loadEntregas();
   const ent = entregas.find(
     (e) => e.id_pedido_interno === pedido.id_pedido ||
-           e.codigo_pedido_ml === pedido.codigo_pedido ||
-           e.codigo_pedido_direto === pedido.codigo_pedido
+      e.codigo_pedido_ml === pedido.codigo_pedido ||
+      e.codigo_pedido_direto === pedido.codigo_pedido
   );
   if (!ent) return "";
 
@@ -258,11 +258,11 @@ function getLogisticsBadgeForPedido(pedido) {
 
   const map = {
     [STATUS_LOGISTICO.AGUARDANDO_ENVIO]: `<span class="entrega-badge badge-aguardando" style="font-size:0.68rem;padding:2px 7px;border-radius:6px;display:inline-flex;align-items:center;margin-top:4px">Aguardando Envio</span>`,
-    [STATUS_LOGISTICO.ENVIADO]:          `<span class="entrega-badge badge-enviado" style="font-size:0.68rem;padding:2px 7px;border-radius:6px;display:inline-flex;align-items:center;margin-top:4px">Enviado</span>`,
-    [STATUS_LOGISTICO.EM_TRANSITO]:      `<span class="entrega-badge badge-transito" style="font-size:0.68rem;padding:2px 7px;border-radius:6px;display:inline-flex;align-items:center;margin-top:4px">Em Trânsito</span>`,
-    [STATUS_LOGISTICO.SAIU_ENTREGA]:     `<span class="entrega-badge badge-saiu" style="font-size:0.68rem;padding:2px 7px;border-radius:6px;display:inline-flex;align-items:center;margin-top:4px">Saiu p/ Entrega</span>`,
-    [STATUS_LOGISTICO.ENTREGUE]:         `<span class="entrega-badge badge-entregue" style="font-size:0.68rem;padding:2px 7px;border-radius:6px;display:inline-flex;align-items:center;margin-top:4px">Entregue</span>`,
-    [STATUS_LOGISTICO.CANCELADO]:        `<span class="entrega-badge badge-cancelado" style="font-size:0.68rem;padding:2px 7px;border-radius:6px;display:inline-flex;align-items:center;margin-top:4px">Cancelado</span>`,
+    [STATUS_LOGISTICO.ENVIADO]: `<span class="entrega-badge badge-enviado" style="font-size:0.68rem;padding:2px 7px;border-radius:6px;display:inline-flex;align-items:center;margin-top:4px">Enviado</span>`,
+    [STATUS_LOGISTICO.EM_TRANSITO]: `<span class="entrega-badge badge-transito" style="font-size:0.68rem;padding:2px 7px;border-radius:6px;display:inline-flex;align-items:center;margin-top:4px">Em Trânsito</span>`,
+    [STATUS_LOGISTICO.SAIU_ENTREGA]: `<span class="entrega-badge badge-saiu" style="font-size:0.68rem;padding:2px 7px;border-radius:6px;display:inline-flex;align-items:center;margin-top:4px">Saiu p/ Entrega</span>`,
+    [STATUS_LOGISTICO.ENTREGUE]: `<span class="entrega-badge badge-entregue" style="font-size:0.68rem;padding:2px 7px;border-radius:6px;display:inline-flex;align-items:center;margin-top:4px">Entregue</span>`,
+    [STATUS_LOGISTICO.CANCELADO]: `<span class="entrega-badge badge-cancelado" style="font-size:0.68rem;padding:2px 7px;border-radius:6px;display:inline-flex;align-items:center;margin-top:4px">Cancelado</span>`,
   };
   return map[sl] || "";
 }
@@ -277,7 +277,7 @@ function computePedidosKPIs(pedidos) {
   // Valor total de pedidos válidos (não cancelados)
   const pedidosValidos = pedidos.filter((p) => p.status !== "Cancelado");
   const valorTotalValidos = pedidosValidos.reduce((sum, p) => sum + Number(p.valor_total || 0), 0);
-  
+
   // Valor de cancelados apresentado separadamente
   const pedidosCancelados = pedidos.filter((p) => p.status === "Cancelado");
   const valorTotalCancelados = pedidosCancelados.reduce((sum, p) => sum + Number(p.valor_total || 0), 0);
@@ -488,9 +488,9 @@ function renderTable() {
         </td>
         <td>
           <span style="font-size:0.82rem;font-weight:600;display:inline-flex;align-items:center;gap:4px">
-            ${isML 
-              ? `<span style="width:8px;height:8px;border-radius:50%;background:#eab308"></span> Mercado Livre` 
-              : `<span style="width:8px;height:8px;border-radius:50%;background:#3b82f6"></span> Venda Direta`}
+            ${isML
+        ? `<span style="width:8px;height:8px;border-radius:50%;background:#eab308"></span> Mercado Livre`
+        : `<span style="width:8px;height:8px;border-radius:50%;background:#3b82f6"></span> Venda Direta`}
           </span>
           <span style="display:block;font-size:0.68rem;font-weight:700;color:${p.origem_dado === 'mercado_livre' ? '#b45309' : '#475569'}">
             Origem: ${p.origem_dado === 'mercado_livre' ? 'API Mercado Livre' : 'Cadastro Manual'}
@@ -831,8 +831,8 @@ function openDetalhePanel(pedidoId) {
           <div><strong>CPF/CNPJ:</strong> <span class="font-mono">${formatarDocFiscal(pedido.destinatario_documento)}</span> ${pedido.destinatario_ie ? `· IE: ${escapeHtml(pedido.destinatario_ie)}` : ""}</div>
           <div style="color:var(--muted);margin-top:2px">
             ${pedido.destinatario_logradouro
-              ? `${escapeHtml(pedido.destinatario_logradouro)}, ${escapeHtml(pedido.destinatario_numero || "S/N")} — ${escapeHtml(pedido.destinatario_bairro || "")}, ${escapeHtml(pedido.destinatario_municipio || "")}/${escapeHtml(pedido.destinatario_uf || "")} · CEP ${escapeHtml(formatarCepFiscal(pedido.destinatario_cep) || "—")}`
-              : "Endereço completo do destinatário ainda não informado para emissão fiscal."}
+      ? `${escapeHtml(pedido.destinatario_logradouro)}, ${escapeHtml(pedido.destinatario_numero || "S/N")} — ${escapeHtml(pedido.destinatario_bairro || "")}, ${escapeHtml(pedido.destinatario_municipio || "")}/${escapeHtml(pedido.destinatario_uf || "")} · CEP ${escapeHtml(formatarCepFiscal(pedido.destinatario_cep) || "—")}`
+      : "Endereço completo do destinatário ainda não informado para emissão fiscal."}
           </div>
         </div>
         ${pedido.nota_fiscal_resumo ? `
@@ -844,6 +844,7 @@ function openDetalhePanel(pedidoId) {
             ${pedido.nota_fiscal_resumo.guarda_legal_ate ? `<div style="margin-top:2px;color:#334155"><strong>Arquivo Fiscal:</strong> XML arquivado com guarda legal até ${formatDateOnly(pedido.nota_fiscal_resumo.guarda_legal_ate)}</div>` : ""}
             ${pedido.nota_fiscal_resumo.ultimo_codigo_sefaz ? `<div style="margin-top:3px;color:${pedido.nota_fiscal_resumo.status === 'rejeitada' || pedido.nota_fiscal_resumo.status === 'denegada' ? '#b91c1c' : 'var(--muted)'}"><strong>Último retorno (${escapeHtml(pedido.nota_fiscal_resumo.ultimo_codigo_sefaz)}):</strong> ${escapeHtml(pedido.nota_fiscal_resumo.ultima_mensagem_amigavel || pedido.nota_fiscal_resumo.ultimo_motivo_sefaz || "")}</div>` : ""}
             <div style="font-family:monospace;font-size:0.72rem;margin-top:3px;word-break:break-all;color:var(--muted)">Chave: ${escapeHtml(pedido.nota_fiscal_resumo.chave_acesso || "")}</div>
+            ${Number(pedido.nota_fiscal_resumo.total_cartas_correcao || 0) > 0 ? `<div id="drawer-cce-historico" style="margin-top:8px;padding-top:8px;border-top:1px dashed #cbd5e1;font-size:0.75rem;color:var(--muted)">Carregando histórico de Cartas de Correção...</div>` : ""}
           </div>
         ` : ""}
       </section>
@@ -890,8 +891,8 @@ function openDetalhePanel(pedidoId) {
         <h3 class="detalhe-section-title">Histórico e Auditoria</h3>
         <div class="timeline">
           ${(pedido.historico || [
-            { data: pedido.data_pedido, evento: "Pedido registrado", descricao: `Registrado via ${pedido.canal}`, usuario: "Sistema" }
-          ]).map((h) => `
+      { data: pedido.data_pedido, evento: "Pedido registrado", descricao: `Registrado via ${pedido.canal}`, usuario: "Sistema" }
+    ]).map((h) => `
             <div class="timeline-item">
               <div class="timeline-dot ${h.evento.includes('Cancelado') ? 'erro' : h.evento.includes('Concluído') ? 'sucesso' : 'info'}"></div>
               <div class="timeline-title">${escapeHtml(h.evento)}</div>
@@ -962,6 +963,54 @@ function openDetalhePanel(pedidoId) {
       showToast(err.message || "Erro ao baixar XML autorizado.", "erro");
     }
   });
+
+  // Carrega histórico de Cartas de Correção diretamente no detalhe do pedido
+  const drawerCceEl = document.getElementById("drawer-cce-historico");
+  if (drawerCceEl && window.RezFireAPI?.fiscal?.listarEventosNFe) {
+    window.RezFireAPI.fiscal
+      .listarEventosNFe(pedido.id_pedido)
+      .then((res) => {
+        const cces = (res?.eventos || []).filter(
+          (ev) => ev.tipo_evento === "carta_correcao" && ev.status === "registrado"
+        );
+        if (!cces.length) {
+          drawerCceEl.innerHTML = `<span style="color:var(--muted)">Nenhuma Carta de Correção registrada.</span>`;
+          return;
+        }
+        drawerCceEl.innerHTML = `
+          <div style="font-weight:800;color:#1e40af;margin-bottom:4px">Histórico de Cartas de Correção (${cces.length})</div>
+          ${cces
+            .map(
+              (c) => `
+            <div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:6px;padding:6px 8px;margin-bottom:4px;color:#1e3a8a">
+              <div style="display:flex;justify-content:space-between;align-items:center;gap:6px;flex-wrap:wrap">
+                <strong>CC-e #${c.sequencia}</strong>
+                <span style="font-size:0.7rem;color:#1d4ed8">${formatDate(c.data_evento || c.created_at)}${c.usuario_nome ? ` · ${escapeHtml(c.usuario_nome)}` : ""}</span>
+              </div>
+              <div style="margin-top:2px;word-break:break-word">${escapeHtml(c.descricao_evento || "")}</div>
+              <div style="display:flex;justify-content:space-between;align-items:center;margin-top:3px;font-size:0.7rem">
+                <span class="font-mono">Protocolo: ${escapeHtml(c.protocolo_evento || "—")}</span>
+                ${c.tem_xml_evento ? `<button type="button" class="btn-ghost btn-drawer-xml-cce" data-id="${c.id_evento}" style="padding:1px 6px;font-size:0.68rem">Baixar XML</button>` : ""}
+              </div>
+            </div>
+          `
+            )
+            .join("")}
+        `;
+        drawerCceEl.querySelectorAll(".btn-drawer-xml-cce").forEach((btn) => {
+          btn.addEventListener("click", async () => {
+            try {
+              await window.RezFireAPI.fiscal.baixarXmlEventoArquivo(Number(btn.getAttribute("data-id")));
+            } catch (err) {
+              showToast(err.message || "Erro ao baixar XML da Carta de Correção.", "erro");
+            }
+          });
+        });
+      })
+      .catch(() => {
+        drawerCceEl.innerHTML = `<span style="color:var(--muted)">Não foi possível carregar o histórico de Cartas de Correção.</span>`;
+      });
+  }
 
   // Eventos de Apuração de Lucro Real (#18abc)
   const btnToggleAjuste = document.getElementById("btn-toggle-ajuste-lucro");
@@ -1064,7 +1113,7 @@ function openFormModal(pedidoParaEditar = null) {
     title.textContent = `Editar pedido ${pedidoParaEditar.codigo_pedido}`;
     document.getElementById("pedido-id").value = pedidoParaEditar.id_pedido;
     document.getElementById("pedido-numero").value = pedidoParaEditar.codigo_pedido;
-    
+
     // Formata data ISO para datetime-local
     const d = new Date(pedidoParaEditar.data_pedido);
     const pad = (n) => String(n).padStart(2, "0");
@@ -1104,7 +1153,7 @@ function openFormModal(pedidoParaEditar = null) {
   } else {
     title.textContent = "Novo pedido";
     document.getElementById("pedido-id").value = "";
-    
+
     // Gera código único para o pedido local
     const nextId = window.RezFireData.nextOrderId(state.pedidos);
     document.getElementById("pedido-numero").value = `PED-${String(nextId).padStart(4, "0")}`;
@@ -2061,142 +2110,142 @@ function bindEvents() {
 
     try {
       if (editingId) {
-      // Edição
-      const idx = state.pedidos.findIndex((p) => p.id_pedido === editingId);
-      if (idx >= 0) {
-        const ped = state.pedidos[idx];
-        ped.cliente = cliente;
-        ped.uf = uf;
-        ped.canal = canal;
-        ped.status = status;
-        ped.data_pedido = dataPedidoIso;
-        ped.codigo_externo_ml = codigo_externo_ml;
-        ped.observacoes = observacoes;
-        ped.itens = [...formItens];
-        ped.subtotal_itens = subtotal;
-        ped.desconto = desconto;
-        ped.valor_desconto = desconto;
-        ped.frete = frete;
-        ped.valor_total = total;
-        Object.assign(ped, dadosDestinatarioForm);
+        // Edição
+        const idx = state.pedidos.findIndex((p) => p.id_pedido === editingId);
+        if (idx >= 0) {
+          const ped = state.pedidos[idx];
+          ped.cliente = cliente;
+          ped.uf = uf;
+          ped.canal = canal;
+          ped.status = status;
+          ped.data_pedido = dataPedidoIso;
+          ped.codigo_externo_ml = codigo_externo_ml;
+          ped.observacoes = observacoes;
+          ped.itens = [...formItens];
+          ped.subtotal_itens = subtotal;
+          ped.desconto = desconto;
+          ped.valor_desconto = desconto;
+          ped.frete = frete;
+          ped.valor_total = total;
+          Object.assign(ped, dadosDestinatarioForm);
 
-        if (window.RezFireAPI?.pedidos?.atualizarDestinatario && editingId) {
-          const destRes = await window.RezFireAPI.pedidos.atualizarDestinatario(editingId, {
-            ...dadosDestinatarioForm,
-            valor_desconto: desconto,
-          });
-          if (destRes && destRes.sucesso && destRes.pedido) {
-            state.pedidos[idx] = normalizarPedido(destRes.pedido);
-          }
-        }
-
-        ped.historico = ped.historico || [];
-        ped.historico.push({
-          data: agoraIso,
-          evento: "Pedido editado",
-          descricao: `Alterações salvas comercialmente. Total: ${money(total)}.`,
-          usuario: "Gestor RezFire",
-        });
-
-        // Se o pedido foi concluído na edição, sincroniza com entregas
-        if (status === "Concluído" && window.RezFireEntregas && typeof window.RezFireEntregas.loadEntregas === "function") {
-          let entregas = window.RezFireEntregas.loadEntregas();
-          let entUpdated = false;
-          entregas = entregas.map((ent) => {
-            if (ent.id_pedido_interno === ped.id_pedido || ent.codigo_pedido_ml === ped.codigo_pedido || ent.codigo_pedido_direto === ped.codigo_pedido) {
-              ent.status_logistico = window.RezFireEntregas.STATUS_LOGISTICO.ENTREGUE;
-              ent.status_interno = window.RezFireEntregas.STATUS_INTERNO.DESPACHO_REGISTRADO;
-              ent.data_entrega = agoraIso;
-              entUpdated = true;
+          if (window.RezFireAPI?.pedidos?.atualizarDestinatario && editingId) {
+            const destRes = await window.RezFireAPI.pedidos.atualizarDestinatario(editingId, {
+              ...dadosDestinatarioForm,
+              valor_desconto: desconto,
+            });
+            if (destRes && destRes.sucesso && destRes.pedido) {
+              state.pedidos[idx] = normalizarPedido(destRes.pedido);
             }
-            return ent;
+          }
+
+          ped.historico = ped.historico || [];
+          ped.historico.push({
+            data: agoraIso,
+            evento: "Pedido editado",
+            descricao: `Alterações salvas comercialmente. Total: ${money(total)}.`,
+            usuario: "Gestor RezFire",
           });
-          if (entUpdated) {
-            window.RezFireEntregas.saveEntregas(entregas);
+
+          // Se o pedido foi concluído na edição, sincroniza com entregas
+          if (status === "Concluído" && window.RezFireEntregas && typeof window.RezFireEntregas.loadEntregas === "function") {
+            let entregas = window.RezFireEntregas.loadEntregas();
+            let entUpdated = false;
+            entregas = entregas.map((ent) => {
+              if (ent.id_pedido_interno === ped.id_pedido || ent.codigo_pedido_ml === ped.codigo_pedido || ent.codigo_pedido_direto === ped.codigo_pedido) {
+                ent.status_logistico = window.RezFireEntregas.STATUS_LOGISTICO.ENTREGUE;
+                ent.status_interno = window.RezFireEntregas.STATUS_INTERNO.DESPACHO_REGISTRADO;
+                ent.data_entrega = agoraIso;
+                entUpdated = true;
+              }
+              return ent;
+            });
+            if (entUpdated) {
+              window.RezFireEntregas.saveEntregas(entregas);
+            }
           }
         }
-      }
-      showToast(`Pedido ${codigo_pedido} atualizado com sucesso!`, "sucesso");
-    } else {
-      // ─── Criação de Novo Pedido (Baixa Transacional via API & MySQL) ────
-      let novoPedidoCriado = null;
+        showToast(`Pedido ${codigo_pedido} atualizado com sucesso!`, "sucesso");
+      } else {
+        // ─── Criação de Novo Pedido (Baixa Transacional via API & MySQL) ────
+        let novoPedidoCriado = null;
 
-      if (window.RezFireAPI) {
-        const payloadAPI = {
-          codigo_pedido: codigo_pedido || undefined,
-          cliente_nome: cliente,
-          origem: canal,
-          modalidade_envio: modalidade_envio,
-          exibir_na_entrega: true,
-          valor_desconto: desconto,
-          ...dadosDestinatarioForm,
-          itens: formItens.map((it) => ({
-            id_produto: Number(it.id_produto),
-            quantidade: Number(it.quantidade),
-            preco_unitario: Number(it.preco_unitario),
-          })),
-        };
+        if (window.RezFireAPI) {
+          const payloadAPI = {
+            codigo_pedido: codigo_pedido || undefined,
+            cliente_nome: cliente,
+            origem: canal,
+            modalidade_envio: modalidade_envio,
+            exibir_na_entrega: true,
+            valor_desconto: desconto,
+            ...dadosDestinatarioForm,
+            itens: formItens.map((it) => ({
+              id_produto: Number(it.id_produto),
+              quantidade: Number(it.quantidade),
+              preco_unitario: Number(it.preco_unitario),
+            })),
+          };
 
-        try {
-          const apiRes = await window.RezFireAPI.pedidos.criar(payloadAPI);
-          if (apiRes && apiRes.sucesso && apiRes.pedido) {
-            novoPedidoCriado = normalizarPedido(apiRes.pedido);
+          try {
+            const apiRes = await window.RezFireAPI.pedidos.criar(payloadAPI);
+            if (apiRes && apiRes.sucesso && apiRes.pedido) {
+              novoPedidoCriado = normalizarPedido(apiRes.pedido);
+            }
+          } catch (apiErr) {
+            console.error("[Pedidos API] Erro ao criar pedido:", apiErr);
+            errorEl.textContent = apiErr.message || "Erro ao gravar pedido no banco MySQL.";
+            return;
           }
-        } catch (apiErr) {
-          console.error("[Pedidos API] Erro ao criar pedido:", apiErr);
-          errorEl.textContent = apiErr.message || "Erro ao gravar pedido no banco MySQL.";
-          return;
         }
+
+        if (!novoPedidoCriado) {
+          const novoId = window.RezFireData ? window.RezFireData.nextOrderId(state.pedidos) : Date.now();
+          novoPedidoCriado = {
+            id_pedido: novoId,
+            codigo_pedido: codigo_pedido || `#PED-${novoId}`,
+            codigo_externo_ml,
+            canal,
+            origem: canal,
+            tipo_envio: modalidade_envio,
+            modalidade_envio: modalidade_envio,
+            prazo_dias_estimado: modalidade_envio === "Full" ? 1 : (modalidade_envio === "Coleta" ? 3 : (modalidade_envio === "Tradicional" ? 4 : 2)),
+            data_pedido: dataPedidoIso,
+            cliente,
+            cliente_nome: cliente,
+            uf,
+            status: "Confirmado",
+            status_entrega: "A separar",
+            itens: [...formItens],
+            subtotal_itens: subtotal,
+            desconto,
+            frete,
+            valor_total: total,
+            observacoes,
+            historico: [
+              { data: agoraIso, evento: "Pedido registrado", descricao: `Cadastro manual via ${canal}.`, usuario: "Gestor RezFire" },
+            ],
+          };
+        }
+
+        state.pedidos.unshift(novoPedidoCriado);
+        showToast(`Pedido ${novoPedidoCriado.codigo_pedido} criado e baixado no estoque MySQL com sucesso!`, "sucesso");
       }
 
-      if (!novoPedidoCriado) {
-        const novoId = window.RezFireData ? window.RezFireData.nextOrderId(state.pedidos) : Date.now();
-        novoPedidoCriado = {
-          id_pedido: novoId,
-          codigo_pedido: codigo_pedido || `#PED-${novoId}`,
-          codigo_externo_ml,
-          canal,
-          origem: canal,
-          tipo_envio: modalidade_envio,
-          modalidade_envio: modalidade_envio,
-          prazo_dias_estimado: modalidade_envio === "Full" ? 1 : (modalidade_envio === "Coleta" ? 3 : (modalidade_envio === "Tradicional" ? 4 : 2)),
-          data_pedido: dataPedidoIso,
-          cliente,
-          cliente_nome: cliente,
-          uf,
-          status: "Confirmado",
-          status_entrega: "A separar",
-          itens: [...formItens],
-          subtotal_itens: subtotal,
-          desconto,
-          frete,
-          valor_total: total,
-          observacoes,
-          historico: [
-            { data: agoraIso, evento: "Pedido registrado", descricao: `Cadastro manual via ${canal}.`, usuario: "Gestor RezFire" },
-          ],
-        };
+      if (window.RezFireData) {
+        window.RezFireData.saveOrders(state.pedidos);
       }
-
-      state.pedidos.unshift(novoPedidoCriado);
-      showToast(`Pedido ${novoPedidoCriado.codigo_pedido} criado e baixado no estoque MySQL com sucesso!`, "sucesso");
+      closeFormModal(true);
+      renderKPIs();
+      renderTable();
+    } catch (err) {
+      errorEl.textContent = err.message || "Erro inesperado ao salvar pedido.";
+    } finally {
+      if (btnSalvar) {
+        btnSalvar.disabled = false;
+        btnSalvar.textContent = "Salvar Pedido";
+      }
     }
-
-    if (window.RezFireData) {
-      window.RezFireData.saveOrders(state.pedidos);
-    }
-    closeFormModal(true);
-    renderKPIs();
-    renderTable();
-  } catch (err) {
-    errorEl.textContent = err.message || "Erro inesperado ao salvar pedido.";
-  } finally {
-    if (btnSalvar) {
-      btnSalvar.disabled = false;
-      btnSalvar.textContent = "Salvar Pedido";
-    }
-  }
-});
+  });
 
 
 
@@ -2631,6 +2680,8 @@ function renderNotaFiscalAssinada(pedido, nf, transmissoes = [], eventos = [], e
   const sugereAvancar = isRejeitada && (nf.ultimo_codigo_sefaz === "204" || nf.ultimo_codigo_sefaz === "539");
   const cancelInfo = extras.cancelamento_info || null;
   const cancelPermitido = !cancelInfo || cancelInfo.permitido !== false;
+  const cceInfo = extras.carta_correcao_info || null;
+  const ccePermitido = !cceInfo || cceInfo.permitido !== false;
   const historicoNotas = Array.isArray(extras.historico_notas) ? extras.historico_notas : [];
   const podeEmitirNovaAposCancelamento = isCancelada && pedido.status !== "Cancelado";
 
@@ -2753,18 +2804,39 @@ function renderNotaFiscalAssinada(pedido, nf, transmissoes = [], eventos = [], e
       </div>
 
       <div id="nfe-box-cce" style="display:none;background:#eff6ff;border:1px solid #bfdbfe;border-radius:10px;padding:12px;margin-bottom:12px">
-        <div style="font-size:0.84rem;font-weight:800;color:#1e40af;margin-bottom:4px">Registrar Carta de Correção Eletrônica — CC-e (tpEvento 110110)</div>
-        <p style="font-size:0.74rem;color:#1e3a8a;margin:0 0 8px">Permitido até 30 dias após emissão (máx. 20 eventos). Vedada alteração de valores, impostos, quantidades, remetente/destinatário ou datas.</p>
-        <select id="nfe-cce-tipo" class="search-input" style="width:100%;margin-bottom:8px;font-size:0.78rem">
-          <option value="endereco_observacao">Dados complementares, observações ou complemento de endereço (Permitido)</option>
-          <option value="transporte">Dados de transportadora / volume / peso (Permitido)</option>
-          <option value="natureza_cfop_complementar">Código fiscal/descrição complementar sem mudar imposto (Permitido)</option>
-        </select>
-        <textarea id="nfe-cce-texto" rows="3" maxlength="1000" placeholder="Descreva objetivamente a correção (15 a 1000 caracteres)..." style="width:100%;font-size:0.8rem;border:1px solid #93c5fd;border-radius:6px;padding:6px;background:#fff"></textarea>
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-top:6px">
-          <span id="nfe-cce-count" style="font-size:0.72rem;color:#1e3a8a">0/1000 caracteres</span>
-          <button type="button" class="btn-primary" id="btn-confirmar-cce-nfe" style="background:#1d4ed8;padding:5px 12px;font-size:0.78rem">Enviar Carta de Correção</button>
+        <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:6px">
+          <div style="font-size:0.84rem;font-weight:800;color:#1e40af">Corrigir NF-e — Carta de Correção Eletrônica (tpEvento 110110)</div>
+          <span id="nfe-cce-prazo-badge" style="font-size:0.72rem;font-weight:700;padding:3px 9px;border-radius:999px;background:${ccePermitido ? "#dbeafe" : "#fee2e2"};color:${ccePermitido ? "#1e40af" : "#991b1b"};border:1px solid ${ccePermitido ? "#93c5fd" : "#fca5a5"}">
+            ${cceInfo?.proxima_sequencia ? `CC-e #${cceInfo.proxima_sequencia}/${cceInfo.limite_maximo_eventos || 20}` : "CC-e"}${cceInfo?.prazo_restante_texto ? ` · ${escapeHtml(cceInfo.prazo_restante_texto)}` : ""}
+          </span>
         </div>
+        ${!ccePermitido ? `
+          <div id="nfe-cce-bloqueio" style="background:#fff;border:1px solid #dc2626;border-radius:8px;padding:10px 12px;font-size:0.78rem;color:#7f1d1d">
+            <div style="font-weight:800;margin-bottom:4px">⛔ Carta de Correção bloqueada</div>
+            <div>${escapeHtml(cceInfo?.motivo_bloqueio || "Não é possível registrar Carta de Correção para esta NF-e.")}</div>
+          </div>
+        ` : `
+          <div id="nfe-cce-aviso-proibido" style="background:#fffbeb;border:1px solid #f59e0b;border-radius:8px;padding:9px 11px;margin-bottom:10px;font-size:0.74rem;color:#92400e">
+            <div style="font-weight:800;margin-bottom:4px">⚠️ Atenção: o que a Carta de Correção NÃO pode alterar</div>
+            <ul style="margin:0 0 6px 16px;padding:0;line-height:1.45">
+              <li><strong>Valores</strong> (preço unitário, valor total, frete, desconto);</li>
+              <li><strong>Campos do cálculo do imposto</strong> (base de cálculo, alíquota, diferença de preço ou quantidade);</li>
+              <li><strong>Remetente ou destinatário</strong> (CNPJ/CPF ou mudança de partes);</li>
+              <li><strong>Datas</strong> de emissão ou de saída da NF-e.</li>
+            </ul>
+            <div><strong>Erro em algum desses itens?</strong> Cancele a NF-e (se ainda estiver dentro do prazo) e <strong>emita uma nova NF-e</strong>.</div>
+          </div>
+          <select id="nfe-cce-tipo" class="search-input" style="width:100%;margin-bottom:8px;font-size:0.78rem">
+            <option value="endereco_observacao">Dados complementares, observações ou complemento de endereço (Permitido)</option>
+            <option value="transporte">Dados de transportadora / volume / peso (Permitido)</option>
+            <option value="natureza_cfop_complementar">Código fiscal/descrição complementar sem mudar imposto (Permitido)</option>
+          </select>
+          <textarea id="nfe-cce-texto" rows="3" maxlength="1000" placeholder="Descreva objetivamente a correção (15 a 1000 caracteres)..." style="width:100%;font-size:0.8rem;border:1px solid #93c5fd;border-radius:6px;padding:6px;background:#fff"></textarea>
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-top:6px">
+            <span id="nfe-cce-count" style="font-size:0.72rem;color:#1e3a8a">0/1000 caracteres</span>
+            <button type="button" class="btn-primary" id="btn-confirmar-cce-nfe" style="background:#1d4ed8;padding:5px 12px;font-size:0.78rem">Enviar Carta de Correção</button>
+          </div>
+        `}
       </div>
     ` : ""}
   `;
@@ -2792,7 +2864,7 @@ function renderNotaFiscalAssinada(pedido, nf, transmissoes = [], eventos = [], e
       </button>
     ` : ""}
     ${isAutorizada ? `
-      <button type="button" class="btn-ghost" id="btn-nfe-toggle-cce" style="border-color:#93c5fd;color:#1d4ed8">📝 Carta de Correção</button>
+      <button type="button" class="btn-ghost" id="btn-nfe-toggle-cce" style="border-color:#93c5fd;color:#1d4ed8">📝 Corrigir NF-e</button>
       <button type="button" class="btn-ghost" id="btn-nfe-toggle-cancelar" style="border-color:#fca5a5;color:#b91c1c">⛔ Cancelar NF-e</button>
     ` : ""}
     <button type="button" class="btn-ghost" id="btn-nfe-copiar-xml">${nf.xml_autorizado ? "Copiar nfeProc" : "Copiar XML"}</button>
@@ -2832,6 +2904,8 @@ function renderNotaFiscalAssinada(pedido, nf, transmissoes = [], eventos = [], e
             cancelamento_info: atualizado?.cancelamento_info || res.cancelamento_info || extras.cancelamento_info,
             cancelamento_auditoria:
               atualizado?.cancelamento_auditoria || res.cancelamento_auditoria || extras.cancelamento_auditoria,
+            carta_correcao_info:
+              atualizado?.carta_correcao_info || res.carta_correcao_info || extras.carta_correcao_info,
             historico_notas: atualizado?.historico_notas || extras.historico_notas || [],
           }
         );
@@ -2938,6 +3012,11 @@ function renderNotaFiscalAssinada(pedido, nf, transmissoes = [], eventos = [], e
     const btn = e.currentTarget;
     const tipo = document.getElementById("nfe-cce-tipo")?.value || "endereco_observacao";
     const texto = document.getElementById("nfe-cce-texto")?.value?.trim() || "";
+    if (texto.length < 15 || texto.length > 1000) {
+      setFeedbackSefaz("erro", "Descreva a correção com pelo menos 15 caracteres (máximo 1000).");
+      showToast("Texto da correção obrigatório (mínimo 15 caracteres).", "erro");
+      return;
+    }
     executarAcaoSefaz(
       () =>
         window.RezFireAPI.fiscal.registrarCartaCorrecao(pedido.id_pedido, {
@@ -3012,6 +3091,7 @@ async function abrirModalPrepararNFe(pedido, opcoes = {}) {
           {
             cancelamento_info: atual.cancelamento_info || null,
             cancelamento_auditoria: atual.cancelamento_auditoria || null,
+            carta_correcao_info: atual.carta_correcao_info || null,
             historico_notas: atual.historico_notas || [],
           }
         );
@@ -3033,6 +3113,7 @@ async function abrirModalPrepararNFe(pedido, opcoes = {}) {
         {
           cancelamento_info: atualizado?.cancelamento_info || null,
           cancelamento_auditoria: atualizado?.cancelamento_auditoria || null,
+          carta_correcao_info: atualizado?.carta_correcao_info || null,
           historico_notas: atualizado?.historico_notas || [],
         }
       );

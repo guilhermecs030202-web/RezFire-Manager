@@ -132,11 +132,46 @@ Acesse [http://localhost:3001](http://localhost:3001) no navegador.
 
 ---
 
+## 🧾 Módulo Fiscal & NF-e em Produção (SEFAZ-SP)
+
+O módulo **Configuração Fiscal & NF-e** (`fiscal.html`, acesso restrito ao perfil **GESTOR**) funciona imediatamente em modo **Homologação / Simulado** após o clone do repositório, inclusive sem conta do Mercado Livre conectada (**modo manual**).
+
+Para emitir **NF-e reais com validade jurídica na SEFAZ-SP**, cada servidor de produção precisa configurar seu próprio `backend/.env` (arquivo ignorado pelo Git por segurança). Você pode fazer isso com **um único comando**:
+
+```bash
+cd backend
+npm run fiscal:setup-producao
+```
+
+Para publicar em servidor externo, recomenda-se também rotacionar `JWT_SECRET` e `COOKIE_SECRET`:
+
+```bash
+cd backend
+npm run fiscal:setup-producao -- --rotate-app-secrets
+```
+
+O script configura automaticamente:
+- `SEFAZ_MODO_TRANSPORTE=sefaz_soap` (transmissão real via Web Services SEFAZ-SP / mTLS);
+- `FISCAL_ENCRYPTION_KEY` exclusiva de 256 bits para o cofre **AES-256-GCM** do Certificado Digital A1;
+- Diretórios `backend/uploads/fiscal-vault` (cofre do certificado) e `backend/uploads/fiscal-xmls` (guarda legal de 5 anos);
+- Prazos e alertas fiscais (`24h` cancelamento normal, `480h` referência extemporânea SEFAZ-SP, `720h` Carta de Correção e alerta de vencimento do A1 com `30` dias).
+
+Após rodar o script e reiniciar o backend (`npm run build && npm start`), finalize na aba **Configuração Fiscal & NF-e** (`fiscal.html`):
+1. Preencha os **Dados do Emitente** (CNPJ, IE, CRT, Série, Próximo Número e Código IBGE).
+2. Instale o **Certificado Digital e-CNPJ A1** (`.pfx` ou `.p12`).
+3. Zere pendências no **Diagnóstico Fiscal do Catálogo** (NCM, CFOP, Origem, CST/CSOSN, Unidade).
+4. Clique em **Testar Conexão SEFAZ** e, quando estiver pronto, em **Ativar Ambiente de Produção...** (confirmação `ATIVAR PRODUCAO`).
+
+📄 **Guia completo em PDF:** [`docs/guia-aba-fiscal-producao.pdf`](docs/guia-aba-fiscal-producao.pdf)
+
+---
+
 ## 📁 Estrutura do Projeto
 
 ```text
 RezFire-Manager/
 ├── backend/
+│   ├── scripts/            # Utilitários operacionais (ex.: setup-fiscal-producao.js)
 │   ├── src/
 │   │   ├── config/         # Configurações do TypeORM e variáveis de ambiente
 │   │   ├── controllers/    # Controladores de rota
@@ -148,6 +183,7 @@ RezFire-Manager/
 │   │   └── server.ts       # Ponto de entrada da API Express
 │   ├── Dockerfile          # Imagem de produção multi-stage do backend
 │   └── docker-entrypoint.sh# Script de inicialização automática (wait, migrations, seed)
+├── docs/                   # Manuais operacionais (ex.: guia-aba-fiscal-producao.pdf)
 ├── frontend/               # Páginas HTML, CSS (Tailwind) e JavaScript
 ├── docker-compose.yml      # Orquestração principal (MySQL, Backend, phpMyAdmin)
 ├── docker-compose.dev.yml  # Override para desenvolvimento com Hot-Reload

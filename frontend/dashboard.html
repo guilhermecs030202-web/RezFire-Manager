@@ -46,6 +46,7 @@
           <button class="dash-tab" data-tab="clientes">Clientes</button>
           <button class="dash-tab" data-tab="compras">Compras e Fornecedores</button>
           <button class="dash-tab" data-tab="devolucoes">Devoluções e Qualidade</button>
+          <button class="dash-tab" data-tab="fiscal">Fiscal &amp; NF-e</button>
         </div>
 
         <!-- ABA 2: DASHBOARD DE VENDAS -->
@@ -1351,6 +1352,236 @@
                 <button class="btn-ghost" id="btn-pag-prev-devolucoes" style="padding: 4px 10px;" disabled>Anterior</button>
                 <span id="num-pagina-devolucoes" class="font-bold px-2 py-1 bg-stone-100 rounded">1 / 1</span>
                 <button class="btn-ghost" id="btn-pag-next-devolucoes" style="padding: 4px 10px;" disabled>Próxima</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ABA: DASHBOARD FISCAL & NF-E -->
+        <div id="tab-fiscal" class="tab-content">
+          <!-- Toolbar de Filtros do Dashboard Fiscal -->
+          <div class="page-toolbar" style="margin-top: 12px; margin-bottom: 20px;">
+            <div class="flex items-center gap-3 flex-wrap">
+              <div class="flex items-center gap-2">
+                <label for="filtro-fiscal-periodo" class="text-xs font-bold text-stone-500 uppercase">Período:</label>
+                <select id="filtro-fiscal-periodo" class="search-input" style="width: 175px;">
+                  <option value="7">Últimos 7 dias</option>
+                  <option value="30" selected>Últimos 30 dias</option>
+                  <option value="90">Últimos 90 dias</option>
+                  <option value="180">Últimos 6 meses</option>
+                  <option value="custom">Personalizado...</option>
+                </select>
+              </div>
+
+              <!-- Datas personalizadas (aparecem quando custom) -->
+              <div id="filtro-fiscal-datas-custom" class="hidden items-center gap-2">
+                <input type="date" id="filtro-fiscal-data-de" class="search-input text-xs" style="width: 135px;" />
+                <span class="text-xs text-stone-400">até</span>
+                <input type="date" id="filtro-fiscal-data-ate" class="search-input text-xs" style="width: 135px;" />
+              </div>
+
+              <div class="flex items-center gap-2">
+                <label for="filtro-fiscal-status" class="text-xs font-bold text-stone-500 uppercase">Status:</label>
+                <select id="filtro-fiscal-status" class="search-input" style="width: 175px;">
+                  <option value="ALL" selected>Todas as Situações</option>
+                  <option value="autorizada">Autorizada SEFAZ</option>
+                  <option value="cancelada">Cancelada</option>
+                  <option value="rejeitada">Rejeitada SEFAZ</option>
+                  <option value="inutilizada">Inutilizada</option>
+                  <option value="rascunho">Pendente / Rascunho</option>
+                </select>
+              </div>
+
+              <div class="flex items-center gap-2">
+                <label for="filtro-fiscal-tipo" class="text-xs font-bold text-stone-500 uppercase">Tipo:</label>
+                <select id="filtro-fiscal-tipo" class="search-input" style="width: 165px;">
+                  <option value="ALL" selected>Todos os Tipos</option>
+                  <option value="saida">Saída (Venda)</option>
+                  <option value="entrada">Entrada (Compra)</option>
+                  <option value="devolucao">Devolução</option>
+                </select>
+              </div>
+
+              <div class="flex items-center gap-2">
+                <label for="filtro-fiscal-parceiro" class="text-xs font-bold text-stone-500 uppercase">Parceiro:</label>
+                <input type="text" id="filtro-fiscal-parceiro" class="search-input" style="width: 180px;" placeholder="Cliente ou Fornecedor..." />
+              </div>
+
+              <div class="flex items-center gap-2 ml-auto">
+                <button type="button" class="btn-primary" id="btn-recarregar-dash-fiscal" style="padding: 6px 14px; font-size: 13px;" title="Atualizar dados fiscais e SEFAZ">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block; vertical-align:middle; margin-right:4px;">
+                    <polyline points="23 4 23 10 17 10"></polyline>
+                    <polyline points="1 20 1 14 7 14"></polyline>
+                    <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>
+                  </svg>
+                  Atualizar
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Loading State -->
+          <div id="fiscal-loading" class="hidden p-8 text-center text-stone-500">
+            <div class="inline-block animate-spin rounded-full h-8 w-8 border-4 border-amber-500 border-t-transparent mb-2"></div>
+            <p class="text-xs font-medium">Carregando indicadores fiscais, notas e integrações SEFAZ...</p>
+          </div>
+
+          <!-- Error State -->
+          <div id="fiscal-error" class="hidden p-6 mb-5 bg-red-50 border border-red-200 rounded-xl text-center">
+            <p class="text-sm font-bold text-red-800 mb-1">Não foi possível carregar as métricas fiscais</p>
+            <p class="text-xs text-red-600 mb-3" id="fiscal-error-msg">Erro de conexão ou resposta do servidor.</p>
+            <button class="btn-ghost" id="btn-tentar-novamente-dash-fiscal" style="padding: 6px 16px;">Tentar novamente</button>
+          </div>
+
+          <!-- Painel "Pontos de Atenção Fiscais" (Alertas Automáticos por Limites) -->
+          <section id="painel-alertas-fiscal" class="mb-5">
+            <div class="flex items-center justify-between mb-3">
+              <div class="flex items-center gap-2">
+                <span class="text-base font-black text-stone-900 tracking-tight">Pontos de Atenção Fiscais &amp; SEFAZ</span>
+                <span class="text-xs font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 border border-amber-200" id="badge-total-alertas-fiscal">0 alertas</span>
+              </div>
+              <span class="text-xs text-stone-500">Limites operacionais monitorados continuamente</span>
+            </div>
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3" id="container-alertas-fiscal">
+              <!-- Cards de alerta inseridos dinamicamente via JS -->
+            </div>
+          </section>
+
+          <!-- CARDS DE KPI (6 Cards comparativos com o período anterior) -->
+          <section class="kpi-grid mb-5" id="kpis-tab-fiscal" style="grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));">
+            <!-- 6 Cards renderizados via JS -->
+          </section>
+
+          <!-- Linha 1 de Gráficos: Evolução do Faturamento & Emissões (Linha/Barras) e Distribuição por Status (Donut) -->
+          <div class="charts-row-equal grid grid-cols-1 lg:grid-cols-2 gap-4 mb-5">
+            <div class="dash-card">
+              <div class="dash-card-header flex items-center justify-between pb-2 mb-3 border-b border-stone-100">
+                <div>
+                  <h3 class="font-bold text-stone-800 text-sm">Evolução do Faturamento &amp; Emissões</h3>
+                  <p class="text-xs text-stone-500">Volume diário de NF-e autorizadas vs. valor faturado (R$)</p>
+                </div>
+                <span class="text-xs font-bold text-amber-700 bg-amber-50 px-2 py-0.5 rounded">Autorizadas</span>
+              </div>
+              <div id="chart-fiscal-evolucao" style="min-height: 290px;"></div>
+            </div>
+
+            <div class="dash-card">
+              <div class="dash-card-header flex items-center justify-between pb-2 mb-3 border-b border-stone-100">
+                <div>
+                  <h3 class="font-bold text-stone-800 text-sm">Distribuição por Status na SEFAZ</h3>
+                  <p class="text-xs text-stone-500">Fatia de autorizadas, rejeitadas, canceladas e inutilizadas</p>
+                </div>
+                <span class="text-xs font-bold text-stone-600 bg-stone-100 px-2 py-0.5 rounded">Proporção %</span>
+              </div>
+              <div id="chart-fiscal-status" style="min-height: 290px;"></div>
+            </div>
+          </div>
+
+          <!-- Linha 2 de Gráficos: Detalhamento de Tributos (Barras Empilhadas) e Top Rejeições/Cancelamentos (Ranking) -->
+          <div class="charts-row-equal grid grid-cols-1 lg:grid-cols-2 gap-4 mb-5">
+            <div class="dash-card">
+              <div class="dash-card-header flex items-center justify-between pb-2 mb-3 border-b border-stone-100">
+                <div>
+                  <h3 class="font-bold text-stone-800 text-sm">Composição dos Tributos Apurados</h3>
+                  <p class="text-xs text-stone-500">Divisão de ICMS, PIS, COFINS e Simples Nacional ao longo do período</p>
+                </div>
+                <span class="text-xs font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded">Carga Tributária</span>
+              </div>
+              <div id="chart-fiscal-impostos" style="min-height: 290px;"></div>
+            </div>
+
+            <div class="dash-card">
+              <div class="dash-card-header flex items-center justify-between pb-2 mb-3 border-b border-stone-100">
+                <div>
+                  <h3 class="font-bold text-stone-800 text-sm">Top Rejeições SEFAZ &amp; Motivos de Cancelamento</h3>
+                  <p class="text-xs text-stone-500">Frequência dos principais motivos que exigem ação corretiva</p>
+                </div>
+                <span class="text-xs font-bold text-rose-700 bg-rose-50 px-2 py-0.5 rounded">Inconformidades</span>
+              </div>
+              <div id="container-fiscal-ranking" class="space-y-2 p-1" style="max-height: 290px; overflow-y: auto;">
+                <!-- Lista de motivos inserida via JS -->
+              </div>
+            </div>
+          </div>
+
+          <!-- Bloco: Entradas de Fornecedores x Pedidos de Compra (Conciliação Fiscal de Entrada) -->
+          <div class="dash-card mb-5">
+            <div class="dash-card-header flex items-center justify-between pb-3 mb-3 border-b border-stone-100">
+              <div>
+                <h3 class="font-bold text-stone-800 text-sm flex items-center gap-2">
+                  <span>🏢</span> Bloco de Conciliação: Entradas de Fornecedores x Pedidos de Compra
+                </h3>
+                <p class="text-xs text-stone-500">Cruzamento de notas fiscais de compra recebidas com os pedidos autorizados pela diretoria</p>
+              </div>
+              <span class="text-xs font-semibold text-stone-500">Conferência Física &amp; Financeira</span>
+            </div>
+            <div class="overflow-x-auto">
+              <table class="w-full text-left border-collapse text-xs">
+                <thead>
+                  <tr class="bg-stone-50 border-b border-stone-200 text-stone-600 font-bold uppercase">
+                    <th class="py-2.5 px-3">Fornecedor</th>
+                    <th class="py-2.5 px-3">NF-e Entrada</th>
+                    <th class="py-2.5 px-3 text-right">Valor NF-e</th>
+                    <th class="py-2.5 px-3">Pedido de Compra</th>
+                    <th class="py-2.5 px-3 text-right">Valor Pedido</th>
+                    <th class="py-2.5 px-3 text-right">Divergência</th>
+                    <th class="py-2.5 px-3 text-center">Status Conciliação</th>
+                    <th class="py-2.5 px-3 text-right">Data Entrada</th>
+                  </tr>
+                </thead>
+                <tbody id="tabela-conciliacao-entradas-body" class="divide-y divide-stone-100">
+                  <!-- Linhas inseridas via JS -->
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- Tabela de Notas Fiscais (Pesquisa, Paginação e Ações) -->
+          <div class="dash-card mb-5">
+            <div class="dash-card-header flex items-center justify-between pb-3 mb-3 border-b border-stone-100 flex-wrap gap-2">
+              <div>
+                <h3 class="font-bold text-stone-800 text-sm flex items-center gap-2">
+                  <span>📋</span> Registro Geral de Notas Fiscais Eletrônicas (NF-e)
+                </h3>
+                <p class="text-xs text-stone-500">Acompanhamento detalhado, chaves de acesso para consulta na SEFAZ e status operacional</p>
+              </div>
+              <div class="flex items-center gap-2">
+                <input type="text" id="filtro-fiscal-tabela-busca" class="search-input" style="width: 220px; font-size: 12px;" placeholder="Buscar número, cliente, chave..." />
+                <a href="fiscal.html" class="btn-ghost" style="padding: 5px 12px; font-size: 12px;" title="Abrir módulo completo de emissão e contingência fiscal">
+                  Módulo Fiscal &amp; NF-e &rarr;
+                </a>
+              </div>
+            </div>
+
+            <!-- Tabela -->
+            <div class="overflow-x-auto">
+              <table class="w-full text-left border-collapse text-xs">
+                <thead>
+                  <tr class="bg-stone-50 border-b border-stone-200 text-stone-600 font-bold uppercase tracking-wider">
+                    <th class="py-2.5 px-3">Número / Série</th>
+                    <th class="py-2.5 px-3">Tipo</th>
+                    <th class="py-2.5 px-3">Parceiro (Destinatário / Emitente)</th>
+                    <th class="py-2.5 px-3 text-right">Valor Total</th>
+                    <th class="py-2.5 px-3 text-right">Tributos</th>
+                    <th class="py-2.5 px-3 text-center">Status SEFAZ</th>
+                    <th class="py-2.5 px-3">Emissão</th>
+                    <th class="py-2.5 px-3">Chave de Acesso</th>
+                    <th class="py-2.5 px-3 text-center">Ações</th>
+                  </tr>
+                </thead>
+                <tbody id="tabela-fiscal-notas-body" class="divide-y divide-stone-100">
+                  <!-- Linhas renderizadas via JS -->
+                </tbody>
+              </table>
+            </div>
+
+            <!-- Paginação da Tabela -->
+            <div class="flex items-center justify-between mt-4 pt-3 border-t border-stone-100 text-xs text-stone-500 flex-wrap gap-2">
+              <span id="info-paginacao-fiscal">Mostrando 0 de 0 notas fiscais</span>
+              <div class="flex items-center gap-2">
+                <button class="btn-ghost" id="btn-pag-prev-fiscal" style="padding: 4px 10px;" disabled>Anterior</button>
+                <span id="num-pagina-fiscal" class="font-bold px-2 py-1 bg-stone-100 rounded">1 / 1</span>
+                <button class="btn-ghost" id="btn-pag-next-fiscal" style="padding: 4px 10px;" disabled>Próxima</button>
               </div>
             </div>
           </div>

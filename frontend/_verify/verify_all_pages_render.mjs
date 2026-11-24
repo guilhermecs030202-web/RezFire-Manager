@@ -55,13 +55,13 @@ function getEl(id) {
   return elements[id];
 }
 
-const tabButtons = ["vendas", "estoque", "ml", "entregas", "produtos", "financeiro", "clientes", "compras", "devolucoes"].map((t) => {
+const tabButtons = ["vendas", "estoque", "ml", "entregas", "produtos", "financeiro", "clientes", "compras", "devolucoes", "fiscal"].map((t) => {
   const el = getEl("btn-tab-" + t);
   el.dataset.tab = t;
   return el;
 });
 
-const tabContents = ["vendas", "estoque", "ml", "entregas", "produtos", "financeiro", "clientes", "compras", "devolucoes"].map((t) => {
+const tabContents = ["vendas", "estoque", "ml", "entregas", "produtos", "financeiro", "clientes", "compras", "devolucoes", "fiscal"].map((t) => {
   return getEl("tab-" + t);
 });
 
@@ -109,7 +109,7 @@ console.log("   - KPI Vendas renderizado:", getEl("kpis-tab-vendas").innerHTML.l
 
 // 2. Testa navegação de abas do Dashboard
 console.log("\n[2] Testando navegação nas abas do Dashboard:");
-["vendas", "estoque", "ml", "entregas", "produtos", "financeiro", "clientes", "compras", "devolucoes"].forEach((tabName) => {
+["vendas", "estoque", "ml", "entregas", "produtos", "financeiro", "clientes", "compras", "devolucoes", "fiscal"].forEach((tabName) => {
   const btn = getEl("btn-tab-" + tabName);
   const content = getEl("tab-" + tabName);
   btn.click();

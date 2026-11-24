@@ -282,6 +282,26 @@ window.RezFireAPI = {
     async devolucoesRecentes(params = {}) {
       return window.RezFireAPI.dashboard.recentReturns(params);
     },
+    async fiscal(filtros = {}) {
+      const cleanParams = {};
+      Object.keys(filtros).forEach(k => {
+        if (filtros[k] !== undefined && filtros[k] !== null && filtros[k] !== '' && filtros[k] !== 'ALL') {
+          cleanParams[k] = filtros[k];
+        }
+      });
+      const query = new URLSearchParams(cleanParams).toString();
+      return window.RezFireAPI.request(`/dashboard/fiscal${query ? '?' + query : ''}`);
+    },
+    async fiscalNotas(params = {}) {
+      const cleanParams = {};
+      Object.keys(params).forEach(k => {
+        if (params[k] !== undefined && params[k] !== null && params[k] !== '' && params[k] !== 'ALL') {
+          cleanParams[k] = params[k];
+        }
+      });
+      const query = new URLSearchParams(cleanParams).toString();
+      return window.RezFireAPI.request(`/dashboard/fiscal/notas${query ? '?' + query : ''}`);
+    },
   },
 
   // Módulo de Finanças & Segregação Patrimonial (SCRUM-29 · #25)

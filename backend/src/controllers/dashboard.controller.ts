@@ -3,11 +3,13 @@ import { DashboardService } from '../services/dashboard.service';
 import { CustomerDashboardService } from '../services/customerDashboard.service';
 import { PurchaseDashboardService } from '../services/purchaseDashboard.service';
 import { ReturnDashboardService } from '../services/returnDashboard.service';
+import { FiscalDashboardService } from '../services/fiscalDashboard.service';
 
 const dashboardService = new DashboardService();
 const customerDashboardService = new CustomerDashboardService();
 const purchaseDashboardService = new PurchaseDashboardService();
 const returnDashboardService = new ReturnDashboardService();
+const fiscalDashboardService = new FiscalDashboardService();
 
 export class DashboardController {
   async obterKpis(req: Request, res: Response) {
@@ -99,6 +101,43 @@ export class DashboardController {
         status: status ? String(status) : undefined,
         categoryId: categoryId ? String(categoryId) : undefined,
         supplierId: supplierId && supplierId !== 'ALL' ? Number(supplierId) : undefined,
+      });
+      return res.json(resultado);
+    } catch (error: any) {
+      return res.status(500).json({ sucesso: false, mensagem: error.message });
+    }
+  }
+
+  async obterMetricasFiscal(req: Request, res: Response) {
+    try {
+      const { from, to, dias, status, tipo, partnerId } = req.query;
+      const resultado = await fiscalDashboardService.obterMetricasFiscal({
+        from: from ? String(from) : undefined,
+        to: to ? String(to) : undefined,
+        dias: dias ? Number(dias) : 30,
+        status: status ? String(status) : 'ALL',
+        tipo: tipo ? String(tipo) : 'ALL',
+        partnerId: partnerId ? String(partnerId) : 'ALL',
+      });
+      return res.json(resultado);
+    } catch (error: any) {
+      return res.status(500).json({ sucesso: false, mensagem: error.message });
+    }
+  }
+
+  async obterNotasFiscaisTabela(req: Request, res: Response) {
+    try {
+      const { page, limit, status, tipo, search, from, to, sortBy, sortOrder } = req.query;
+      const resultado = await fiscalDashboardService.obterNotasFiscaisTabela({
+        page: page ? Number(page) : 1,
+        limit: limit ? Number(limit) : 10,
+        status: status ? String(status) : undefined,
+        tipo: tipo ? String(tipo) : undefined,
+        search: search ? String(search) : undefined,
+        from: from ? String(from) : undefined,
+        to: to ? String(to) : undefined,
+        sortBy: sortBy ? String(sortBy) : undefined,
+        sortOrder: sortOrder === 'ASC' ? 'ASC' : 'DESC',
       });
       return res.json(resultado);
     } catch (error: any) {

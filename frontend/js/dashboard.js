@@ -1112,6 +1112,8 @@ function bindTabs() {
         renderTabCompras();
       } else if (tabName === "devolucoes") {
         renderTabDevolucoes();
+      } else if (tabName === "fiscal") {
+        renderTabFiscal();
       }
 
       // Redimensiona ApexCharts após transição de abas para manter layout responsivo e nítido
@@ -4936,6 +4938,1000 @@ function gerarMetricasDevolucoesFallback(dias, motivo, categoryId, supplierId) {
         diasMedio: [2.0, 9.0, 3.3, 0],
       },
     },
+  };
+}
+
+// ============================================================================
+// GUIA DE DASHBOARD: FISCAL & NF-E (SEFAZ)
+// ============================================================================
+
+let fiscalCharts = {};
+let fiscalPaginacao = { page: 1, limit: 10, totalPages: 1, total: 0 };
+let fiscalFiltroStatusTabela = "ALL";
+let fiscalFiltroTipoTabela = "ALL";
+
+function setupFiscalEventListeners() {
+  const selectPeriodo = document.getElementById("filtro-fiscal-periodo");
+  const selectStatus = document.getElementById("filtro-fiscal-status");
+  const selectTipo = document.getElementById("filtro-fiscal-tipo");
+  const inputParceiro = document.getElementById("filtro-fiscal-parceiro");
+  const inputBuscaTabela = document.getElementById("filtro-fiscal-tabela-busca");
+  const btnRecarregar = document.getElementById("btn-recarregar-dash-fiscal");
+  const btnTentar = document.getElementById("btn-tentar-novamente-dash-fiscal");
+  const btnPrev = document.getElementById("btn-pag-prev-fiscal");
+  const btnNext = document.getElementById("btn-pag-next-fiscal");
+  const customDatasDiv = document.getElementById("filtro-fiscal-datas-custom");
+  const dataDe = document.getElementById("filtro-fiscal-data-de");
+  const dataAte = document.getElementById("filtro-fiscal-data-ate");
+
+  if (selectPeriodo && !selectPeriodo.dataset.bound) {
+    selectPeriodo.dataset.bound = "true";
+    selectPeriodo.addEventListener("change", () => {
+      if (selectPeriodo.value === "custom") {
+        if (customDatasDiv) customDatasDiv.classList.remove("hidden");
+        if (customDatasDiv) customDatasDiv.classList.add("flex");
+      } else {
+        if (customDatasDiv) customDatasDiv.classList.add("hidden");
+        if (customDatasDiv) customDatasDiv.classList.remove("flex");
+        fiscalPaginacao.page = 1;
+        renderTabFiscal();
+      }
+    });
+  }
+
+  [dataDe, dataAte].forEach((inp) => {
+    if (inp && !inp.dataset.bound) {
+      inp.dataset.bound = "true";
+      inp.addEventListener("change", () => {
+        fiscalPaginacao.page = 1;
+        renderTabFiscal();
+      });
+    }
+  });
+
+  const triggers = [selectStatus, selectTipo, btnRecarregar, btnTentar];
+  triggers.forEach((el) => {
+    if (el && !el.dataset.bound) {
+      el.dataset.bound = "true";
+      const evt = el.tagName === "SELECT" ? "change" : "click";
+      el.addEventListener(evt, () => {
+        fiscalPaginacao.page = 1;
+        renderTabFiscal();
+      });
+    }
+  });
+
+  let parceiroTimeout;
+  if (inputParceiro && !inputParceiro.dataset.bound) {
+    inputParceiro.dataset.bound = "true";
+    inputParceiro.addEventListener("input", () => {
+      clearTimeout(parceiroTimeout);
+      parceiroTimeout = setTimeout(() => {
+        fiscalPaginacao.page = 1;
+        renderTabFiscal();
+      }, 400);
+    });
+  }
+
+  let buscaTimeout;
+  if (inputBuscaTabela && !inputBuscaTabela.dataset.bound) {
+    inputBuscaTabela.dataset.bound = "true";
+    inputBuscaTabela.addEventListener("input", () => {
+      clearTimeout(buscaTimeout);
+      buscaTimeout = setTimeout(() => {
+        fiscalPaginacao.page = 1;
+        renderTabelaFiscalNotas(1);
+      }, 350);
+    });
+  }
+
+  if (btnPrev && !btnPrev.dataset.bound) {
+    btnPrev.dataset.bound = "true";
+    btnPrev.addEventListener("click", () => {
+      if (fiscalPaginacao.page > 1) {
+        renderTabelaFiscalNotas(fiscalPaginacao.page - 1);
+      }
+    });
+  }
+
+  if (btnNext && !btnNext.dataset.bound) {
+    btnNext.dataset.bound = "true";
+    btnNext.addEventListener("click", () => {
+      if (fiscalPaginacao.page < fiscalPaginacao.totalPages) {
+        renderTabelaFiscalNotas(fiscalPaginacao.page + 1);
+      }
+    });
+  }
+}
+
+async function renderTabFiscal() {
+  setupFiscalEventListeners();
+
+  const selectPeriodo = document.getElementById("filtro-fiscal-periodo");
+  const selectStatus = document.getElementById("filtro-fiscal-status");
+  const selectTipo = document.getElementById("filtro-fiscal-tipo");
+  const inputParceiro = document.getElementById("filtro-fiscal-parceiro");
+  const dataDe = document.getElementById("filtro-fiscal-data-de");
+  const dataAte = document.getElementById("filtro-fiscal-data-ate");
+  const loadingEl = document.getElementById("fiscal-loading");
+  const erroContainer = document.getElementById("fiscal-error");
+  const msgErroEl = document.getElementById("fiscal-error-msg");
+
+  const isCustom = selectPeriodo && selectPeriodo.value === "custom";
+  const dias = !isCustom && selectPeriodo ? Number(selectPeriodo.value) || 30 : 30;
+  const status = selectStatus ? selectStatus.value : "ALL";
+  const tipo = selectTipo ? selectTipo.value : "ALL";
+  const partnerId = inputParceiro ? inputParceiro.value : "ALL";
+
+  fiscalFiltroStatusTabela = status;
+  fiscalFiltroTipoTabela = tipo;
+
+  const money = (val) => {
+    return Number(val || 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+  };
+
+  try {
+    if (erroContainer) erroContainer.classList.add("hidden");
+    if (loadingEl) loadingEl.classList.remove("hidden");
+
+    let dados = null;
+
+    if (window.RezFireAPI && window.RezFireAPI.dashboard && window.RezFireAPI.dashboard.fiscal) {
+      try {
+        const params = {
+          status,
+          tipo,
+          partnerId,
+        };
+        if (isCustom && dataDe && dataDe.value) params.from = dataDe.value;
+        if (isCustom && dataAte && dataAte.value) params.to = dataAte.value;
+        if (!isCustom) params.dias = dias;
+
+        const res = await window.RezFireAPI.dashboard.fiscal(params);
+        if (res && res.sucesso) {
+          dados = res;
+        }
+      } catch (apiErr) {
+        console.warn("[Dashboard Fiscal] API indisponível, avaliando fallback local:", apiErr);
+      }
+    }
+
+    if (!dados) {
+      dados = gerarMetricasFiscalFallback(dias, status, tipo, partnerId);
+    }
+
+    if (loadingEl) loadingEl.classList.add("hidden");
+
+    renderKpisFiscal(dados.kpis, money);
+    renderAlertasFiscal(dados.alertas || []);
+    renderGraficosFiscal(dados.graficos, money);
+    renderConciliacaoEntradas(dados.conciliacoesEntrada || [], money);
+    await renderTabelaFiscalNotas(fiscalPaginacao.page);
+
+    setTimeout(() => {
+      window.dispatchEvent(new Event("resize"));
+    }, 150);
+  } catch (err) {
+    console.error("[Dashboard Fiscal] Erro ao carregar aba:", err);
+    if (loadingEl) loadingEl.classList.add("hidden");
+    if (erroContainer) {
+      erroContainer.classList.remove("hidden");
+      if (msgErroEl) msgErroEl.textContent = err.message || "Erro desconhecido ao processar dados fiscais.";
+    }
+  }
+}
+
+function renderKpisFiscal(kpis, money) {
+  const container = document.getElementById("kpis-tab-fiscal");
+  if (!container || !kpis) return;
+
+  const cardsConfig = [
+    {
+      chave: "notasEmitidas",
+      titulo: "Notas Emitidas",
+      icone: "📄",
+      corIcone: "bg-blue-100 text-blue-800",
+    },
+    {
+      chave: "valorFaturado",
+      titulo: "Valor Faturado (NF-e)",
+      icone: "💰",
+      corIcone: "bg-emerald-100 text-emerald-800",
+    },
+    {
+      chave: "inconformidades",
+      titulo: "Canceladas / Rejeitadas",
+      icone: "⚠️",
+      corIcone: "bg-rose-100 text-rose-800",
+    },
+    {
+      chave: "pedidosSemNfe",
+      titulo: "Pendências de Emissão",
+      icone: "⏳",
+      corIcone: "bg-amber-100 text-amber-800",
+    },
+    {
+      chave: "impostosPeriodo",
+      titulo: "Tributos Apurados",
+      icone: "🏛️",
+      corIcone: "bg-purple-100 text-purple-800",
+    },
+    {
+      chave: "tempoMedioEmissao",
+      titulo: "Tempo Médio Emissão",
+      icone: "⏱️",
+      corIcone: "bg-teal-100 text-teal-800",
+    },
+  ];
+
+  container.innerHTML = cardsConfig
+    .map((cfg) => {
+      const kpi = kpis[cfg.chave] || { valor: 0, valorFormatado: "0", deltaPercentual: null, tooltip: "" };
+      const valStr = kpi.valorFormatado || String(kpi.valor || 0);
+
+      let deltaHtml = "";
+      if (kpi.deltaPercentual !== null && kpi.deltaPercentual !== undefined) {
+        const isPositivo = kpi.deltaPercentual > 0;
+        const isNeutro = kpi.deltaPercentual === 0;
+        const eBom = kpi.deltaSentidoBom ? isPositivo : !isPositivo;
+
+        const corClasse = isNeutro
+          ? "text-stone-500 bg-stone-100"
+          : eBom
+          ? "text-emerald-700 bg-emerald-50"
+          : "text-rose-700 bg-rose-50";
+
+        const seta = isNeutro ? "—" : isPositivo ? "↑" : "↓";
+        const sinal = isPositivo ? "+" : "";
+        deltaHtml = `
+          <span class="text-xs font-bold px-1.5 py-0.5 rounded ${corClasse}" title="Variação em relação ao período anterior">
+            ${seta} ${sinal}${kpi.deltaPercentual}%
+          </span>
+        `;
+      }
+
+      const subtextoHtml = kpi.subtexto ? `<p class="text-2xs text-stone-400 mt-1">${kpi.subtexto}</p>` : "";
+
+      return `
+        <div class="kpi-card p-4 bg-white rounded-xl border border-stone-200 shadow-xs hover:border-amber-400 transition" title="${kpi.tooltip || ""}">
+          <div class="flex items-center justify-between mb-2">
+            <span class="text-xs font-bold text-stone-500 uppercase tracking-wider">${cfg.titulo}</span>
+            <span class="text-sm p-1.5 rounded-lg ${cfg.corIcone}">${cfg.icone}</span>
+          </div>
+          <div class="flex items-baseline justify-between gap-2">
+            <span class="text-xl font-black text-stone-900 tracking-tight">${valStr}</span>
+            ${deltaHtml}
+          </div>
+          ${subtextoHtml}
+        </div>
+      `;
+    })
+    .join("");
+}
+
+function renderAlertasFiscal(alertas) {
+  const container = document.getElementById("container-alertas-fiscal");
+  const badgeTotal = document.getElementById("badge-total-alertas-fiscal");
+  if (!container) return;
+
+  if (badgeTotal) {
+    badgeTotal.textContent = `${alertas.length} alerta${alertas.length !== 1 ? "s" : ""}`;
+    if (alertas.length === 0) {
+      badgeTotal.className = "text-xs font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-200";
+    } else {
+      badgeTotal.className = "text-xs font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 border border-amber-200";
+    }
+  }
+
+  if (alertas.length === 0) {
+    container.innerHTML = `
+      <div class="col-span-full p-4 bg-emerald-50 border border-emerald-200 rounded-xl text-center">
+        <p class="text-xs font-bold text-emerald-800">✅ Nenhum ponto de atenção fiscal ou SEFAZ no momento</p>
+        <p class="text-2xs text-emerald-600 mt-0.5">Todas as notas fiscais foram autorizadas e os prazos de faturamento estão em conformidade.</p>
+      </div>
+    `;
+    return;
+  }
+
+  container.innerHTML = alertas
+    .map((alerta) => {
+      const isCritico = alerta.severidade === "critico";
+      const cardBg = isCritico ? "bg-red-50/80 border-red-200" : "bg-amber-50/80 border-amber-200";
+      const badgeCor = isCritico ? "bg-red-600 text-white" : "bg-amber-500 text-white";
+      const rotuloSeveridade = isCritico ? "CRÍTICO" : "ATENÇÃO";
+      const icon = isCritico ? "🚨" : "⚠️";
+
+      return `
+        <div class="p-3.5 rounded-xl border ${cardBg} flex flex-col justify-between shadow-xs">
+          <div>
+            <div class="flex items-center justify-between gap-2 mb-1.5">
+              <span class="text-xs font-extrabold uppercase px-2 py-0.5 rounded ${badgeCor} tracking-wider flex items-center gap-1">
+                <span>${icon}</span> ${rotuloSeveridade}
+              </span>
+              <span class="text-2xs font-semibold text-stone-500">Limite: ${alerta.limiteConfigurado}</span>
+            </div>
+            <h4 class="font-bold text-stone-900 text-xs mt-1 mb-1">${alerta.titulo}</h4>
+            <p class="text-2xs text-stone-600 leading-relaxed mb-3">${alerta.mensagem}</p>
+          </div>
+          <div class="flex items-center justify-between pt-2 border-t border-stone-200/60 mt-auto">
+            <span class="text-2xs font-bold text-stone-700">Atual: <strong class="text-stone-900">${alerta.valorAtual}</strong></span>
+            <button type="button" class="btn-acao-alerta-fiscal px-2.5 py-1 text-2xs font-bold rounded bg-white hover:bg-stone-50 border border-stone-300 text-stone-800 shadow-2xs transition"
+              data-filtro-status="${alerta.filtroStatus || ""}"
+              data-filtro-tipo="${alerta.filtroTipo || ""}"
+              data-acao-link="${alerta.acaoLink || ""}">
+              ${alerta.acaoTexto} &rarr;
+            </button>
+          </div>
+        </div>
+      `;
+    })
+    .join("");
+
+  // Vincula evento de clique nos botões de ação dos alertas
+  container.querySelectorAll(".btn-acao-alerta-fiscal").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const link = btn.dataset.acaoLink;
+      if (link) {
+        window.location.href = link;
+        return;
+      }
+      const st = btn.dataset.filtroStatus;
+      const tp = btn.dataset.filtroTipo;
+      const selectStatus = document.getElementById("filtro-fiscal-status");
+      const selectTipo = document.getElementById("filtro-fiscal-tipo");
+
+      if (st && selectStatus) {
+        selectStatus.value = st;
+        fiscalFiltroStatusTabela = st;
+      }
+      if (tp && selectTipo) {
+        selectTipo.value = tp;
+        fiscalFiltroTipoTabela = tp;
+      }
+
+      fiscalPaginacao.page = 1;
+      renderTabelaFiscalNotas(1);
+
+      // Scroll suave até a tabela de notas
+      const tabEl = document.getElementById("tabela-fiscal-notas-body");
+      if (tabEl) {
+        tabEl.scrollIntoView({ behavior: "smooth", block: "center" });
+      }
+    });
+  });
+}
+
+function renderGraficosFiscal(graficos, money) {
+  if (!graficos || typeof ApexCharts === "undefined") return;
+
+  // 1. Gráfico de Linha/Barras: Evolução do Faturamento & Emissões
+  const elEvolucao = document.getElementById("chart-fiscal-evolucao");
+  if (elEvolucao && graficos.evolucao) {
+    if (fiscalCharts.evolucao) fiscalCharts.evolucao.destroy();
+
+    const optionsEvolucao = {
+      chart: {
+        type: "line",
+        height: 290,
+        toolbar: { show: false },
+        fontFamily: "inherit",
+      },
+      series: [
+        {
+          name: "Notas Autorizadas (un.)",
+          type: "column",
+          data: graficos.evolucao.qtdNotas || [],
+        },
+        {
+          name: "Valor Faturado (R$)",
+          type: "line",
+          data: graficos.evolucao.faturamento || [],
+        },
+      ],
+      colors: ["#f59e0b", "#10b981"],
+      stroke: { width: [0, 3], curve: "smooth" },
+      plotOptions: {
+        bar: { columnWidth: "45%", borderRadius: 4 },
+      },
+      xaxis: {
+        categories: graficos.evolucao.categorias || [],
+        labels: { style: { fontSize: "11px" } },
+      },
+      yaxis: [
+        {
+          title: { text: "Quantidade", style: { fontSize: "10px", color: "#f59e0b" } },
+          labels: { formatter: (v) => Math.round(v) },
+        },
+        {
+          opposite: true,
+          title: { text: "Faturamento (R$)", style: { fontSize: "10px", color: "#10b981" } },
+          labels: { formatter: (v) => "R$ " + (v >= 1000 ? (v / 1000).toFixed(1) + "k" : v) },
+        },
+      ],
+      tooltip: {
+        shared: true,
+        intersect: false,
+        y: {
+          formatter: (val, opts) => {
+            if (opts.seriesIndex === 1) return money(val);
+            return val + " notas";
+          },
+        },
+      },
+      legend: { position: "top", fontSize: "12px" },
+    };
+
+    fiscalCharts.evolucao = new ApexCharts(elEvolucao, optionsEvolucao);
+    fiscalCharts.evolucao.render();
+  }
+
+  // 2. Gráfico Donut: Distribuição por Status na SEFAZ
+  const elStatus = document.getElementById("chart-fiscal-status");
+  if (elStatus && graficos.distribuicaoStatus) {
+    if (fiscalCharts.status) fiscalCharts.status.destroy();
+
+    const optionsStatus = {
+      chart: {
+        type: "donut",
+        height: 290,
+        fontFamily: "inherit",
+      },
+      labels: graficos.distribuicaoStatus.labels || ["Autorizada", "Cancelada", "Rejeitada", "Inutilizada", "Outras"],
+      series: graficos.distribuicaoStatus.series || [28, 2, 2, 1, 1],
+      colors: ["#10b981", "#78716c", "#ef4444", "#a8a29e", "#3b82f6"],
+      legend: { position: "bottom", fontSize: "11px" },
+      dataLabels: { enabled: true, formatter: (val) => val.toFixed(1) + "%" },
+      plotOptions: {
+        pie: {
+          donut: {
+            size: "65%",
+            labels: {
+              show: true,
+              total: {
+                show: true,
+                label: "Total NF-e",
+                formatter: (w) => w.globals.seriesTotals.reduce((a, b) => a + b, 0),
+              },
+            },
+          },
+        },
+      },
+    };
+
+    fiscalCharts.status = new ApexCharts(elStatus, optionsStatus);
+    fiscalCharts.status.render();
+  }
+
+  // 3. Gráfico de Barras Empilhadas: Tributos por Tipo
+  const elImpostos = document.getElementById("chart-fiscal-impostos");
+  if (elImpostos && graficos.impostosEmpilhados) {
+    if (fiscalCharts.impostos) fiscalCharts.impostos.destroy();
+
+    const optionsImpostos = {
+      chart: {
+        type: "bar",
+        height: 290,
+        stacked: true,
+        toolbar: { show: false },
+        fontFamily: "inherit",
+      },
+      series: graficos.impostosEmpilhados.series || [],
+      colors: ["#3b82f6", "#8b5cf6", "#ec4899", "#10b981"],
+      xaxis: {
+        categories: graficos.impostosEmpilhados.categorias || [],
+        labels: { style: { fontSize: "11px" } },
+      },
+      yaxis: {
+        labels: { formatter: (v) => "R$ " + (v >= 1000 ? (v / 1000).toFixed(1) + "k" : v) },
+      },
+      legend: { position: "top", fontSize: "11px" },
+      tooltip: {
+        y: { formatter: (v) => money(v) },
+      },
+      plotOptions: {
+        bar: { borderRadius: 3, columnWidth: "50%" },
+      },
+    };
+
+    fiscalCharts.impostos = new ApexCharts(elImpostos, optionsImpostos);
+    fiscalCharts.impostos.render();
+  }
+
+  // 4. Ranking de Rejeições e Cancelamentos
+  const elRanking = document.getElementById("container-fiscal-ranking");
+  if (elRanking && graficos.rankingRejeicoes) {
+    elRanking.innerHTML = graficos.rankingRejeicoes
+      .map((item, idx) => {
+        const isRejeicao = item.tipo === "Rejeição SEFAZ";
+        const badgeCor = isRejeicao ? "bg-red-100 text-red-800 border-red-200" : "bg-stone-100 text-stone-800 border-stone-200";
+
+        return `
+          <div class="flex items-center justify-between p-2.5 rounded-lg border border-stone-100 bg-stone-50/50 hover:bg-stone-50 transition">
+            <div class="flex items-start gap-2 max-w-[80%]">
+              <span class="font-bold text-xs text-stone-400 mt-0.5">#${idx + 1}</span>
+              <div>
+                <p class="font-bold text-xs text-stone-900">${item.motivo}</p>
+                <span class="inline-block mt-0.5 text-2xs px-1.5 py-0.5 rounded border ${badgeCor}">${item.tipo}</span>
+              </div>
+            </div>
+            <div class="text-right">
+              <span class="font-black text-sm text-stone-900">${item.total}</span>
+              <p class="text-2xs text-stone-400">ocorrências</p>
+            </div>
+          </div>
+        `;
+      })
+      .join("");
+  }
+}
+
+function renderConciliacaoEntradas(conciliacoes, money) {
+  const tbody = document.getElementById("tabela-conciliacao-entradas-body");
+  if (!tbody) return;
+
+  if (conciliacoes.length === 0) {
+    tbody.innerHTML = `
+      <tr>
+        <td colspan="8" class="text-center py-4 text-stone-400 text-xs">
+          Nenhuma nota fiscal de entrada registrada no período.
+        </td>
+      </tr>
+    `;
+    return;
+  }
+
+  tbody.innerHTML = conciliacoes
+    .map((c) => {
+      return `
+        <tr class="hover:bg-stone-50 transition">
+          <td class="py-2.5 px-3 font-semibold text-stone-900">${c.fornecedor}</td>
+          <td class="py-2.5 px-3 font-mono text-stone-700">${c.numero_nfe}</td>
+          <td class="py-2.5 px-3 text-right font-bold text-stone-900">${c.valor_nfe_formatado}</td>
+          <td class="py-2.5 px-3 font-mono text-stone-600">${c.numero_po || '<span class="text-stone-400">—</span>'}</td>
+          <td class="py-2.5 px-3 text-right text-stone-700">${c.valor_po_formatado}</td>
+          <td class="py-2.5 px-3 text-right font-bold ${c.diferenca_valor > 0 ? 'text-amber-700' : 'text-stone-500'}">
+            ${c.diferenca_formatada}
+          </td>
+          <td class="py-2.5 px-3 text-center">
+            <span class="inline-block px-2 py-0.5 rounded-full border text-2xs font-bold ${c.badge_classe}">
+              ${c.status_rotulo}
+            </span>
+          </td>
+          <td class="py-2.5 px-3 text-right text-stone-500">${c.data_entrada}</td>
+        </tr>
+      `;
+    })
+    .join("");
+}
+
+async function renderTabelaFiscalNotas(page = 1) {
+  const tbody = document.getElementById("tabela-fiscal-notas-body");
+  const infoPag = document.getElementById("info-paginacao-fiscal");
+  const numPag = document.getElementById("num-pagina-fiscal");
+  const btnPrev = document.getElementById("btn-pag-prev-fiscal");
+  const btnNext = document.getElementById("btn-pag-next-fiscal");
+  const inputBusca = document.getElementById("filtro-fiscal-tabela-busca");
+
+  fiscalPaginacao.page = page;
+
+  if (tbody) {
+    tbody.innerHTML = `
+      <tr>
+        <td colspan="9" class="text-center py-6 text-stone-400 text-xs">
+          <div class="inline-block animate-spin rounded-full h-4 w-4 border-2 border-amber-500 border-t-transparent mr-2"></div>
+          Carregando notas fiscais...
+        </td>
+      </tr>
+    `;
+  }
+
+  try {
+    let res = null;
+    const search = inputBusca ? inputBusca.value : "";
+    const params = {
+      page: fiscalPaginacao.page,
+      limit: fiscalPaginacao.limit,
+      status: fiscalFiltroStatusTabela,
+      tipo: fiscalFiltroTipoTabela,
+      search,
+    };
+
+    if (window.RezFireAPI && window.RezFireAPI.dashboard && window.RezFireAPI.dashboard.fiscalNotas) {
+      res = await window.RezFireAPI.dashboard.fiscalNotas(params);
+    }
+
+    if (!res || !res.sucesso) {
+      res = obterTabelaFiscalNotasFallback(fiscalPaginacao.page, fiscalPaginacao.limit, params);
+    }
+
+    fiscalPaginacao.total = res.total || 0;
+    fiscalPaginacao.totalPages = res.totalPages || 1;
+
+    if (infoPag) {
+      const inicio = fiscalPaginacao.total === 0 ? 0 : (fiscalPaginacao.page - 1) * fiscalPaginacao.limit + 1;
+      const fim = Math.min(fiscalPaginacao.page * fiscalPaginacao.limit, fiscalPaginacao.total);
+      infoPag.textContent = `Mostrando ${inicio}–${fim} de ${fiscalPaginacao.total} notas fiscais`;
+    }
+    if (numPag) numPag.textContent = `${fiscalPaginacao.page} / ${fiscalPaginacao.totalPages}`;
+    if (btnPrev) btnPrev.disabled = fiscalPaginacao.page <= 1;
+    if (btnNext) btnNext.disabled = fiscalPaginacao.page >= fiscalPaginacao.totalPages;
+
+    if (!res.itens || res.itens.length === 0) {
+      if (tbody) {
+        tbody.innerHTML = `
+          <tr>
+            <td colspan="9" class="text-center py-6 text-stone-400 text-xs">
+              Nenhuma nota fiscal encontrada com os filtros selecionados.
+            </td>
+          </tr>
+        `;
+      }
+      return;
+    }
+
+    if (tbody) {
+      tbody.innerHTML = res.itens
+        .map((n) => {
+          return `
+            <tr class="hover:bg-stone-50 transition">
+              <td class="py-2.5 px-3 font-mono font-bold text-stone-900">
+                #${n.numero} <span class="text-2xs font-normal text-stone-400">s.${n.serie}</span>
+              </td>
+              <td class="py-2.5 px-3">
+                <span class="inline-block px-1.5 py-0.5 rounded text-2xs font-semibold ${
+                  n.tipo === 'Saída' ? 'bg-blue-50 text-blue-800 border border-blue-200' :
+                  n.tipo === 'Entrada' ? 'bg-purple-50 text-purple-800 border border-purple-200' :
+                  'bg-amber-50 text-amber-800 border border-amber-200'
+                }">
+                  ${n.tipo}
+                </span>
+              </td>
+              <td class="py-2.5 px-3">
+                <p class="font-bold text-stone-900 text-xs">${n.parceiro}</p>
+                <p class="text-2xs text-stone-400 font-mono">${n.documento_parceiro}</p>
+              </td>
+              <td class="py-2.5 px-3 text-right font-bold text-stone-900">${n.valor_total_formatado}</td>
+              <td class="py-2.5 px-3 text-right text-stone-600">${n.impostos_total_formatado}</td>
+              <td class="py-2.5 px-3 text-center">
+                <span class="inline-block px-2 py-0.5 rounded-full border text-2xs font-bold ${n.status_badge_classe}" title="${n.motivo_sefaz || ''}">
+                  ${n.status_rotulo}
+                </span>
+              </td>
+              <td class="py-2.5 px-3 text-stone-500">${n.emitida_em}</td>
+              <td class="py-2.5 px-3 font-mono text-2xs text-stone-500">
+                <div class="flex items-center gap-1.5">
+                  <span title="${n.chave_acesso}">${n.chave_acesso_truncada}</span>
+                  ${
+                    n.chave_acesso && n.chave_acesso.length === 44
+                      ? `<button type="button" class="btn-copiar-chave-nfe text-stone-400 hover:text-amber-600 transition" data-chave="${n.chave_acesso}" title="Copiar chave de acesso completa">
+                          📋
+                        </button>`
+                      : ''
+                  }
+                </div>
+              </td>
+              <td class="py-2.5 px-3 text-center">
+                <a href="fiscal.html" class="text-amber-600 hover:text-amber-800 font-bold text-2xs hover:underline" title="Ver detalhes no módulo fiscal">
+                  Detalhes &rarr;
+                </a>
+              </td>
+            </tr>
+          `;
+        })
+        .join("");
+
+      // Vincula ação de copiar chave de acesso
+      tbody.querySelectorAll(".btn-copiar-chave-nfe").forEach((btn) => {
+        btn.addEventListener("click", () => {
+          copiarChaveAcesso(btn.dataset.chave, btn);
+        });
+      });
+    }
+  } catch (err) {
+    console.error("[Tabela Fiscal] Erro ao renderizar:", err);
+    if (tbody) {
+      tbody.innerHTML = `
+        <tr>
+          <td colspan="9" class="text-center py-6 text-red-500 text-xs">
+            Erro ao carregar notas fiscais: ${err.message}
+          </td>
+        </tr>
+      `;
+    }
+  }
+}
+
+function copiarChaveAcesso(chave, btn) {
+  if (!chave) return;
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(chave).then(() => {
+      const original = btn.innerHTML;
+      btn.innerHTML = `<span class="text-emerald-600 font-bold text-2xs">✓</span>`;
+      setTimeout(() => {
+        btn.innerHTML = original;
+      }, 1500);
+    });
+  } else {
+    // Fallback manual
+    const el = document.createElement("textarea");
+    el.value = chave;
+    document.body.appendChild(el);
+    el.select();
+    document.execCommand("copy");
+    document.body.removeChild(el);
+    const original = btn.innerHTML;
+    btn.innerHTML = `<span class="text-emerald-600 font-bold text-2xs">✓</span>`;
+    setTimeout(() => {
+      btn.innerHTML = original;
+    }, 1500);
+  }
+}
+
+function gerarMetricasFiscalFallback(dias, status, tipo, partnerId) {
+  return {
+    sucesso: true,
+    kpis: {
+      notasEmitidas: { valor: 34, valorFormatado: "34 notas", deltaPercentual: 21.4, deltaSentidoBom: true, tooltip: "Notas autorizadas no período" },
+      valorFaturado: { valor: 38450.0, valorFormatado: "R$ 38.450,00", deltaPercentual: 18.2, deltaSentidoBom: true, tooltip: "Valor faturado oficial" },
+      inconformidades: { valor: 3, valorFormatado: "3 (8.8%)", subtexto: "8.8% do total emitido", deltaPercentual: -25.0, deltaSentidoBom: false, tooltip: "Canceladas ou rejeitadas" },
+      pedidosSemNfe: { valor: 2, valorFormatado: "2 pedidos", deltaPercentual: -33.3, deltaSentidoBom: false, tooltip: "Vendas sem NF-e há > 24h" },
+      impostosPeriodo: { valor: 2499.25, valorFormatado: "R$ 2.499,25", subtexto: "Carga média de 6.50%", deltaPercentual: 18.2, deltaSentidoBom: false, tooltip: "Tributos do Simples Nacional" },
+      tempoMedioEmissao: { valor: 2.1, valorFormatado: "2.1h", deltaPercentual: -12.5, deltaSentidoBom: true, tooltip: "Tempo médio até emissão" },
+    },
+    alertas: [
+      {
+        id: "alerta-rejeitadas",
+        tipo: "notas_rejeitadas",
+        severidade: "critico",
+        titulo: "2 Notas Rejeitadas na SEFAZ sem Correção",
+        mensagem: "Notas com erro de validação (Duplicidade 204 e Chave 539) aguardando correção cadastral e retransmissão.",
+        valorAtual: "2 rejeitadas",
+        limiteConfigurado: "0 permitidas",
+        acaoTexto: "Ver Rejeitadas",
+        filtroStatus: "rejeitada",
+      },
+      {
+        id: "alerta-sem-nfe",
+        tipo: "pedidos_sem_nfe",
+        severidade: "critico",
+        titulo: "2 Pedidos Entregues há > 1 dia sem NF-e",
+        mensagem: "Vendas concluídas e entregues sem faturamento fiscal correspondente. Risco de fiscalização de transporte.",
+        valorAtual: "2 pendentes",
+        limiteConfigurado: "0 em atraso",
+        acaoTexto: "Ver Pendentes",
+        filtroStatus: "rascunho",
+      },
+      {
+        id: "alerta-taxa-cancelamento",
+        tipo: "taxa_cancelamento_alta",
+        severidade: "atencao",
+        titulo: "Índice de Cancelamentos em 5.9% (Limite: 3.0%)",
+        mensagem: "Taxa de cancelamento ultrapassou a meta de segurança operacional. Avalie os motivos informados.",
+        valorAtual: "5.9%",
+        limiteConfigurado: "3.0%",
+        acaoTexto: "Ver Canceladas",
+        filtroStatus: "cancelada",
+      },
+      {
+        id: "alerta-descasamento-po",
+        tipo: "descasamento_entrada_po",
+        severidade: "atencao",
+        titulo: "1 NF-e de Fornecedor com Divergência de Valor",
+        mensagem: "NF-e de entrada da Extinpel Indústria acima do pedido de compra autorizado (+R$ 145,00).",
+        valorAtual: "R$ 145,00 acima",
+        limiteConfigurado: "R$ 0,00",
+        acaoTexto: "Ver Conciliação",
+        filtroTipo: "entrada",
+      },
+    ],
+    graficos: {
+      evolucao: {
+        categorias: ["04/11", "08/11", "12/11", "16/11", "20/11", "24/11"],
+        qtdNotas: [4, 6, 5, 8, 5, 6],
+        faturamento: [4200, 6800, 5900, 9400, 5600, 6550],
+      },
+      distribuicaoStatus: {
+        labels: ["Autorizada", "Cancelada", "Rejeitada", "Inutilizada", "Rascunho"],
+        series: [29, 2, 2, 1, 1],
+      },
+      impostosEmpilhados: {
+        categorias: ["04/11", "08/11", "12/11", "16/11", "20/11", "24/11"],
+        series: [
+          { name: "ICMS", data: [122.8, 198.9, 172.5, 274.9, 163.8, 191.6] },
+          { name: "PIS", data: [32.7, 53.0, 46.0, 73.3, 43.7, 51.1] },
+          { name: "COFINS", data: [76.4, 123.7, 107.3, 171.1, 101.9, 119.2] },
+          { name: "Simples / Outros", data: [40.9, 66.3, 57.5, 91.6, 54.6, 63.8] },
+        ],
+      },
+      rankingRejeicoes: [
+        { motivo: "Rejeição 204: Duplicidade de NF-e [nNF: 1072, nRec: 3510004]", tipo: "Rejeição SEFAZ", total: 3 },
+        { motivo: "Rejeição 539: Duplicidade de NF-e com diferença na Chave de Acesso", tipo: "Rejeição SEFAZ", total: 2 },
+        { motivo: "Cancelamento: Desistência e devolução do comprador antes do despacho", tipo: "Cancelamento Gestor", total: 2 },
+        { motivo: "Rejeição 778: Informado NCM inexistente na tabela da SEFAZ", tipo: "Rejeição SEFAZ", total: 1 },
+      ],
+    },
+    conciliacoesEntrada: [
+      {
+        id: "conc-1",
+        fornecedor: "Extinpel Indústria e Comércio",
+        numero_nfe: "NF-e 88412",
+        valor_nfe: 4320.00,
+        valor_nfe_formatado: "R$ 4.320,00",
+        numero_po: "PC-2026-0092",
+        valor_po: 4175.00,
+        valor_po_formatado: "R$ 4.175,00",
+        diferenca_valor: 145.00,
+        diferenca_formatada: "+R$ 145,00",
+        status_conciliacao: "DIVERGENCIA_VALOR",
+        status_rotulo: "Divergência (+R$ 145)",
+        badge_classe: "bg-amber-100 text-amber-800 border-amber-300",
+        data_entrada: "22/11/2026",
+      },
+      {
+        id: "conc-2",
+        fornecedor: "Metalúrgica Lacerda Válvulas",
+        numero_nfe: "NF-e 19842",
+        valor_nfe: 1850.00,
+        valor_nfe_formatado: "R$ 1.850,00",
+        numero_po: "PC-2026-0091",
+        valor_po: 1850.00,
+        valor_po_formatado: "R$ 1.850,00",
+        diferenca_valor: 0,
+        diferenca_formatada: "R$ 0,00",
+        status_conciliacao: "CONCILIADO",
+        status_rotulo: "Conciliado 100%",
+        badge_classe: "bg-emerald-100 text-emerald-800 border-emerald-300",
+        data_entrada: "19/11/2026",
+      },
+    ],
+  };
+}
+
+function obterTabelaFiscalNotasFallback(page, limit, filtros) {
+  const todas = [
+    {
+      id_nota_fiscal: 101,
+      numero: 1074,
+      serie: 1,
+      tipo: "Saída",
+      parceiro: "Condomínio Residencial Jardins",
+      documento_parceiro: "24.112.980/0001-44",
+      valor_total: 1450.0,
+      valor_total_formatado: "R$ 1.450,00",
+      impostos_total: 94.25,
+      impostos_total_formatado: "R$ 94,25",
+      status: "autorizada",
+      status_rotulo: "Autorizada",
+      status_badge_classe: "bg-emerald-100 text-emerald-800 border-emerald-300",
+      emitida_em: "23/11/2026",
+      chave_acesso: "35261111222333000181550010000010741998822312",
+      chave_acesso_truncada: "3526...2312",
+    },
+    {
+      id_nota_fiscal: 102,
+      numero: 1073,
+      serie: 1,
+      tipo: "Saída",
+      parceiro: "Auto Posto Rota do Sol Ltda",
+      documento_parceiro: "08.455.123/0001-90",
+      valor_total: 2180.0,
+      valor_total_formatado: "R$ 2.180,00",
+      impostos_total: 141.7,
+      impostos_total_formatado: "R$ 141,70",
+      status: "autorizada",
+      status_rotulo: "Autorizada",
+      status_badge_classe: "bg-emerald-100 text-emerald-800 border-emerald-300",
+      emitida_em: "23/11/2026",
+      chave_acesso: "35261111222333000181550010000010731998822315",
+      chave_acesso_truncada: "3526...2315",
+    },
+    {
+      id_nota_fiscal: 103,
+      numero: 1072,
+      serie: 1,
+      tipo: "Saída",
+      parceiro: "Mercado Central Campinas",
+      documento_parceiro: "12.890.334/0001-11",
+      valor_total: 890.0,
+      valor_total_formatado: "R$ 890,00",
+      impostos_total: 57.85,
+      impostos_total_formatado: "R$ 57,85",
+      status: "rejeitada",
+      status_rotulo: "Rejeitada SEFAZ",
+      status_badge_classe: "bg-rose-100 text-rose-800 border-rose-300",
+      emitida_em: "22/11/2026",
+      chave_acesso: "35261111222333000181550010000010721998822318",
+      chave_acesso_truncada: "3526...2318",
+      motivo_sefaz: "Rejeição 204: Duplicidade de NF-e [nNF: 1072, nRec: 3510004]",
+    },
+    {
+      id_nota_fiscal: 104,
+      numero: 1071,
+      serie: 1,
+      tipo: "Saída",
+      parceiro: "Construtora Monte Alto",
+      documento_parceiro: "44.321.789/0001-02",
+      valor_total: 3450.0,
+      valor_total_formatado: "R$ 3.450,00",
+      impostos_total: 224.25,
+      impostos_total_formatado: "R$ 224,25",
+      status: "cancelada",
+      status_rotulo: "Cancelada",
+      status_badge_classe: "bg-stone-200 text-stone-800 border-stone-300",
+      emitida_em: "21/11/2026",
+      chave_acesso: "35261111222333000181550010000010711998822310",
+      chave_acesso_truncada: "3526...2310",
+      motivo_sefaz: "Cancelamento homologado na SEFAZ",
+    },
+    {
+      id_nota_fiscal: 105,
+      numero: 1070,
+      serie: 1,
+      tipo: "Entrada",
+      parceiro: "Extinpel Indústria e Comércio",
+      documento_parceiro: "14.555.777/0001-33",
+      valor_total: 4320.0,
+      valor_total_formatado: "R$ 4.320,00",
+      impostos_total: 280.8,
+      impostos_total_formatado: "R$ 280,80",
+      status: "autorizada",
+      status_rotulo: "Autorizada",
+      status_badge_classe: "bg-emerald-100 text-emerald-800 border-emerald-300",
+      emitida_em: "20/11/2026",
+      chave_acesso: "35261114555777000133550010000458001998822399",
+      chave_acesso_truncada: "3526...2399",
+    },
+    {
+      id_nota_fiscal: 106,
+      numero: 1069,
+      serie: 1,
+      tipo: "Saída",
+      parceiro: "Escola Modelo de Ensino",
+      documento_parceiro: "55.443.221/0001-55",
+      valor_total: 780.0,
+      valor_total_formatado: "R$ 780,00",
+      impostos_total: 50.7,
+      impostos_total_formatado: "R$ 50,70",
+      status: "autorizada",
+      status_rotulo: "Autorizada",
+      status_badge_classe: "bg-emerald-100 text-emerald-800 border-emerald-300",
+      emitida_em: "19/11/2026",
+      chave_acesso: "35261111222333000181550010000010691998822319",
+      chave_acesso_truncada: "3526...2319",
+    },
+  ];
+
+  let filtrados = [...todas];
+  if (filtros.status && filtros.status !== "ALL") {
+    filtrados = filtrados.filter((f) => f.status === filtros.status);
+  }
+  if (filtros.tipo && filtros.tipo !== "ALL") {
+    const tMap = { saida: "Saída", entrada: "Entrada", devolucao: "Devolução" };
+    const alvo = tMap[filtros.tipo];
+    if (alvo) filtrados = filtrados.filter((f) => f.tipo === alvo);
+  }
+  if (filtros.search && filtros.search.trim()) {
+    const q = filtros.search.toLowerCase().trim();
+    filtrados = filtrados.filter(
+      (f) =>
+        String(f.numero).includes(q) ||
+        f.parceiro.toLowerCase().includes(q) ||
+        f.documento_parceiro.includes(q) ||
+        f.chave_acesso.toLowerCase().includes(q)
+    );
+  }
+
+  const total = filtrados.length;
+  const offset = (page - 1) * limit;
+  const itens = filtrados.slice(offset, offset + limit);
+
+  return {
+    sucesso: true,
+    page,
+    limit,
+    total,
+    totalPages: Math.ceil(total / limit) || 1,
+    itens,
   };
 }
 

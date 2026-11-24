@@ -101,3 +101,4 @@ console.log('1. Reinicie o servidor backend (npm run build && npm start).');
 console.log('2. Acesse a aba Configuração Fiscal & NF-e (fiscal.html) como GESTOR.');
 console.log('3. Cadastre o Emitente, instale o e-CNPJ A1 (.pfx/.p12) e teste a conexão SEFAZ.');
 console.log('4. Ative o Ambiente de Produção confirmando "ATIVAR PRODUCAO".\n');
+

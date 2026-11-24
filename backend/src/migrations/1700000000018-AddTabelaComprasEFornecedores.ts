@@ -94,9 +94,9 @@ export class AddTabelaComprasEFornecedores1700000000018 implements MigrationInte
       ON DUPLICATE KEY UPDATE razao_social = VALUES(razao_social);
     `);
 
-    // 6. Inserção de Vínculos Produto-Fornecedor Seed
+    // 6. Inserção de Vínculos Produto-Fornecedor Seed (defensivo se produtos seed 11..20 não existirem)
     await queryRunner.query(`
-      INSERT INTO produto_fornecedor (id_produto, id_fornecedor, principal)
+      INSERT IGNORE INTO produto_fornecedor (id_produto, id_fornecedor, principal)
       VALUES
         (11, 1, 1), -- Extintor AP 10L -> Resil
         (12, 1, 1), -- Extintor PQS 4kg -> Resil (principal)
@@ -108,8 +108,7 @@ export class AddTabelaComprasEFornecedores1700000000018 implements MigrationInte
         (17, 2, 1), -- Suporte de Parede -> Bucka (fornecedor único!)
         (18, 2, 1), -- Suporte Solo Tripé -> Bucka
         (19, 4, 1), -- Placa Fotoluminescente -> Sinalize (fornecedor único!)
-        (20, 2, 1)  -- Detector de Fumaça -> Bucka (fornecedor único!)
-      ON DUPLICATE KEY UPDATE principal = VALUES(principal);
+        (20, 2, 1); -- Detector de Fumaça -> Bucka (fornecedor único!)
     `);
 
     // 7. Inserção de Pedidos de Compra Seed (Histórico com compras anteriores e recentes)
@@ -133,9 +132,9 @@ export class AddTabelaComprasEFornecedores1700000000018 implements MigrationInte
       ON DUPLICATE KEY UPDATE status = VALUES(status);
     `);
 
-    // 8. Inserção de Itens dos Pedidos de Compra
+    // 8. Inserção de Itens dos Pedidos de Compra (defensivo se produtos seed 11..20 não existirem)
     await queryRunner.query(`
-      INSERT INTO itens_pedido_compra 
+      INSERT IGNORE INTO itens_pedido_compra 
         (id_pedido_compra, id_produto, quantidade_pedida, quantidade_entregue, preco_unitario, subtotal)
       VALUES
         -- Itens do PC-088 (Período anterior)
@@ -172,8 +171,7 @@ export class AddTabelaComprasEFornecedores1700000000018 implements MigrationInte
         (9, 16, 20, 0, 410.00, 8200.00),
 
         -- Itens do PC-106 (Período atual - Aberto)
-        (10, 20, 70, 0, 42.57, 2980.00)
-      ON DUPLICATE KEY UPDATE preco_unitario = VALUES(preco_unitario);
+        (10, 20, 70, 0, 42.57, 2980.00);
     `);
   }
 

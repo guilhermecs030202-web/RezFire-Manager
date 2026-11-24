@@ -2391,7 +2391,7 @@ function sincronizarEstadoNotaPedido(pedido, nf) {
   }
 }
 
-function renderBannerStatusSefaz(nf) {
+function renderBannerStatusSefaz(nf, extras = {}) {
   const st = nf.status || "assinada";
   if (st === "autorizada") {
     return `
@@ -2415,6 +2415,11 @@ function renderBannerStatusSefaz(nf) {
   }
 
   if (st === "cancelada") {
+    const aud = extras.cancelamento_auditoria || null;
+    const responsavel = aud?.usuario_nome || (aud?.id_usuario ? `Usuário #${aud.id_usuario}` : null);
+    const dataCancel = aud?.data_evento || nf.cancelada_em;
+    const justCancel = aud?.justificativa || nf.justificativa_cancelamento;
+    const protCancel = aud?.protocolo_evento || nf.protocolo_cancelamento;
     return `
       <div style="background:#fef2f2;border:1px solid #dc2626;border-radius:10px;padding:14px;color:#7f1d1d;margin-bottom:14px;">
         <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap">
@@ -2422,10 +2427,14 @@ function renderBannerStatusSefaz(nf) {
           <span style="font-size:0.72rem;font-weight:800;padding:3px 9px;border-radius:999px;background:#991b1b;color:#fff">CANCELADA</span>
         </div>
         <div style="font-size:0.8rem;margin-top:4px">
-          Série <strong>${nf.serie}</strong> · Número <strong>${nf.numero}</strong> · <strong>Protocolo Cancelamento:</strong> <span class="font-mono">${escapeHtml(nf.protocolo_cancelamento || "—")}</span>
-          ${nf.cancelada_em ? ` · em ${formatDate(nf.cancelada_em)}` : ""}
+          Série <strong>${nf.serie}</strong> · Número <strong>${nf.numero}</strong> · <strong>Protocolo Cancelamento:</strong> <span class="font-mono">${escapeHtml(protCancel || "—")}</span>
+          ${dataCancel ? ` · em ${formatDate(dataCancel)}` : ""}
         </div>
-        ${nf.justificativa_cancelamento ? `<div style="font-size:0.76rem;margin-top:4px"><strong>Justificativa:</strong> ${escapeHtml(nf.justificativa_cancelamento)}</div>` : ""}
+        ${responsavel ? `<div style="font-size:0.76rem;margin-top:4px"><strong>Responsável:</strong> ${escapeHtml(responsavel)}${aud?.usuario_email ? ` (${escapeHtml(aud.usuario_email)})` : ""}</div>` : ""}
+        ${justCancel ? `<div style="font-size:0.76rem;margin-top:4px"><strong>Justificativa:</strong> ${escapeHtml(justCancel)}</div>` : ""}
+        <div style="font-size:0.74rem;margin-top:6px;color:#991b1b">
+          Esta nota está cancelada na SEFAZ e preservada no histórico. Caso necessário, você pode emitir uma <strong>nova NF-e</strong> para este pedido.
+        </div>
       </div>
     `;
   }
@@ -2537,6 +2546,7 @@ function renderTabelaEventosSefaz(eventos = []) {
           <tr>
             <th>DATA/HORA</th>
             <th>EVENTO / SEQ</th>
+            <th>RESPONSÁVEL</th>
             <th>STATUS</th>
             <th>cStat</th>
             <th>PROTOCOLO</th>
@@ -2549,10 +2559,11 @@ function renderTabelaEventosSefaz(eventos = []) {
             <tr>
               <td>${formatDate(e.data_evento || e.created_at)}</td>
               <td><strong>${e.tipo_evento === "cancelamento" ? "Cancelamento" : "Carta Correção"}</strong> · #${e.sequencia}</td>
+              <td>${escapeHtml(e.usuario_nome || (e.id_usuario ? `Usuário #${e.id_usuario}` : "—"))}</td>
               <td><strong>${escapeHtml(e.status)}</strong></td>
               <td class="font-mono">${escapeHtml(e.codigo_sefaz || "—")}</td>
               <td class="font-mono">${escapeHtml(e.protocolo_evento || "—")}</td>
-              <td style="max-width:240px;word-break:break-word">${escapeHtml(e.descricao_evento || "")}</td>
+              <td style="max-width:220px;word-break:break-word">${escapeHtml(e.descricao_evento || "")}</td>
               <td style="text-align:right">
                 ${e.tem_xml_evento ? `<button type="button" class="btn-ghost btn-nfe-xml-evento" data-id="${e.id_evento}" style="padding:2px 8px;font-size:0.7rem">XML</button>` : "—"}
               </td>
@@ -2564,7 +2575,40 @@ function renderTabelaEventosSefaz(eventos = []) {
   `;
 }
 
-function renderNotaFiscalAssinada(pedido, nf, transmissoes = [], eventos = []) {
+function renderHistoricoNotasPedido(historicoNotas = [], notaAtualId = null) {
+  if (!Array.isArray(historicoNotas) || historicoNotas.length <= 1) return "";
+  return `
+    <div style="margin-bottom:14px">
+      <label style="font-size:0.75rem;font-weight:700;color:var(--muted);display:block;margin-bottom:6px">
+        Histórico de NF-es Emitidas neste Pedido (${historicoNotas.length})
+      </label>
+      <div class="table-wrap" style="border:1px solid var(--line);border-radius:8px;overflow:hidden">
+        <table class="products-table" style="margin:0;font-size:0.74rem">
+          <thead>
+            <tr>
+              <th>SÉRIE / Nº</th>
+              <th>STATUS</th>
+              <th>PROTOCOLO</th>
+              <th>DATA</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${historicoNotas.map((h) => `
+              <tr style="${h.id_nota_fiscal === notaAtualId ? "background:#f8fafc;font-weight:700" : ""}">
+                <td>Série ${h.serie} · Nº ${h.numero}${h.id_nota_fiscal === notaAtualId ? " (Atual)" : ""}</td>
+                <td><strong>${escapeHtml(String(h.status || "").toUpperCase())}</strong></td>
+                <td class="font-mono">${escapeHtml(h.protocolo_cancelamento || h.protocolo_autorizacao || "—")}</td>
+                <td>${formatDate(h.cancelada_em || h.autorizada_em || h.created_at)}</td>
+              </tr>
+            `).join("")}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  `;
+}
+
+function renderNotaFiscalAssinada(pedido, nf, transmissoes = [], eventos = [], extras = {}) {
   const body = document.getElementById("modal-nfe-body");
   const actions = document.getElementById("modal-nfe-actions");
   const sub = document.getElementById("modal-nfe-subtitulo");
@@ -2585,9 +2629,13 @@ function renderNotaFiscalAssinada(pedido, nf, transmissoes = [], eventos = []) {
   const isEmProc = nf.status === "em_processamento";
   const podeDanfe = (isAutorizada || isCancelada) && Boolean(nf.protocolo_autorizacao);
   const sugereAvancar = isRejeitada && (nf.ultimo_codigo_sefaz === "204" || nf.ultimo_codigo_sefaz === "539");
+  const cancelInfo = extras.cancelamento_info || null;
+  const cancelPermitido = !cancelInfo || cancelInfo.permitido !== false;
+  const historicoNotas = Array.isArray(extras.historico_notas) ? extras.historico_notas : [];
+  const podeEmitirNovaAposCancelamento = isCancelada && pedido.status !== "Cancelado";
 
   body.innerHTML = `
-    ${renderBannerStatusSefaz(nf)}
+    ${renderBannerStatusSefaz(nf, extras)}
     <div id="nfe-sefaz-feedback" style="display:none;margin-bottom:12px;padding:12px;border-radius:8px;font-size:0.82rem"></div>
 
     <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:10px 12px;margin-bottom:14px;font-size:0.78rem">
@@ -2672,15 +2720,36 @@ function renderNotaFiscalAssinada(pedido, nf, transmissoes = [], eventos = []) {
       <div id="nfe-eventos-wrap">${renderTabelaEventosSefaz(eventos)}</div>
     </div>
 
+    ${renderHistoricoNotasPedido(historicoNotas, nf.id_nota_fiscal)}
+
     ${isAutorizada ? `
       <div id="nfe-box-cancelar" style="display:none;background:#fef2f2;border:1px solid #fca5a5;border-radius:10px;padding:12px;margin-bottom:12px">
-        <div style="font-size:0.84rem;font-weight:800;color:#991b1b;margin-bottom:4px">Cancelar NF-e por Evento (tpEvento 110111)</div>
-        <p style="font-size:0.74rem;color:#7f1d1d;margin:0 0 8px">Permitido até 24h após autorização e antes do despacho/entrega física. Não estorna estoque automaticamente.</p>
-        <textarea id="nfe-cancel-justificativa" rows="2" maxlength="255" placeholder="Informe a justificativa do cancelamento (15 a 255 caracteres)..." style="width:100%;font-size:0.8rem;border:1px solid #fca5a5;border-radius:6px;padding:6px;background:#fff"></textarea>
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-top:6px">
-          <span id="nfe-cancel-count" style="font-size:0.72rem;color:#7f1d1d">0/255 caracteres</span>
-          <button type="button" class="btn-primary" id="btn-confirmar-cancelar-nfe" style="background:#b91c1c;padding:5px 12px;font-size:0.78rem">Confirmar Cancelamento SEFAZ</button>
+        <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:6px">
+          <div style="font-size:0.84rem;font-weight:800;color:#991b1b">Cancelar NF-e por Evento (tpEvento 110111)</div>
+          ${cancelInfo?.prazo_restante_texto ? `
+            <span id="nfe-cancel-prazo-badge" style="font-size:0.72rem;font-weight:700;padding:3px 9px;border-radius:999px;background:${cancelPermitido ? "#fff7ed" : "#fee2e2"};color:${cancelPermitido ? "#9a3412" : "#991b1b"};border:1px solid ${cancelPermitido ? "#fdba74" : "#fca5a5"}">
+              ⏱ ${escapeHtml(cancelInfo.prazo_restante_texto)}
+            </span>
+          ` : ""}
         </div>
+        ${!cancelPermitido ? `
+          <div id="nfe-cancel-bloqueio" style="background:#fff;border:1px solid #dc2626;border-radius:8px;padding:10px 12px;font-size:0.78rem;color:#7f1d1d">
+            <div style="font-weight:800;margin-bottom:4px">⛔ Cancelamento normal bloqueado</div>
+            <div style="margin-bottom:6px">${escapeHtml(cancelInfo?.motivo_bloqueio || "Cancelamento não permitido para esta NF-e.")}</div>
+            ${cancelInfo?.orientacao_extemporaneo ? `
+              <div style="background:#fff7ed;border:1px solid #fdba74;border-radius:6px;padding:8px 10px;color:#9a3412;font-size:0.75rem">
+                <strong>Orientação (Cancelamento Extemporâneo / SEFAZ-SP):</strong> ${escapeHtml(cancelInfo.orientacao_extemporaneo)}
+              </div>
+            ` : ""}
+          </div>
+        ` : `
+          <p style="font-size:0.74rem;color:#7f1d1d;margin:0 0 8px">Permitido até ${cancelInfo?.prazo_normal_horas || 24}h após autorização e antes da saída/despacho físico da mercadoria. A justificativa é obrigatória (15 a 255 caracteres). Não estorna estoque automaticamente.</p>
+          <textarea id="nfe-cancel-justificativa" rows="2" maxlength="255" placeholder="Informe a justificativa do cancelamento (15 a 255 caracteres)..." style="width:100%;font-size:0.8rem;border:1px solid #fca5a5;border-radius:6px;padding:6px;background:#fff"></textarea>
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-top:6px">
+            <span id="nfe-cancel-count" style="font-size:0.72rem;color:#7f1d1d">0/255 caracteres</span>
+            <button type="button" class="btn-primary" id="btn-confirmar-cancelar-nfe" style="background:#b91c1c;padding:5px 12px;font-size:0.78rem">Confirmar Cancelamento SEFAZ</button>
+          </div>
+        `}
       </div>
 
       <div id="nfe-box-cce" style="display:none;background:#eff6ff;border:1px solid #bfdbfe;border-radius:10px;padding:12px;margin-bottom:12px">
@@ -2704,6 +2773,11 @@ function renderNotaFiscalAssinada(pedido, nf, transmissoes = [], eventos = []) {
     ${!isAutorizada && !isDenegada && !isCancelada ? `
       <button type="button" class="btn-primary" id="btn-nfe-transmitir" style="background:#0f766e">
         ${isEmProc ? "⚡ Verificar e Transmitir (Anti-Duplicidade)" : isRejeitada ? "Reenviar à SEFAZ" : "🚀 Transmitir à SEFAZ"}
+      </button>
+    ` : ""}
+    ${podeEmitirNovaAposCancelamento ? `
+      <button type="button" class="btn-primary" id="btn-nfe-emitir-nova" style="background:#0f766e" title="Gera uma nova NF-e sequencial para este pedido preservando a NF-e cancelada no histórico">
+        🧾 Emitir Nova NF-e
       </button>
     ` : ""}
     <button type="button" class="btn-ghost" id="btn-nfe-consultar">🔎 Consultar Situação SEFAZ</button>
@@ -2746,11 +2820,20 @@ function renderNotaFiscalAssinada(pedido, nf, transmissoes = [], eventos = []) {
       const res = await acaoFn();
       if (res?.nota_fiscal) {
         sincronizarEstadoNotaPedido(pedido, res.nota_fiscal);
+        const atualizado = await window.RezFireAPI.fiscal
+          .obterNFePedido(pedido.id_pedido)
+          .catch(() => null);
         renderNotaFiscalAssinada(
           pedido,
-          res.nota_fiscal,
-          res.transmissoes || transmissoes,
-          res.eventos || eventos
+          atualizado?.nota_fiscal || res.nota_fiscal,
+          atualizado?.transmissoes || res.transmissoes || transmissoes,
+          atualizado?.eventos || res.eventos || eventos,
+          {
+            cancelamento_info: atualizado?.cancelamento_info || res.cancelamento_info || extras.cancelamento_info,
+            cancelamento_auditoria:
+              atualizado?.cancelamento_auditoria || res.cancelamento_auditoria || extras.cancelamento_auditoria,
+            historico_notas: atualizado?.historico_notas || extras.historico_notas || [],
+          }
         );
       }
       showToast(
@@ -2810,6 +2893,9 @@ function renderNotaFiscalAssinada(pedido, nf, transmissoes = [], eventos = []) {
   document.getElementById("btn-nfe-regerar")?.addEventListener("click", () => {
     abrirModalPrepararNFe(pedido, { regerar: true });
   });
+  document.getElementById("btn-nfe-emitir-nova")?.addEventListener("click", () => {
+    abrirModalPrepararNFe(pedido, { regerar: true });
+  });
   document.getElementById("btn-nfe-regerar-avancar")?.addEventListener("click", () => {
     abrirModalPrepararNFe(pedido, { regerar: true, avancar_numero: true });
   });
@@ -2836,6 +2922,11 @@ function renderNotaFiscalAssinada(pedido, nf, transmissoes = [], eventos = []) {
   document.getElementById("btn-confirmar-cancelar-nfe")?.addEventListener("click", (e) => {
     const btn = e.currentTarget;
     const just = document.getElementById("nfe-cancel-justificativa")?.value?.trim() || "";
+    if (just.length < 15 || just.length > 255) {
+      setFeedbackSefaz("erro", "Informe uma justificativa obrigatória entre 15 e 255 caracteres para cancelar a NF-e.");
+      showToast("Justificativa obrigatória (mínimo 15 caracteres).", "erro");
+      return;
+    }
     executarAcaoSefaz(
       () => window.RezFireAPI.fiscal.cancelarNFe(pedido.id_pedido, { justificativa: just }),
       btn,
@@ -2917,7 +3008,12 @@ async function abrirModalPrepararNFe(pedido, opcoes = {}) {
           pedido,
           atual.nota_fiscal,
           atual.transmissoes || [],
-          atual.eventos || []
+          atual.eventos || [],
+          {
+            cancelamento_info: atual.cancelamento_info || null,
+            cancelamento_auditoria: atual.cancelamento_auditoria || null,
+            historico_notas: atual.historico_notas || [],
+          }
         );
         return;
       }
@@ -2925,16 +3021,20 @@ async function abrirModalPrepararNFe(pedido, opcoes = {}) {
 
     const res = await window.RezFireAPI.fiscal.prepararNFe(pedido.id_pedido, opcoes);
     if (res && res.nota_fiscal) {
-      const [hist, histEvt] = await Promise.all([
-        window.RezFireAPI.fiscal.listarTransmissoesNFe(pedido.id_pedido).catch(() => null),
-        window.RezFireAPI.fiscal.listarEventosNFe(pedido.id_pedido).catch(() => null),
-      ]);
+      const atualizado = await window.RezFireAPI.fiscal
+        .obterNFePedido(pedido.id_pedido)
+        .catch(() => null);
       sincronizarEstadoNotaPedido(pedido, res.nota_fiscal);
       renderNotaFiscalAssinada(
         pedido,
-        res.nota_fiscal,
-        hist?.transmissoes || [],
-        histEvt?.eventos || []
+        atualizado?.nota_fiscal || res.nota_fiscal,
+        atualizado?.transmissoes || [],
+        atualizado?.eventos || [],
+        {
+          cancelamento_info: atualizado?.cancelamento_info || null,
+          cancelamento_auditoria: atualizado?.cancelamento_auditoria || null,
+          historico_notas: atualizado?.historico_notas || [],
+        }
       );
       showToast(res.mensagem || "NF-e assinada com sucesso!", "sucesso");
     }

@@ -848,7 +848,8 @@ export class FiscalService {
   }
 
   /**
-   * Consulta a última NF-e preparada/emitida de um pedido + histórico de transmissões + prontidão atual (Stories 33c/33d).
+   * Consulta a última NF-e preparada/emitida de um pedido + histórico de transmissões, eventos,
+   * histórico de notas (incluindo canceladas) e elegibilidade/prazo restante de cancelamento.
    */
   async obterNFeDoPedido(id_pedido: number) {
     const pedido = await this.pedidoRepo.findOne({
@@ -862,22 +863,73 @@ export class FiscalService {
     const emitente = await this.emitenteRepo.findOne({ where: {} });
     const erros = validarDadosParaNFe(emitente, pedido);
 
-    const notaFiscal = await this.notaFiscalRepo.findOne({
+    const notasPedido = await this.notaFiscalRepo.find({
       where: { id_pedido },
-      relations: ['itens'],
       order: { id_nota_fiscal: 'DESC' },
     });
+
+    const notaFiscal =
+      notasPedido.length > 0
+        ? await this.notaFiscalRepo.findOne({
+            where: { id_nota_fiscal: notasPedido[0].id_nota_fiscal },
+            relations: ['itens'],
+          })
+        : null;
 
     const [permissoesTransmissoes, eventosRes] = await Promise.all([
       this.listarTransmissoesDoPedido(id_pedido),
       this.listarEventosDoPedido(id_pedido),
     ]);
 
+    const cancelamentoInfo = this.calcularInfoCancelamentoNFe(notaFiscal, pedido);
+    const eventoCancelAtual = notaFiscal
+      ? eventosRes.eventos.find(
+          (ev) =>
+            ev.id_nota_fiscal === notaFiscal.id_nota_fiscal &&
+            ev.tipo_evento === 'cancelamento' &&
+            ev.status === 'registrado'
+        ) || null
+      : null;
+
+    const cancelamentoAuditoria =
+      notaFiscal && notaFiscal.status === 'cancelada'
+        ? {
+            id_evento: eventoCancelAtual?.id_evento ?? null,
+            id_usuario: eventoCancelAtual?.id_usuario ?? null,
+            usuario_nome: eventoCancelAtual?.usuario_nome ?? null,
+            usuario_email: eventoCancelAtual?.usuario_email ?? null,
+            data_evento: eventoCancelAtual?.data_evento || notaFiscal.cancelada_em || null,
+            justificativa:
+              eventoCancelAtual?.descricao_evento || notaFiscal.justificativa_cancelamento || null,
+            protocolo_evento:
+              eventoCancelAtual?.protocolo_evento || notaFiscal.protocolo_cancelamento || null,
+            xml_evento_path: eventoCancelAtual?.xml_evento_path ?? null,
+          }
+        : null;
+
+    const historicoNotas = notasPedido.map((nf) => ({
+      id_nota_fiscal: nf.id_nota_fiscal,
+      serie: nf.serie,
+      numero: nf.numero,
+      ambiente: nf.ambiente,
+      status: nf.status,
+      chave_acesso: nf.chave_acesso,
+      protocolo_autorizacao: nf.protocolo_autorizacao,
+      protocolo_cancelamento: nf.protocolo_cancelamento,
+      autorizada_em: nf.autorizada_em,
+      cancelada_em: nf.cancelada_em,
+      justificativa_cancelamento: nf.justificativa_cancelamento,
+      created_at: nf.created_at,
+    }));
+
     return {
       status_fiscal: notaFiscal ? notaFiscal.status : 'sem_nota',
       nota_fiscal: notaFiscal || null,
+      historico_notas: historicoNotas,
       transmissoes: permissoesTransmissoes.transmissoes,
       eventos: eventosRes.eventos,
+      cancelamento_info: cancelamentoInfo,
+      cancelamento_auditoria: cancelamentoAuditoria,
       prontidao_atual: {
         apto: erros.length === 0,
         erros_validacao: erros,
@@ -1086,12 +1138,25 @@ export class FiscalService {
         relations: ['itens'],
       });
 
+      const notaAnteriorCancelada =
+        nfMaisRecente && nfMaisRecente.status === 'cancelada'
+          ? {
+              id_nota_fiscal: nfMaisRecente.id_nota_fiscal,
+              serie: nfMaisRecente.serie,
+              numero: nfMaisRecente.numero,
+            }
+          : null;
+
       return {
         sucesso: true,
         bloqueado: false,
         criada: !reutilizandoMesmoRegistro,
         ja_preparada: false,
-        mensagem: `NF-e Série ${serieAlocada} Nº ${numeroAlocado} montada, validada e assinada digitalmente com sucesso!`,
+        reemissao_apos_cancelamento: Boolean(notaAnteriorCancelada),
+        nota_anterior_cancelada: notaAnteriorCancelada,
+        mensagem: notaAnteriorCancelada
+          ? `Nova NF-e Série ${serieAlocada} Nº ${numeroAlocado} montada e assinada após cancelamento da NF-e Nº ${notaAnteriorCancelada.numero}!`
+          : `NF-e Série ${serieAlocada} Nº ${numeroAlocado} montada, validada e assinada digitalmente com sucesso!`,
         nota_fiscal: completa,
       };
     } catch (err) {
@@ -1972,7 +2037,100 @@ export class FiscalService {
     }));
   }
 
-  // ─── Story 33f: Cancelamento, Carta de Correção e Inutilização ──────────────
+  // ─── Story 33f.1 / 33f.2 / 33f: Cancelamento, Carta de Correção e Inutilização ──
+
+  private calcularInfoCancelamentoNFe(nota: NotaFiscal | null, pedido: Pedido) {
+    const prazoNormalHoras = Number(env.SEFAZ_PRAZO_CANCELAMENTO_HORAS || 24);
+    const prazoExtemporaneoHoras = Number(env.SEFAZ_PRAZO_CANCELAMENTO_EXTEMPORANEO_HORAS || 480);
+    const prazoExtemporaneoDias = Math.round(prazoExtemporaneoHoras / 24);
+
+    if (!nota || nota.status !== 'autorizada') {
+      return {
+        aplicavel: false,
+        permitido: false,
+        codigo_bloqueio: nota ? `STATUS_${String(nota.status).toUpperCase()}` : 'SEM_NOTA',
+        motivo_bloqueio: nota
+          ? `Somente NF-e autorizada pode ser cancelada (status atual: ${nota.status}).`
+          : 'Pedido sem NF-e autorizada.',
+        orientacao_extemporaneo: null as string | null,
+        prazo_normal_horas: prazoNormalHoras,
+        prazo_extemporaneo_horas: prazoExtemporaneoHoras,
+        prazo_expira_em: null as string | null,
+        horas_decorridas: null as number | null,
+        horas_restantes: 0,
+        minutos_restantes: 0,
+        prazo_restante_texto: null as string | null,
+        dentro_prazo_normal: false,
+        dentro_prazo_extemporaneo: false,
+        mercadoria_saiu:
+          pedido.status_entrega === 'Despachado' || pedido.status_entrega === 'Entregue',
+      };
+    }
+
+    const agoraMs = Date.now();
+    const refAut = nota.autorizada_em || nota.emitida_em;
+    const refMs = refAut ? new Date(refAut).getTime() : agoraMs;
+    const expiraEmDate = new Date(refMs + prazoNormalHoras * 3600000);
+    const msRestantes = expiraEmDate.getTime() - agoraMs;
+    const horasDecorridas = Math.max(0, (agoraMs - refMs) / 3600000);
+    const dentroPrazoNormal = msRestantes > 0;
+    const dentroPrazoExtemporaneo = horasDecorridas <= prazoExtemporaneoHoras;
+    const horasRestantes = dentroPrazoNormal ? Math.floor(msRestantes / 3600000) : 0;
+    const minutosRestantes = dentroPrazoNormal ? Math.floor((msRestantes % 3600000) / 60000) : 0;
+    const mercadoriaSaiu =
+      pedido.status_entrega === 'Despachado' || pedido.status_entrega === 'Entregue';
+
+    const expiraFormatado = expiraEmDate.toLocaleString('pt-BR', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+
+    const prazoRestanteTexto = dentroPrazoNormal
+      ? horasRestantes > 0 || minutosRestantes > 0
+        ? `Restam ${horasRestantes}h ${String(minutosRestantes).padStart(2, '0')}min para cancelamento normal (até ${expiraFormatado})`
+        : `Menos de 1 minuto restante para cancelamento normal (até ${expiraFormatado})`
+      : `Prazo normal de ${prazoNormalHoras}h expirado em ${expiraFormatado}`;
+
+    let permitido = true;
+    let codigoBloqueio: string | null = null;
+    let motivoBloqueio: string | null = null;
+    let orientacaoExtemporaneo: string | null = null;
+
+    if (mercadoriaSaiu) {
+      permitido = false;
+      codigoBloqueio = 'MERCADORIA_SAIU';
+      motivoBloqueio = `Cancelamento bloqueado: o pedido já consta como "${pedido.status_entrega}" (mercadoria saiu do estabelecimento / em circulação).`;
+      orientacaoExtemporaneo = `Não é permitido cancelar NF-e após a saída ou circulação da mercadoria. Para desfazer a operação, emita uma NF-e de devolução junto à contabilidade. Caso o status "${pedido.status_entrega}" tenha sido registrado por engano e não exista circulação física nem CT-e/MDF-e vinculado, regularize o status ou solicite cancelamento extemporâneo diretamente no portal da SEFAZ-SP (fora do sistema, até ${prazoExtemporaneoHoras}h / ${prazoExtemporaneoDias} dias após a autorização).`;
+    } else if (!dentroPrazoNormal) {
+      permitido = false;
+      codigoBloqueio = 'PRAZO_NORMAL_EXPIRADO';
+      motivoBloqueio = `Prazo normal de cancelamento expirado (${Math.floor(horasDecorridas)}h decorridas; limite normal de ${prazoNormalHoras}h após a autorização).`;
+      orientacaoExtemporaneo = dentroPrazoExtemporaneo
+        ? `Pedido de cancelamento extemporâneo (fora do sistema): solicite diretamente no portal da SEFAZ-SP dentro do limite de ${prazoExtemporaneoHoras} horas (${prazoExtemporaneoDias} dias) após a autorização, desde que a mercadoria não tenha circulado e não haja CT-e ou MDF-e válido vinculado. Em caso de dúvida, confirme com a contabilidade.`
+        : `O prazo normal (${prazoNormalHoras}h) e o prazo de cancelamento extemporâneo da SEFAZ-SP (${prazoExtemporaneoHoras}h / ${prazoExtemporaneoDias} dias) foram ultrapassados. Para estornar a operação fiscal, emita uma NF-e de devolução junto à contabilidade.`;
+    }
+
+    return {
+      aplicavel: true,
+      permitido,
+      codigo_bloqueio: codigoBloqueio,
+      motivo_bloqueio: motivoBloqueio,
+      orientacao_extemporaneo: orientacaoExtemporaneo,
+      prazo_normal_horas: prazoNormalHoras,
+      prazo_extemporaneo_horas: prazoExtemporaneoHoras,
+      prazo_expira_em: expiraEmDate.toISOString(),
+      horas_decorridas: Number(horasDecorridas.toFixed(2)),
+      horas_restantes: horasRestantes,
+      minutos_restantes: minutosRestantes,
+      prazo_restante_texto: prazoRestanteTexto,
+      dentro_prazo_normal: dentroPrazoNormal,
+      dentro_prazo_extemporaneo: dentroPrazoExtemporaneo,
+      mercadoria_saiu: mercadoriaSaiu,
+    };
+  }
 
   private arquivarXmlComplementarEmDisco(relPath: string, xmlConteudo: string): string {
     const absPath = this.resolverCaminhoAbsolutoArquivoXml(relPath);
@@ -1986,6 +2144,8 @@ export class FiscalService {
       id_evento: e.id_evento,
       id_nota_fiscal: e.id_nota_fiscal,
       id_usuario: e.id_usuario,
+      usuario_nome: e.usuario?.nome || null,
+      usuario_email: e.usuario?.email || null,
       tipo_evento: e.tipo_evento,
       codigo_tipo_evento: e.codigo_tipo_evento,
       sequencia: e.sequencia,
@@ -2022,6 +2182,7 @@ export class FiscalService {
     const idsNotas = notas.map((n) => n.id_nota_fiscal);
     const eventos = await this.eventoRepo
       .createQueryBuilder('ev')
+      .leftJoinAndSelect('ev.usuario', 'u')
       .where('ev.id_nota_fiscal IN (:...idsNotas)', { idsNotas })
       .orderBy('ev.id_evento', 'DESC')
       .getMany();
@@ -2106,29 +2267,18 @@ export class FiscalService {
       );
     }
 
-    // Regra de prazo legal (padrão 24h após autorização)
-    const refAut = nota.autorizada_em || nota.emitida_em;
-    if (refAut) {
-      const limiteHoras = Number(env.SEFAZ_PRAZO_CANCELAMENTO_HORAS || 24);
-      const horasDecorridas = (Date.now() - new Date(refAut).getTime()) / 3600000;
-      if (horasDecorridas > limiteHoras) {
-        throw Object.assign(
-          new Error(
-            `Prazo legal de cancelamento expirado (${Math.floor(horasDecorridas)}h decorridas; limite de ${limiteHoras}h). Para estornar após o prazo, emita NF-e de devolução junto à contabilidade.`
-          ),
-          { statusCode: 422 }
-        );
-      }
-    }
-
-    // Regra fiscal: vedado cancelar após saída/circulação física da mercadoria
-    if (pedido.status_entrega === 'Despachado' || pedido.status_entrega === 'Entregue') {
-      throw Object.assign(
-        new Error(
-          `Cancelamento bloqueado: o pedido já consta como "${pedido.status_entrega}" (mercadoria em circulação/entregue). Utilize NF-e de devolução.`
-        ),
-        { statusCode: 422 }
-      );
+    // Regra de prazo legal (padrão 24h após autorização) e vedação após saída física da mercadoria
+    const infoCancel = this.calcularInfoCancelamentoNFe(nota, pedido);
+    if (!infoCancel.permitido) {
+      const msgCompleta = infoCancel.orientacao_extemporaneo
+        ? `${infoCancel.motivo_bloqueio} ${infoCancel.orientacao_extemporaneo}`
+        : infoCancel.motivo_bloqueio || 'Cancelamento não permitido para esta NF-e.';
+      throw Object.assign(new Error(msgCompleta), {
+        statusCode: 422,
+        codigo_bloqueio: infoCancel.codigo_bloqueio,
+        orientacao_extemporaneo: infoCancel.orientacao_extemporaneo,
+        cancelamento_info: infoCancel,
+      });
     }
 
     const { pfxBuffer, senha } = this.carregarPfxESenhaDeEmitente(emitente);
@@ -2216,6 +2366,24 @@ export class FiscalService {
         this.listarEventosDoPedido(id_pedido),
       ]);
 
+      const eventoResumoAtual =
+        histEvt.eventos.find((ev) => ev.id_evento === eventoSalvo.id_evento) ||
+        this.serializarEventoResumo(eventoSalvo);
+
+      const cancelamentoInfoAtual = this.calcularInfoCancelamentoNFe(notaAtualizada, pedido);
+      const cancelamentoAuditoria = aceito
+        ? {
+            id_evento: eventoResumoAtual.id_evento,
+            id_usuario: eventoResumoAtual.id_usuario,
+            usuario_nome: eventoResumoAtual.usuario_nome,
+            usuario_email: eventoResumoAtual.usuario_email,
+            data_evento: eventoResumoAtual.data_evento,
+            justificativa: eventoResumoAtual.descricao_evento,
+            protocolo_evento: eventoResumoAtual.protocolo_evento,
+            xml_evento_path: eventoResumoAtual.xml_evento_path,
+          }
+        : null;
+
       return {
         sucesso: !chamada.indisponivel,
         indisponivel: chamada.indisponivel,
@@ -2226,8 +2394,10 @@ export class FiscalService {
             ? `NF-e Série ${nota.serie} Nº ${nota.numero} CANCELADA na SEFAZ! Protocolo: ${chamada.nProt || '—'}`
             : `Cancelamento rejeitado pela SEFAZ (${chamada.cStat}): ${chamada.interpretacao.mensagemAmigavel}`,
         nota_fiscal: notaAtualizada,
-        evento: this.serializarEventoResumo(eventoSalvo),
+        evento: eventoResumoAtual,
         eventos: histEvt.eventos,
+        cancelamento_info: cancelamentoInfoAtual,
+        cancelamento_auditoria: cancelamentoAuditoria,
         interpretacao: chamada.interpretacao,
       };
     } finally {

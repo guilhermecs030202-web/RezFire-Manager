@@ -1206,6 +1206,143 @@ body {
   flex-shrink: 0;
 }
 
+/* ── Modal NF-e: layout elegante e paleta RezFire ─────────────── */
+.nfe-actions-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 10px 12px;
+  width: 100%;
+}
+
+.nfe-actions-group {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.nfe-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 36px;
+  padding: 0 14px;
+  border-radius: 8px;
+  font-family: inherit;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  line-height: 1;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background-color 0.16s ease, border-color 0.16s ease, color 0.16s ease, box-shadow 0.16s ease;
+}
+
+.nfe-btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.nfe-btn-brand {
+  background: var(--accent);
+  border: 1px solid var(--accent);
+  color: #fff;
+}
+
+.nfe-btn-brand:hover:not(:disabled) {
+  background: var(--accent-hover);
+  border-color: var(--accent-hover);
+}
+
+.nfe-btn-dark {
+  background: var(--ink);
+  border: 1px solid var(--ink);
+  color: #f4efe8;
+}
+
+.nfe-btn-dark:hover:not(:disabled) {
+  background: #2e2522;
+  border-color: #2e2522;
+}
+
+.nfe-btn-neutral {
+  background: #fff;
+  border: 1px solid #dcd3c8;
+  color: var(--ink);
+}
+
+.nfe-btn-neutral:hover:not(:disabled) {
+  background: #faf7f3;
+  border-color: #c7bbb0;
+}
+
+.nfe-btn-danger {
+  background: #fff;
+  border: 1px solid #ecc4c4;
+  color: var(--down);
+}
+
+.nfe-btn-danger:hover:not(:disabled) {
+  background: #fdf3f3;
+  border-color: #de9b9b;
+}
+
+.nfe-btn-danger-solid {
+  background: var(--down);
+  border: 1px solid var(--down);
+  color: #fff;
+}
+
+.nfe-btn-danger-solid:hover:not(:disabled) {
+  background: #b83232;
+  border-color: #b83232;
+}
+
+.nfe-btn-subtle {
+  background: transparent;
+  border: 1px solid transparent;
+  color: var(--muted);
+}
+
+.nfe-btn-subtle:hover:not(:disabled) {
+  background: var(--cream);
+  color: var(--ink);
+}
+
+.nfe-section-label {
+  font-size: 0.74rem;
+  font-weight: 700;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  display: block;
+  margin-bottom: 6px;
+}
+
+.nfe-card-soft {
+  background: #faf7f3;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 12px 14px;
+}
+
+.nfe-panel-box {
+  border-radius: 10px;
+  padding: 14px;
+  margin-bottom: 14px;
+}
+
+.nfe-panel-box--cancel {
+  background: #fdf5f5;
+  border: 1px solid #ecc4c4;
+}
+
+.nfe-panel-box--cce {
+  background: #faf7f3;
+  border: 1px solid #dcd3c8;
+}
+
 @media (max-width: 960px) {
   .sidebar {
     display: none;

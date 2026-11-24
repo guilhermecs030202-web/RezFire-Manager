@@ -111,14 +111,14 @@ function normalizarPedido(p) {
   const statusMapeado = (p.status === "Concluido" || p.status === "Concluído") ? "Concluído" : p.status;
   const itensMapeados = Array.isArray(p.itens)
     ? p.itens.map((it) => ({
-        id_item: it.id_item,
-        id_produto: it.id_produto || it.produto?.id_produto,
-        sku: it.produto?.sku || it.sku || `PROD-${it.id_produto}`,
-        nome: it.produto?.nome || it.nome || "Produto",
-        quantidade: Number(it.quantidade || 1),
-        preco_unitario: Number(it.preco_unitario || it.produto?.preco || 0),
-        subtotal: Number(it.subtotal || (Number(it.quantidade || 1) * Number(it.preco_unitario || it.produto?.preco || 0))),
-      }))
+      id_item: it.id_item,
+      id_produto: it.id_produto || it.produto?.id_produto,
+      sku: it.produto?.sku || it.sku || `PROD-${it.id_produto}`,
+      nome: it.produto?.nome || it.nome || "Produto",
+      quantidade: Number(it.quantidade || 1),
+      preco_unitario: Number(it.preco_unitario || it.produto?.preco || 0),
+      subtotal: Number(it.subtotal || (Number(it.quantidade || 1) * Number(it.preco_unitario || it.produto?.preco || 0))),
+    }))
     : [];
 
   return {
@@ -189,14 +189,14 @@ function getBadgeStatusFiscal(pedido) {
   const nf = pedido?.nota_fiscal_resumo || null;
   const st = pedido?.status_fiscal || (nf ? nf.status : "sem_nota") || "sem_nota";
   const estilos = {
-    sem_nota:         { bg: "#f1f5f9", color: "#475569", border: "#cbd5e1", label: "Sem NF-e" },
-    rascunho:         { bg: "#fefce8", color: "#854d0e", border: "#fde047", label: "NF-e Rascunho" },
-    assinada:         { bg: "#eff6ff", color: "#1d4ed8", border: "#bfdbfe", label: "NF-e Assinada" },
+    sem_nota: { bg: "#f1f5f9", color: "#475569", border: "#cbd5e1", label: "Sem NF-e" },
+    rascunho: { bg: "#fefce8", color: "#854d0e", border: "#fde047", label: "NF-e Rascunho" },
+    assinada: { bg: "#eff6ff", color: "#1d4ed8", border: "#bfdbfe", label: "NF-e Assinada" },
     em_processamento: { bg: "#fff7ed", color: "#c2410c", border: "#fdba74", label: "Processando SEFAZ" },
-    autorizada:       { bg: "#ecfdf5", color: "#065f46", border: "#86efac", label: "NF-e Autorizada" },
-    rejeitada:        { bg: "#fef2f2", color: "#b91c1c", border: "#fca5a5", label: "NF-e Rejeitada" },
-    denegada:         { bg: "#450a0a", color: "#fef2f2", border: "#991b1b", label: "NF-e Denegada" },
-    cancelada:        { bg: "#f3f4f6", color: "#6b7280", border: "#d1d5db", label: "NF-e Cancelada" },
+    autorizada: { bg: "#ecfdf5", color: "#065f46", border: "#86efac", label: "NF-e Autorizada" },
+    rejeitada: { bg: "#fef2f2", color: "#b91c1c", border: "#fca5a5", label: "NF-e Rejeitada" },
+    denegada: { bg: "#450a0a", color: "#fef2f2", border: "#991b1b", label: "NF-e Denegada" },
+    cancelada: { bg: "#f3f4f6", color: "#6b7280", border: "#d1d5db", label: "NF-e Cancelada" },
   };
   const cfg = estilos[st] || estilos.sem_nota;
   const sufixoNum = nf && nf.numero ? ` #${nf.numero}` : "";
@@ -227,9 +227,9 @@ function getBadgeModalidadeEnvio(mod) {
 function getBadgeStatusComercial(status) {
   const map = {
     "Confirmado": { cls: "badge-confirmado", label: "Confirmado" },
-    "Concluído":  { cls: "badge-concluido", label: "Concluído" },
-    "Concluido":  { cls: "badge-concluido", label: "Concluído" },
-    "Cancelado":  { cls: "badge-cancelado", label: "Cancelado" },
+    "Concluído": { cls: "badge-concluido", label: "Concluído" },
+    "Concluido": { cls: "badge-concluido", label: "Concluído" },
+    "Cancelado": { cls: "badge-cancelado", label: "Cancelado" },
   };
   const cfg = map[status] || { cls: "badge-confirmado", label: status };
   return `<span class="status-comercial ${cfg.cls}"><span class="status-dot"></span>${cfg.label}</span>`;
@@ -241,8 +241,8 @@ function getLogisticsBadgeForPedido(pedido) {
   const entregas = window.RezFireEntregas.loadEntregas();
   const ent = entregas.find(
     (e) => e.id_pedido_interno === pedido.id_pedido ||
-           e.codigo_pedido_ml === pedido.codigo_pedido ||
-           e.codigo_pedido_direto === pedido.codigo_pedido
+      e.codigo_pedido_ml === pedido.codigo_pedido ||
+      e.codigo_pedido_direto === pedido.codigo_pedido
   );
   if (!ent) return "";
 
@@ -258,11 +258,11 @@ function getLogisticsBadgeForPedido(pedido) {
 
   const map = {
     [STATUS_LOGISTICO.AGUARDANDO_ENVIO]: `<span class="entrega-badge badge-aguardando" style="font-size:0.68rem;padding:2px 7px;border-radius:6px;display:inline-flex;align-items:center;margin-top:4px">Aguardando Envio</span>`,
-    [STATUS_LOGISTICO.ENVIADO]:          `<span class="entrega-badge badge-enviado" style="font-size:0.68rem;padding:2px 7px;border-radius:6px;display:inline-flex;align-items:center;margin-top:4px">Enviado</span>`,
-    [STATUS_LOGISTICO.EM_TRANSITO]:      `<span class="entrega-badge badge-transito" style="font-size:0.68rem;padding:2px 7px;border-radius:6px;display:inline-flex;align-items:center;margin-top:4px">Em Trânsito</span>`,
-    [STATUS_LOGISTICO.SAIU_ENTREGA]:     `<span class="entrega-badge badge-saiu" style="font-size:0.68rem;padding:2px 7px;border-radius:6px;display:inline-flex;align-items:center;margin-top:4px">Saiu p/ Entrega</span>`,
-    [STATUS_LOGISTICO.ENTREGUE]:         `<span class="entrega-badge badge-entregue" style="font-size:0.68rem;padding:2px 7px;border-radius:6px;display:inline-flex;align-items:center;margin-top:4px">Entregue</span>`,
-    [STATUS_LOGISTICO.CANCELADO]:        `<span class="entrega-badge badge-cancelado" style="font-size:0.68rem;padding:2px 7px;border-radius:6px;display:inline-flex;align-items:center;margin-top:4px">Cancelado</span>`,
+    [STATUS_LOGISTICO.ENVIADO]: `<span class="entrega-badge badge-enviado" style="font-size:0.68rem;padding:2px 7px;border-radius:6px;display:inline-flex;align-items:center;margin-top:4px">Enviado</span>`,
+    [STATUS_LOGISTICO.EM_TRANSITO]: `<span class="entrega-badge badge-transito" style="font-size:0.68rem;padding:2px 7px;border-radius:6px;display:inline-flex;align-items:center;margin-top:4px">Em Trânsito</span>`,
+    [STATUS_LOGISTICO.SAIU_ENTREGA]: `<span class="entrega-badge badge-saiu" style="font-size:0.68rem;padding:2px 7px;border-radius:6px;display:inline-flex;align-items:center;margin-top:4px">Saiu p/ Entrega</span>`,
+    [STATUS_LOGISTICO.ENTREGUE]: `<span class="entrega-badge badge-entregue" style="font-size:0.68rem;padding:2px 7px;border-radius:6px;display:inline-flex;align-items:center;margin-top:4px">Entregue</span>`,
+    [STATUS_LOGISTICO.CANCELADO]: `<span class="entrega-badge badge-cancelado" style="font-size:0.68rem;padding:2px 7px;border-radius:6px;display:inline-flex;align-items:center;margin-top:4px">Cancelado</span>`,
   };
   return map[sl] || "";
 }
@@ -277,7 +277,7 @@ function computePedidosKPIs(pedidos) {
   // Valor total de pedidos válidos (não cancelados)
   const pedidosValidos = pedidos.filter((p) => p.status !== "Cancelado");
   const valorTotalValidos = pedidosValidos.reduce((sum, p) => sum + Number(p.valor_total || 0), 0);
-  
+
   // Valor de cancelados apresentado separadamente
   const pedidosCancelados = pedidos.filter((p) => p.status === "Cancelado");
   const valorTotalCancelados = pedidosCancelados.reduce((sum, p) => sum + Number(p.valor_total || 0), 0);
@@ -488,9 +488,9 @@ function renderTable() {
         </td>
         <td>
           <span style="font-size:0.82rem;font-weight:600;display:inline-flex;align-items:center;gap:4px">
-            ${isML 
-              ? `<span style="width:8px;height:8px;border-radius:50%;background:#eab308"></span> Mercado Livre` 
-              : `<span style="width:8px;height:8px;border-radius:50%;background:#3b82f6"></span> Venda Direta`}
+            ${isML
+        ? `<span style="width:8px;height:8px;border-radius:50%;background:#eab308"></span> Mercado Livre`
+        : `<span style="width:8px;height:8px;border-radius:50%;background:#3b82f6"></span> Venda Direta`}
           </span>
           <span style="display:block;font-size:0.68rem;font-weight:700;color:${p.origem_dado === 'mercado_livre' ? '#b45309' : '#475569'}">
             Origem: ${p.origem_dado === 'mercado_livre' ? 'API Mercado Livre' : 'Cadastro Manual'}
@@ -831,8 +831,8 @@ function openDetalhePanel(pedidoId) {
           <div><strong>CPF/CNPJ:</strong> <span class="font-mono">${formatarDocFiscal(pedido.destinatario_documento)}</span> ${pedido.destinatario_ie ? `· IE: ${escapeHtml(pedido.destinatario_ie)}` : ""}</div>
           <div style="color:var(--muted);margin-top:2px">
             ${pedido.destinatario_logradouro
-              ? `${escapeHtml(pedido.destinatario_logradouro)}, ${escapeHtml(pedido.destinatario_numero || "S/N")} — ${escapeHtml(pedido.destinatario_bairro || "")}, ${escapeHtml(pedido.destinatario_municipio || "")}/${escapeHtml(pedido.destinatario_uf || "")} · CEP ${escapeHtml(formatarCepFiscal(pedido.destinatario_cep) || "—")}`
-              : "Endereço completo do destinatário ainda não informado para emissão fiscal."}
+      ? `${escapeHtml(pedido.destinatario_logradouro)}, ${escapeHtml(pedido.destinatario_numero || "S/N")} — ${escapeHtml(pedido.destinatario_bairro || "")}, ${escapeHtml(pedido.destinatario_municipio || "")}/${escapeHtml(pedido.destinatario_uf || "")} · CEP ${escapeHtml(formatarCepFiscal(pedido.destinatario_cep) || "—")}`
+      : "Endereço completo do destinatário ainda não informado para emissão fiscal."}
           </div>
         </div>
         ${pedido.nota_fiscal_resumo ? `
@@ -844,6 +844,7 @@ function openDetalhePanel(pedidoId) {
             ${pedido.nota_fiscal_resumo.guarda_legal_ate ? `<div style="margin-top:2px;color:#334155"><strong>Arquivo Fiscal:</strong> XML arquivado com guarda legal até ${formatDateOnly(pedido.nota_fiscal_resumo.guarda_legal_ate)}</div>` : ""}
             ${pedido.nota_fiscal_resumo.ultimo_codigo_sefaz ? `<div style="margin-top:3px;color:${pedido.nota_fiscal_resumo.status === 'rejeitada' || pedido.nota_fiscal_resumo.status === 'denegada' ? '#b91c1c' : 'var(--muted)'}"><strong>Último retorno (${escapeHtml(pedido.nota_fiscal_resumo.ultimo_codigo_sefaz)}):</strong> ${escapeHtml(pedido.nota_fiscal_resumo.ultima_mensagem_amigavel || pedido.nota_fiscal_resumo.ultimo_motivo_sefaz || "")}</div>` : ""}
             <div style="font-family:monospace;font-size:0.72rem;margin-top:3px;word-break:break-all;color:var(--muted)">Chave: ${escapeHtml(pedido.nota_fiscal_resumo.chave_acesso || "")}</div>
+            ${Number(pedido.nota_fiscal_resumo.total_cartas_correcao || 0) > 0 ? `<div id="drawer-cce-historico" style="margin-top:8px;padding-top:8px;border-top:1px dashed #cbd5e1;font-size:0.75rem;color:var(--muted)">Carregando histórico de Cartas de Correção...</div>` : ""}
           </div>
         ` : ""}
       </section>
@@ -890,8 +891,8 @@ function openDetalhePanel(pedidoId) {
         <h3 class="detalhe-section-title">Histórico e Auditoria</h3>
         <div class="timeline">
           ${(pedido.historico || [
-            { data: pedido.data_pedido, evento: "Pedido registrado", descricao: `Registrado via ${pedido.canal}`, usuario: "Sistema" }
-          ]).map((h) => `
+      { data: pedido.data_pedido, evento: "Pedido registrado", descricao: `Registrado via ${pedido.canal}`, usuario: "Sistema" }
+    ]).map((h) => `
             <div class="timeline-item">
               <div class="timeline-dot ${h.evento.includes('Cancelado') ? 'erro' : h.evento.includes('Concluído') ? 'sucesso' : 'info'}"></div>
               <div class="timeline-title">${escapeHtml(h.evento)}</div>
@@ -962,6 +963,54 @@ function openDetalhePanel(pedidoId) {
       showToast(err.message || "Erro ao baixar XML autorizado.", "erro");
     }
   });
+
+  // Carrega histórico de Cartas de Correção diretamente no detalhe do pedido
+  const drawerCceEl = document.getElementById("drawer-cce-historico");
+  if (drawerCceEl && window.RezFireAPI?.fiscal?.listarEventosNFe) {
+    window.RezFireAPI.fiscal
+      .listarEventosNFe(pedido.id_pedido)
+      .then((res) => {
+        const cces = (res?.eventos || []).filter(
+          (ev) => ev.tipo_evento === "carta_correcao" && ev.status === "registrado"
+        );
+        if (!cces.length) {
+          drawerCceEl.innerHTML = `<span style="color:var(--muted)">Nenhuma Carta de Correção registrada.</span>`;
+          return;
+        }
+        drawerCceEl.innerHTML = `
+          <div style="font-weight:800;color:#1e40af;margin-bottom:4px">Histórico de Cartas de Correção (${cces.length})</div>
+          ${cces
+            .map(
+              (c) => `
+            <div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:6px;padding:6px 8px;margin-bottom:4px;color:#1e3a8a">
+              <div style="display:flex;justify-content:space-between;align-items:center;gap:6px;flex-wrap:wrap">
+                <strong>CC-e #${c.sequencia}</strong>
+                <span style="font-size:0.7rem;color:#1d4ed8">${formatDate(c.data_evento || c.created_at)}${c.usuario_nome ? ` · ${escapeHtml(c.usuario_nome)}` : ""}</span>
+              </div>
+              <div style="margin-top:2px;word-break:break-word">${escapeHtml(c.descricao_evento || "")}</div>
+              <div style="display:flex;justify-content:space-between;align-items:center;margin-top:3px;font-size:0.7rem">
+                <span class="font-mono">Protocolo: ${escapeHtml(c.protocolo_evento || "—")}</span>
+                ${c.tem_xml_evento ? `<button type="button" class="btn-ghost btn-drawer-xml-cce" data-id="${c.id_evento}" style="padding:1px 6px;font-size:0.68rem">Baixar XML</button>` : ""}
+              </div>
+            </div>
+          `
+            )
+            .join("")}
+        `;
+        drawerCceEl.querySelectorAll(".btn-drawer-xml-cce").forEach((btn) => {
+          btn.addEventListener("click", async () => {
+            try {
+              await window.RezFireAPI.fiscal.baixarXmlEventoArquivo(Number(btn.getAttribute("data-id")));
+            } catch (err) {
+              showToast(err.message || "Erro ao baixar XML da Carta de Correção.", "erro");
+            }
+          });
+        });
+      })
+      .catch(() => {
+        drawerCceEl.innerHTML = `<span style="color:var(--muted)">Não foi possível carregar o histórico de Cartas de Correção.</span>`;
+      });
+  }
 
   // Eventos de Apuração de Lucro Real (#18abc)
   const btnToggleAjuste = document.getElementById("btn-toggle-ajuste-lucro");
@@ -1064,7 +1113,7 @@ function openFormModal(pedidoParaEditar = null) {
     title.textContent = `Editar pedido ${pedidoParaEditar.codigo_pedido}`;
     document.getElementById("pedido-id").value = pedidoParaEditar.id_pedido;
     document.getElementById("pedido-numero").value = pedidoParaEditar.codigo_pedido;
-    
+
     // Formata data ISO para datetime-local
     const d = new Date(pedidoParaEditar.data_pedido);
     const pad = (n) => String(n).padStart(2, "0");
@@ -1104,7 +1153,7 @@ function openFormModal(pedidoParaEditar = null) {
   } else {
     title.textContent = "Novo pedido";
     document.getElementById("pedido-id").value = "";
-    
+
     // Gera código único para o pedido local
     const nextId = window.RezFireData.nextOrderId(state.pedidos);
     document.getElementById("pedido-numero").value = `PED-${String(nextId).padStart(4, "0")}`;
@@ -2061,142 +2110,142 @@ function bindEvents() {
 
     try {
       if (editingId) {
-      // Edição
-      const idx = state.pedidos.findIndex((p) => p.id_pedido === editingId);
-      if (idx >= 0) {
-        const ped = state.pedidos[idx];
-        ped.cliente = cliente;
-        ped.uf = uf;
-        ped.canal = canal;
-        ped.status = status;
-        ped.data_pedido = dataPedidoIso;
-        ped.codigo_externo_ml = codigo_externo_ml;
-        ped.observacoes = observacoes;
-        ped.itens = [...formItens];
-        ped.subtotal_itens = subtotal;
-        ped.desconto = desconto;
-        ped.valor_desconto = desconto;
-        ped.frete = frete;
-        ped.valor_total = total;
-        Object.assign(ped, dadosDestinatarioForm);
+        // Edição
+        const idx = state.pedidos.findIndex((p) => p.id_pedido === editingId);
+        if (idx >= 0) {
+          const ped = state.pedidos[idx];
+          ped.cliente = cliente;
+          ped.uf = uf;
+          ped.canal = canal;
+          ped.status = status;
+          ped.data_pedido = dataPedidoIso;
+          ped.codigo_externo_ml = codigo_externo_ml;
+          ped.observacoes = observacoes;
+          ped.itens = [...formItens];
+          ped.subtotal_itens = subtotal;
+          ped.desconto = desconto;
+          ped.valor_desconto = desconto;
+          ped.frete = frete;
+          ped.valor_total = total;
+          Object.assign(ped, dadosDestinatarioForm);
 
-        if (window.RezFireAPI?.pedidos?.atualizarDestinatario && editingId) {
-          const destRes = await window.RezFireAPI.pedidos.atualizarDestinatario(editingId, {
-            ...dadosDestinatarioForm,
-            valor_desconto: desconto,
-          });
-          if (destRes && destRes.sucesso && destRes.pedido) {
-            state.pedidos[idx] = normalizarPedido(destRes.pedido);
-          }
-        }
-
-        ped.historico = ped.historico || [];
-        ped.historico.push({
-          data: agoraIso,
-          evento: "Pedido editado",
-          descricao: `Alterações salvas comercialmente. Total: ${money(total)}.`,
-          usuario: "Gestor RezFire",
-        });
-
-        // Se o pedido foi concluído na edição, sincroniza com entregas
-        if (status === "Concluído" && window.RezFireEntregas && typeof window.RezFireEntregas.loadEntregas === "function") {
-          let entregas = window.RezFireEntregas.loadEntregas();
-          let entUpdated = false;
-          entregas = entregas.map((ent) => {
-            if (ent.id_pedido_interno === ped.id_pedido || ent.codigo_pedido_ml === ped.codigo_pedido || ent.codigo_pedido_direto === ped.codigo_pedido) {
-              ent.status_logistico = window.RezFireEntregas.STATUS_LOGISTICO.ENTREGUE;
-              ent.status_interno = window.RezFireEntregas.STATUS_INTERNO.DESPACHO_REGISTRADO;
-              ent.data_entrega = agoraIso;
-              entUpdated = true;
+          if (window.RezFireAPI?.pedidos?.atualizarDestinatario && editingId) {
+            const destRes = await window.RezFireAPI.pedidos.atualizarDestinatario(editingId, {
+              ...dadosDestinatarioForm,
+              valor_desconto: desconto,
+            });
+            if (destRes && destRes.sucesso && destRes.pedido) {
+              state.pedidos[idx] = normalizarPedido(destRes.pedido);
             }
-            return ent;
+          }
+
+          ped.historico = ped.historico || [];
+          ped.historico.push({
+            data: agoraIso,
+            evento: "Pedido editado",
+            descricao: `Alterações salvas comercialmente. Total: ${money(total)}.`,
+            usuario: "Gestor RezFire",
           });
-          if (entUpdated) {
-            window.RezFireEntregas.saveEntregas(entregas);
+
+          // Se o pedido foi concluído na edição, sincroniza com entregas
+          if (status === "Concluído" && window.RezFireEntregas && typeof window.RezFireEntregas.loadEntregas === "function") {
+            let entregas = window.RezFireEntregas.loadEntregas();
+            let entUpdated = false;
+            entregas = entregas.map((ent) => {
+              if (ent.id_pedido_interno === ped.id_pedido || ent.codigo_pedido_ml === ped.codigo_pedido || ent.codigo_pedido_direto === ped.codigo_pedido) {
+                ent.status_logistico = window.RezFireEntregas.STATUS_LOGISTICO.ENTREGUE;
+                ent.status_interno = window.RezFireEntregas.STATUS_INTERNO.DESPACHO_REGISTRADO;
+                ent.data_entrega = agoraIso;
+                entUpdated = true;
+              }
+              return ent;
+            });
+            if (entUpdated) {
+              window.RezFireEntregas.saveEntregas(entregas);
+            }
           }
         }
-      }
-      showToast(`Pedido ${codigo_pedido} atualizado com sucesso!`, "sucesso");
-    } else {
-      // ─── Criação de Novo Pedido (Baixa Transacional via API & MySQL) ────
-      let novoPedidoCriado = null;
+        showToast(`Pedido ${codigo_pedido} atualizado com sucesso!`, "sucesso");
+      } else {
+        // ─── Criação de Novo Pedido (Baixa Transacional via API & MySQL) ────
+        let novoPedidoCriado = null;
 
-      if (window.RezFireAPI) {
-        const payloadAPI = {
-          codigo_pedido: codigo_pedido || undefined,
-          cliente_nome: cliente,
-          origem: canal,
-          modalidade_envio: modalidade_envio,
-          exibir_na_entrega: true,
-          valor_desconto: desconto,
-          ...dadosDestinatarioForm,
-          itens: formItens.map((it) => ({
-            id_produto: Number(it.id_produto),
-            quantidade: Number(it.quantidade),
-            preco_unitario: Number(it.preco_unitario),
-          })),
-        };
+        if (window.RezFireAPI) {
+          const payloadAPI = {
+            codigo_pedido: codigo_pedido || undefined,
+            cliente_nome: cliente,
+            origem: canal,
+            modalidade_envio: modalidade_envio,
+            exibir_na_entrega: true,
+            valor_desconto: desconto,
+            ...dadosDestinatarioForm,
+            itens: formItens.map((it) => ({
+              id_produto: Number(it.id_produto),
+              quantidade: Number(it.quantidade),
+              preco_unitario: Number(it.preco_unitario),
+            })),
+          };
 
-        try {
-          const apiRes = await window.RezFireAPI.pedidos.criar(payloadAPI);
-          if (apiRes && apiRes.sucesso && apiRes.pedido) {
-            novoPedidoCriado = normalizarPedido(apiRes.pedido);
+          try {
+            const apiRes = await window.RezFireAPI.pedidos.criar(payloadAPI);
+            if (apiRes && apiRes.sucesso && apiRes.pedido) {
+              novoPedidoCriado = normalizarPedido(apiRes.pedido);
+            }
+          } catch (apiErr) {
+            console.error("[Pedidos API] Erro ao criar pedido:", apiErr);
+            errorEl.textContent = apiErr.message || "Erro ao gravar pedido no banco MySQL.";
+            return;
           }
-        } catch (apiErr) {
-          console.error("[Pedidos API] Erro ao criar pedido:", apiErr);
-          errorEl.textContent = apiErr.message || "Erro ao gravar pedido no banco MySQL.";
-          return;
         }
+
+        if (!novoPedidoCriado) {
+          const novoId = window.RezFireData ? window.RezFireData.nextOrderId(state.pedidos) : Date.now();
+          novoPedidoCriado = {
+            id_pedido: novoId,
+            codigo_pedido: codigo_pedido || `#PED-${novoId}`,
+            codigo_externo_ml,
+            canal,
+            origem: canal,
+            tipo_envio: modalidade_envio,
+            modalidade_envio: modalidade_envio,
+            prazo_dias_estimado: modalidade_envio === "Full" ? 1 : (modalidade_envio === "Coleta" ? 3 : (modalidade_envio === "Tradicional" ? 4 : 2)),
+            data_pedido: dataPedidoIso,
+            cliente,
+            cliente_nome: cliente,
+            uf,
+            status: "Confirmado",
+            status_entrega: "A separar",
+            itens: [...formItens],
+            subtotal_itens: subtotal,
+            desconto,
+            frete,
+            valor_total: total,
+            observacoes,
+            historico: [
+              { data: agoraIso, evento: "Pedido registrado", descricao: `Cadastro manual via ${canal}.`, usuario: "Gestor RezFire" },
+            ],
+          };
+        }
+
+        state.pedidos.unshift(novoPedidoCriado);
+        showToast(`Pedido ${novoPedidoCriado.codigo_pedido} criado e baixado no estoque MySQL com sucesso!`, "sucesso");
       }
 
-      if (!novoPedidoCriado) {
-        const novoId = window.RezFireData ? window.RezFireData.nextOrderId(state.pedidos) : Date.now();
-        novoPedidoCriado = {
-          id_pedido: novoId,
-          codigo_pedido: codigo_pedido || `#PED-${novoId}`,
-          codigo_externo_ml,
-          canal,
-          origem: canal,
-          tipo_envio: modalidade_envio,
-          modalidade_envio: modalidade_envio,
-          prazo_dias_estimado: modalidade_envio === "Full" ? 1 : (modalidade_envio === "Coleta" ? 3 : (modalidade_envio === "Tradicional" ? 4 : 2)),
-          data_pedido: dataPedidoIso,
-          cliente,
-          cliente_nome: cliente,
-          uf,
-          status: "Confirmado",
-          status_entrega: "A separar",
-          itens: [...formItens],
-          subtotal_itens: subtotal,
-          desconto,
-          frete,
-          valor_total: total,
-          observacoes,
-          historico: [
-            { data: agoraIso, evento: "Pedido registrado", descricao: `Cadastro manual via ${canal}.`, usuario: "Gestor RezFire" },
-          ],
-        };
+      if (window.RezFireData) {
+        window.RezFireData.saveOrders(state.pedidos);
       }
-
-      state.pedidos.unshift(novoPedidoCriado);
-      showToast(`Pedido ${novoPedidoCriado.codigo_pedido} criado e baixado no estoque MySQL com sucesso!`, "sucesso");
+      closeFormModal(true);
+      renderKPIs();
+      renderTable();
+    } catch (err) {
+      errorEl.textContent = err.message || "Erro inesperado ao salvar pedido.";
+    } finally {
+      if (btnSalvar) {
+        btnSalvar.disabled = false;
+        btnSalvar.textContent = "Salvar Pedido";
+      }
     }
-
-    if (window.RezFireData) {
-      window.RezFireData.saveOrders(state.pedidos);
-    }
-    closeFormModal(true);
-    renderKPIs();
-    renderTable();
-  } catch (err) {
-    errorEl.textContent = err.message || "Erro inesperado ao salvar pedido.";
-  } finally {
-    if (btnSalvar) {
-      btnSalvar.disabled = false;
-      btnSalvar.textContent = "Salvar Pedido";
-    }
-  }
-});
+  });
 
 
 
@@ -2391,23 +2440,75 @@ function sincronizarEstadoNotaPedido(pedido, nf) {
   }
 }
 
-function renderBannerStatusSefaz(nf) {
+function formatarAmbienteFiscalAmigavel(ambiente) {
+  if (ambiente === "producao") return "Produção (Oficial)";
+  if (ambiente === "homologacao") return "Homologação (Testes)";
+  return ambiente || "—";
+}
+
+function formatarStatusFiscalAmigavel(status) {
+  const mapa = {
+    autorizada: "Autorizada",
+    cancelada: "Cancelada",
+    assinada: "Pronta para envio",
+    em_processamento: "Em processamento",
+    rejeitada: "Rejeitada",
+    denegada: "Uso denegado",
+    rascunho: "Rascunho",
+  };
+  return mapa[status] || status || "—";
+}
+
+function formatarModoTransporteAmigavel(modo) {
+  if (modo === "simulado") return "Simulação";
+  if (modo === "sefaz_soap") return "SEFAZ Oficial";
+  return modo || "—";
+}
+
+function formatarResultadoTransmissaoAmigavel(resultado) {
+  const mapa = {
+    autorizada: "Autorizada",
+    rejeitada: "Rejeitada",
+    denegada: "Uso denegado",
+    em_processamento: "Em processamento",
+    indisponivel: "SEFAZ indisponível",
+    erro_rede: "Falha de conexão",
+  };
+  return mapa[resultado] || resultado || "—";
+}
+
+function formatarStatusEventoAmigavel(status) {
+  const mapa = {
+    registrado: "Confirmado na SEFAZ",
+    rejeitado: "Rejeitado",
+    indisponivel: "SEFAZ indisponível",
+  };
+  return mapa[status] || status || "—";
+}
+
+function formatarContagemRegistros(total, singular, plural) {
+  if (!total) return `nenhum ${singular}`;
+  return total === 1 ? `1 ${singular}` : `${total} ${plural}`;
+}
+
+function renderBannerStatusSefaz(nf, extras = {}) {
   const st = nf.status || "assinada";
+  const ambTexto = formatarAmbienteFiscalAmigavel(nf.ambiente);
   if (st === "autorizada") {
     return `
-      <div style="background:#ecfdf5;border:1px solid #86efac;border-radius:10px;padding:14px;color:#065f46;margin-bottom:14px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
+      <div style="background:#f1f9f4;border:1px solid #b9e3cb;border-radius:10px;padding:14px 16px;color:#165b36;margin-bottom:14px;display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:10px">
         <div>
-          <strong style="font-size:0.95rem">✓ NF-e Autorizada pela SEFAZ (cStat ${escapeHtml(nf.ultimo_codigo_sefaz || "100")})</strong>
-          <div style="font-size:0.8rem;margin-top:2px">
-            Série <strong>${nf.serie}</strong> · Número <strong>${nf.numero}</strong> · Ambiente: <strong>${escapeHtml(nf.ambiente).toUpperCase()}</strong>
+          <strong style="font-size:0.95rem;color:#145331">Nota Fiscal Autorizada pela SEFAZ</strong>
+          <div style="font-size:0.8rem;margin-top:3px;color:#276744">
+            Série <strong>${nf.serie}</strong> · Número <strong>${nf.numero}</strong> · Ambiente: <strong>${escapeHtml(ambTexto)}</strong>
           </div>
-          <div style="font-size:0.8rem;margin-top:4px">
-            <strong>Protocolo de Autorização:</strong> <span class="font-mono" style="font-weight:800">${escapeHtml(nf.protocolo_autorizacao || "—")}</span>
+          <div style="font-size:0.8rem;margin-top:4px;color:#165b36">
+            <strong>Protocolo de Autorização:</strong> <span class="font-mono" style="font-weight:700">${escapeHtml(nf.protocolo_autorizacao || "—")}</span>
             ${nf.autorizada_em ? ` · em ${formatDate(nf.autorizada_em)}` : ""}
-            ${Number(nf.total_cartas_correcao || 0) > 0 ? ` · <strong style="color:#1d4ed8">${Number(nf.total_cartas_correcao)} Carta(s) de Correção</strong>` : ""}
+            ${Number(nf.total_cartas_correcao || 0) > 0 ? ` · <strong style="color:var(--ink)">${Number(nf.total_cartas_correcao)} Carta(s) de Correção</strong>` : ""}
           </div>
         </div>
-        <span style="font-size:0.75rem;font-weight:800;padding:4px 10px;border-radius:999px;background:#fff;border:1px solid #86efac">
+        <span style="font-size:0.7rem;font-weight:800;letter-spacing:0.04em;padding:4px 10px;border-radius:999px;background:#1f9d5c;color:#fff">
           AUTORIZADA
         </span>
       </div>
@@ -2415,31 +2516,40 @@ function renderBannerStatusSefaz(nf) {
   }
 
   if (st === "cancelada") {
+    const aud = extras.cancelamento_auditoria || null;
+    const responsavel = aud?.usuario_nome || (aud?.id_usuario ? `Usuário #${aud.id_usuario}` : null);
+    const dataCancel = aud?.data_evento || nf.cancelada_em;
+    const justCancel = aud?.justificativa || nf.justificativa_cancelamento;
+    const protCancel = aud?.protocolo_evento || nf.protocolo_cancelamento;
     return `
-      <div style="background:#fef2f2;border:1px solid #dc2626;border-radius:10px;padding:14px;color:#7f1d1d;margin-bottom:14px;">
+      <div style="background:#fdf3f3;border:1px solid #ecc4c4;border-radius:10px;padding:14px 16px;color:#7f1d1d;margin-bottom:14px;">
         <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap">
-          <strong style="font-size:0.95rem">⛔ NF-e Cancelada na SEFAZ (cStat ${escapeHtml(nf.ultimo_codigo_sefaz || "135")})</strong>
-          <span style="font-size:0.72rem;font-weight:800;padding:3px 9px;border-radius:999px;background:#991b1b;color:#fff">CANCELADA</span>
+          <strong style="font-size:0.95rem;color:#8c2424">Nota Fiscal Cancelada na SEFAZ</strong>
+          <span style="font-size:0.7rem;font-weight:800;letter-spacing:0.04em;padding:4px 10px;border-radius:999px;background:var(--down);color:#fff">CANCELADA</span>
         </div>
-        <div style="font-size:0.8rem;margin-top:4px">
-          Série <strong>${nf.serie}</strong> · Número <strong>${nf.numero}</strong> · <strong>Protocolo Cancelamento:</strong> <span class="font-mono">${escapeHtml(nf.protocolo_cancelamento || "—")}</span>
-          ${nf.cancelada_em ? ` · em ${formatDate(nf.cancelada_em)}` : ""}
+        <div style="font-size:0.8rem;margin-top:5px">
+          Série <strong>${nf.serie}</strong> · Número <strong>${nf.numero}</strong> · <strong>Protocolo de Cancelamento:</strong> <span class="font-mono">${escapeHtml(protCancel || "—")}</span>
+          ${dataCancel ? ` · em ${formatDate(dataCancel)}` : ""}
         </div>
-        ${nf.justificativa_cancelamento ? `<div style="font-size:0.76rem;margin-top:4px"><strong>Justificativa:</strong> ${escapeHtml(nf.justificativa_cancelamento)}</div>` : ""}
+        ${responsavel ? `<div style="font-size:0.78rem;margin-top:4px"><strong>Responsável:</strong> ${escapeHtml(responsavel)}${aud?.usuario_email ? ` (${escapeHtml(aud.usuario_email)})` : ""}</div>` : ""}
+        ${justCancel ? `<div style="font-size:0.78rem;margin-top:4px"><strong>Justificativa:</strong> ${escapeHtml(justCancel)}</div>` : ""}
+        <div style="font-size:0.75rem;margin-top:8px;color:#8c2424;padding-top:8px;border-top:1px dashed #ecc4c4">
+          Esta nota está cancelada na SEFAZ e preservada no histórico. Caso necessário, você pode emitir uma <strong>nova NF-e</strong> para este pedido.
+        </div>
       </div>
     `;
   }
 
   if (st === "em_processamento") {
     return `
-      <div style="background:#fff7ed;border:1px solid #fdba74;border-radius:10px;padding:14px;color:#9a3412;margin-bottom:14px;">
+      <div style="background:#fdf8ee;border:1px solid #ebd5a7;border-radius:10px;padding:14px 16px;color:#7c5c10;margin-bottom:14px;">
         <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap">
-          <strong style="font-size:0.95rem">⏳ NF-e em Processamento na SEFAZ (cStat ${escapeHtml(nf.ultimo_codigo_sefaz || "105")})</strong>
-          <span style="font-size:0.72rem;font-weight:800;padding:3px 9px;border-radius:999px;background:#fff;border:1px solid #fdba74">EM PROCESSAMENTO</span>
+          <strong style="font-size:0.95rem">Nota Fiscal em Processamento na SEFAZ</strong>
+          <span style="font-size:0.7rem;font-weight:800;letter-spacing:0.04em;padding:4px 10px;border-radius:999px;background:var(--low);color:var(--low-ink);border:1px solid #e2c891">EM PROCESSAMENTO</span>
         </div>
-        <div style="font-size:0.8rem;margin-top:4px">
-          ${nf.numero_recibo ? `<strong>Recibo Lote:</strong> <span class="font-mono">${escapeHtml(nf.numero_recibo)}</span> · ` : ""}
-          ${escapeHtml(nf.ultima_mensagem_amigavel || "Consulte o protocolo na SEFAZ antes de retransmitir para evitar duplicidade.")}
+        <div style="font-size:0.8rem;margin-top:5px">
+          ${nf.numero_recibo ? `<strong>Número do Recibo:</strong> <span class="font-mono">${escapeHtml(nf.numero_recibo)}</span> · ` : ""}
+          ${escapeHtml(nf.ultima_mensagem_amigavel || "Consulte a situação na SEFAZ antes de reenviar para evitar duplicidade.")}
         </div>
       </div>
     `;
@@ -2447,44 +2557,44 @@ function renderBannerStatusSefaz(nf) {
 
   if (st === "rejeitada") {
     return `
-      <div style="background:#fef2f2;border:1px solid #fca5a5;border-radius:10px;padding:14px;color:#991b1b;margin-bottom:14px;">
+      <div style="background:#fdf3f3;border:1px solid #ecc4c4;border-radius:10px;padding:14px 16px;color:#8c2424;margin-bottom:14px;">
         <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap">
-          <strong style="font-size:0.95rem">✕ NF-e Rejeitada pela SEFAZ (cStat ${escapeHtml(nf.ultimo_codigo_sefaz || "—")})</strong>
-          <span style="font-size:0.72rem;font-weight:800;padding:3px 9px;border-radius:999px;background:#fff;border:1px solid #fca5a5">REJEITADA</span>
+          <strong style="font-size:0.95rem">Nota Fiscal Rejeitada pela SEFAZ</strong>
+          <span style="font-size:0.7rem;font-weight:800;letter-spacing:0.04em;padding:4px 10px;border-radius:999px;background:#fff;color:var(--down);border:1px solid #ecc4c4">REJEITADA</span>
         </div>
         <div style="font-size:0.82rem;margin-top:6px;font-weight:600">${escapeHtml(nf.ultima_mensagem_amigavel || "")}</div>
-        ${nf.ultimo_motivo_sefaz ? `<div style="font-size:0.75rem;margin-top:4px;color:#7f1d1d"><strong>Motivo oficial SEFAZ:</strong> ${escapeHtml(nf.ultimo_motivo_sefaz)}</div>` : ""}
+        ${nf.ultimo_motivo_sefaz ? `<div style="font-size:0.75rem;margin-top:4px;color:#7f1d1d"><strong>Motivo informado pela SEFAZ${nf.ultimo_codigo_sefaz ? ` (código ${escapeHtml(nf.ultimo_codigo_sefaz)})` : ""}:</strong> ${escapeHtml(nf.ultimo_motivo_sefaz)}</div>` : ""}
       </div>
     `;
   }
 
   if (st === "denegada") {
     return `
-      <div style="background:#450a0a;border:1px solid #991b1b;border-radius:10px;padding:14px;color:#fef2f2;margin-bottom:14px;">
+      <div style="background:#2d1616;border:1px solid #7f1d1d;border-radius:10px;padding:14px 16px;color:#fef2f2;margin-bottom:14px;">
         <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap">
-          <strong style="font-size:0.95rem">⛔ Uso Denegado pela SEFAZ (cStat ${escapeHtml(nf.ultimo_codigo_sefaz || "110")})</strong>
-          <span style="font-size:0.72rem;font-weight:800;padding:3px 9px;border-radius:999px;background:#7f1d1d;color:#fff">DENEGADA</span>
+          <strong style="font-size:0.95rem">Uso Denegado pela SEFAZ</strong>
+          <span style="font-size:0.7rem;font-weight:800;letter-spacing:0.04em;padding:4px 10px;border-radius:999px;background:var(--down);color:#fff">USO DENEGADO</span>
         </div>
-        <div style="font-size:0.8rem;margin-top:6px">${escapeHtml(nf.ultima_mensagem_amigavel || nf.ultimo_motivo_sefaz || "Numeração consumida por denegação fiscal.")}</div>
+        <div style="font-size:0.8rem;margin-top:6px">${escapeHtml(nf.ultima_mensagem_amigavel || nf.ultimo_motivo_sefaz || "Numeração consumida por restrição cadastral junto à SEFAZ.")}</div>
       </div>
     `;
   }
 
   return `
-    <div style="background:#ecfdf5;border:1px solid #a7f3d0;border-radius:10px;padding:14px;color:#065f46;margin-bottom:14px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
+    <div style="background:#faf7f3;border:1px solid #dcd3c8;border-radius:10px;padding:14px 16px;color:var(--ink);margin-bottom:14px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
       <div>
-        <strong style="font-size:0.95rem">✓ NF-e Validada e Assinada Digitalmente (XMLDSig A1)</strong>
-        <div style="font-size:0.8rem;margin-top:2px">
-          Série <strong>${nf.serie}</strong> · Número <strong>${nf.numero}</strong> · Ambiente: <strong>${escapeHtml(nf.ambiente).toUpperCase()}</strong>
+        <strong style="font-size:0.95rem">Nota Fiscal Validada e Assinada Digitalmente</strong>
+        <div style="font-size:0.8rem;margin-top:3px;color:var(--muted)">
+          Série <strong style="color:var(--ink)">${nf.serie}</strong> · Número <strong style="color:var(--ink)">${nf.numero}</strong> · Ambiente: <strong style="color:var(--ink)">${escapeHtml(ambTexto)}</strong>
         </div>
       </div>
-      <span style="font-size:0.75rem;font-weight:800;padding:4px 10px;border-radius:999px;background:#fff;border:1px solid #86efac">
-        ASSINADA (PRONTA P/ ENVIO)
+      <span style="font-size:0.7rem;font-weight:800;letter-spacing:0.04em;padding:4px 10px;border-radius:999px;background:var(--accent);color:#fff">
+        PRONTA PARA ENVIO
       </span>
     </div>
     ${nf.ultima_mensagem_amigavel ? `
-      <div style="background:#fffbeb;border:1px solid #fcd34d;border-radius:8px;padding:10px 12px;margin-bottom:12px;font-size:0.78rem;color:#92400e">
-        <strong>Último retorno registrado (${escapeHtml(nf.ultimo_codigo_sefaz || "—")}):</strong> ${escapeHtml(nf.ultima_mensagem_amigavel)}
+      <div style="background:#fdf8ee;border:1px solid #ebd5a7;border-radius:8px;padding:10px 12px;margin-bottom:12px;font-size:0.78rem;color:var(--low-ink)">
+        <strong>Último retorno da SEFAZ:</strong> ${escapeHtml(nf.ultima_mensagem_amigavel)}
       </div>
     ` : ""}
   `;
@@ -2492,32 +2602,31 @@ function renderBannerStatusSefaz(nf) {
 
 function renderTabelaTransmissoesSefaz(transmissoes = []) {
   if (!transmissoes || transmissoes.length === 0) {
-    return `<div style="font-size:0.78rem;color:var(--muted);padding:10px 12px;border:1px dashed var(--line);border-radius:8px">Nenhuma tentativa de envio ou consulta à SEFAZ registrada até o momento.</div>`;
+    return `<div style="font-size:0.78rem;color:var(--muted);padding:10px 12px;border:1px dashed var(--line);border-radius:8px">Nenhum envio ou consulta à SEFAZ registrado até o momento.</div>`;
   }
   return `
     <div class="table-wrap" style="border:1px solid var(--line);border-radius:8px;overflow:hidden;max-height:200px;overflow-y:auto">
       <table class="products-table" style="margin:0;font-size:0.75rem">
         <thead>
           <tr>
-            <th>DATA/HORA</th>
-            <th>OPERAÇÃO</th>
-            <th>MODO</th>
-            <th>RESULTADO</th>
-            <th>cStat</th>
+            <th>DATA / HORA</th>
+            <th>AÇÃO</th>
+            <th>AMBIENTE</th>
+            <th>SITUAÇÃO</th>
             <th>PROTOCOLO / RECIBO</th>
-            <th>MS</th>
           </tr>
         </thead>
         <tbody>
           ${transmissoes.map((t) => `
             <tr>
               <td>${formatDate(t.created_at)}</td>
-              <td>${escapeHtml(t.tipo_operacao === "consulta_protocolo" ? "Consulta" : "Autorização")}</td>
-              <td><span class="font-mono">${escapeHtml(t.modo_transporte)}</span></td>
-              <td><strong>${escapeHtml(t.resultado)}</strong>${t.erro_rede ? `<div style="color:#b91c1c;font-size:0.68rem">${escapeHtml(t.erro_rede)}</div>` : ""}</td>
-              <td class="font-mono">${escapeHtml(t.codigo_sefaz || "—")}</td>
+              <td>${escapeHtml(t.tipo_operacao === "consulta_protocolo" ? "Consulta de Situação" : "Envio para Autorização")}</td>
+              <td>${escapeHtml(formatarModoTransporteAmigavel(t.modo_transporte))}</td>
+              <td title="${t.codigo_sefaz ? `Código SEFAZ: ${escapeHtml(t.codigo_sefaz)}` : ""}">
+                <strong>${escapeHtml(formatarResultadoTransmissaoAmigavel(t.resultado))}</strong>
+                ${t.erro_rede ? `<div style="color:#b91c1c;font-size:0.68rem">${escapeHtml(t.erro_rede)}</div>` : ""}
+              </td>
               <td class="font-mono">${escapeHtml(t.protocolo || t.numero_recibo || "—")}</td>
-              <td>${t.duracao_ms != null ? `${t.duracao_ms}ms` : "—"}</td>
             </tr>
           `).join("")}
         </tbody>
@@ -2528,33 +2637,33 @@ function renderTabelaTransmissoesSefaz(transmissoes = []) {
 
 function renderTabelaEventosSefaz(eventos = []) {
   if (!eventos || eventos.length === 0) {
-    return `<div style="font-size:0.78rem;color:var(--muted);padding:10px 12px;border:1px dashed var(--line);border-radius:8px">Nenhum evento fiscal (Cancelamento ou Carta de Correção) registrado nesta NF-e.</div>`;
+    return `<div style="font-size:0.78rem;color:var(--muted);padding:10px 12px;border:1px dashed var(--line);border-radius:8px">Nenhum cancelamento ou carta de correção registrado para esta nota.</div>`;
   }
   return `
     <div class="table-wrap" style="border:1px solid var(--line);border-radius:8px;overflow:hidden;max-height:200px;overflow-y:auto">
       <table class="products-table" style="margin:0;font-size:0.75rem">
         <thead>
           <tr>
-            <th>DATA/HORA</th>
-            <th>EVENTO / SEQ</th>
-            <th>STATUS</th>
-            <th>cStat</th>
+            <th>DATA / HORA</th>
+            <th>EVENTO</th>
+            <th>RESPONSÁVEL</th>
+            <th>SITUAÇÃO</th>
             <th>PROTOCOLO</th>
-            <th>DESCRIÇÃO / JUSTIFICATIVA</th>
-            <th style="text-align:right">XML</th>
+            <th>JUSTIFICATIVA / CORREÇÃO</th>
+            <th style="text-align:right">ARQUIVO</th>
           </tr>
         </thead>
         <tbody>
           ${eventos.map((e) => `
             <tr>
               <td>${formatDate(e.data_evento || e.created_at)}</td>
-              <td><strong>${e.tipo_evento === "cancelamento" ? "Cancelamento" : "Carta Correção"}</strong> · #${e.sequencia}</td>
-              <td><strong>${escapeHtml(e.status)}</strong></td>
-              <td class="font-mono">${escapeHtml(e.codigo_sefaz || "—")}</td>
+              <td><strong>${e.tipo_evento === "cancelamento" ? "Cancelamento" : `Carta de Correção Nº ${e.sequencia}`}</strong></td>
+              <td>${escapeHtml(e.usuario_nome || (e.id_usuario ? `Usuário #${e.id_usuario}` : "—"))}</td>
+              <td title="${e.codigo_sefaz ? `Código SEFAZ: ${escapeHtml(e.codigo_sefaz)}` : ""}"><strong>${escapeHtml(formatarStatusEventoAmigavel(e.status))}</strong></td>
               <td class="font-mono">${escapeHtml(e.protocolo_evento || "—")}</td>
-              <td style="max-width:240px;word-break:break-word">${escapeHtml(e.descricao_evento || "")}</td>
+              <td style="max-width:220px;word-break:break-word">${escapeHtml(e.descricao_evento || "")}</td>
               <td style="text-align:right">
-                ${e.tem_xml_evento ? `<button type="button" class="btn-ghost btn-nfe-xml-evento" data-id="${e.id_evento}" style="padding:2px 8px;font-size:0.7rem">XML</button>` : "—"}
+                ${e.tem_xml_evento ? `<button type="button" class="btn-ghost btn-nfe-xml-evento" data-id="${e.id_evento}" style="padding:2px 8px;font-size:0.7rem">Baixar XML</button>` : "—"}
               </td>
             </tr>
           `).join("")}
@@ -2564,13 +2673,46 @@ function renderTabelaEventosSefaz(eventos = []) {
   `;
 }
 
-function renderNotaFiscalAssinada(pedido, nf, transmissoes = [], eventos = []) {
+function renderHistoricoNotasPedido(historicoNotas = [], notaAtualId = null) {
+  if (!Array.isArray(historicoNotas) || historicoNotas.length <= 1) return "";
+  return `
+    <div style="margin-bottom:14px">
+      <label style="font-size:0.75rem;font-weight:700;color:var(--muted);display:block;margin-bottom:6px">
+        Notas Fiscais Emitidas neste Pedido — ${formatarContagemRegistros(historicoNotas.length, "nota", "notas")}
+      </label>
+      <div class="table-wrap" style="border:1px solid var(--line);border-radius:8px;overflow:hidden">
+        <table class="products-table" style="margin:0;font-size:0.74rem">
+          <thead>
+            <tr>
+              <th>SÉRIE / NÚMERO</th>
+              <th>SITUAÇÃO</th>
+              <th>PROTOCOLO</th>
+              <th>DATA</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${historicoNotas.map((h) => `
+              <tr style="${h.id_nota_fiscal === notaAtualId ? "background:#f8fafc;font-weight:700" : ""}">
+                <td>Série ${h.serie} · Nº ${h.numero}${h.id_nota_fiscal === notaAtualId ? " (Atual)" : ""}</td>
+                <td><strong>${escapeHtml(formatarStatusFiscalAmigavel(h.status))}</strong></td>
+                <td class="font-mono">${escapeHtml(h.protocolo_cancelamento || h.protocolo_autorizacao || "—")}</td>
+                <td>${formatDate(h.cancelada_em || h.autorizada_em || h.created_at)}</td>
+              </tr>
+            `).join("")}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  `;
+}
+
+function renderNotaFiscalAssinada(pedido, nf, transmissoes = [], eventos = [], extras = {}) {
   const body = document.getElementById("modal-nfe-body");
   const actions = document.getElementById("modal-nfe-actions");
   const sub = document.getElementById("modal-nfe-subtitulo");
 
   if (sub) {
-    sub.textContent = `Pedido ${pedido.codigo_pedido} · Layout NF-e ${nf.versao_layout || "4.00"}`;
+    sub.textContent = `Pedido ${pedido.codigo_pedido} · NF-e Série ${nf.serie} Nº ${nf.numero}`;
   }
 
   const emit = nf.emitente_snapshot || {};
@@ -2585,34 +2727,38 @@ function renderNotaFiscalAssinada(pedido, nf, transmissoes = [], eventos = []) {
   const isEmProc = nf.status === "em_processamento";
   const podeDanfe = (isAutorizada || isCancelada) && Boolean(nf.protocolo_autorizacao);
   const sugereAvancar = isRejeitada && (nf.ultimo_codigo_sefaz === "204" || nf.ultimo_codigo_sefaz === "539");
+  const cancelInfo = extras.cancelamento_info || null;
+  const cancelPermitido = !cancelInfo || cancelInfo.permitido !== false;
+  const cceInfo = extras.carta_correcao_info || null;
+  const ccePermitido = !cceInfo || cceInfo.permitido !== false;
+  const historicoNotas = Array.isArray(extras.historico_notas) ? extras.historico_notas : [];
+  const podeEmitirNovaAposCancelamento = isCancelada && pedido.status !== "Cancelado";
 
   body.innerHTML = `
-    ${renderBannerStatusSefaz(nf)}
+    ${renderBannerStatusSefaz(nf, extras)}
     <div id="nfe-sefaz-feedback" style="display:none;margin-bottom:12px;padding:12px;border-radius:8px;font-size:0.82rem"></div>
 
-    <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:10px 12px;margin-bottom:14px;font-size:0.78rem">
-      <div><strong>Chave de Acesso (44 dígitos):</strong> <span style="font-family:monospace;font-weight:700;word-break:break-all">${escapeHtml(nf.chave_acesso)}</span></div>
-      <div style="margin-top:3px;color:var(--muted)"><strong>DigestValue (SHA-1):</strong> <span style="font-family:monospace">${escapeHtml(nf.digest_value || "")}</span> · <strong>Certificado Serial:</strong> <span style="font-family:monospace">${escapeHtml(nf.assinada_por_certificado_serial || "")}</span> · <strong>Tentativas envio:</strong> ${nf.tentativas_envio || 0}</div>
+    <div class="nfe-card-soft" style="margin-bottom:14px;font-size:0.79rem">
+      <div style="color:var(--ink)"><strong>Chave de Acesso da NF-e:</strong> <span style="font-family:monospace;font-weight:700;word-break:break-all">${escapeHtml(nf.chave_acesso)}</span></div>
       ${(nf.xml_autorizado_path || nf.guarda_legal_ate) ? `
-        <div style="margin-top:4px;color:#065f46;font-size:0.74rem">
-          <strong>Guarda Legal XML (5 anos):</strong> até ${nf.guarda_legal_ate ? escapeHtml(formatDateOnly(nf.guarda_legal_ate)) : "—"}
-          ${nf.xml_autorizado_sha256 ? ` · SHA-256: <span class="font-mono">${escapeHtml(nf.xml_autorizado_sha256.slice(0, 16))}...</span>` : ""}
+        <div style="margin-top:4px;color:#16653c;font-size:0.75rem">
+          <strong>Arquivo XML guardado (obrigação legal de 5 anos):</strong> protegido até ${nf.guarda_legal_ate ? escapeHtml(formatDateOnly(nf.guarda_legal_ate)) : "—"}
         </div>
       ` : ""}
     </div>
 
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px">
-      <div style="border:1px solid var(--line);border-radius:8px;padding:10px;font-size:0.8rem">
-        <div style="font-size:0.7rem;font-weight:800;color:var(--muted);text-transform:uppercase;margin-bottom:4px">Emitente</div>
+      <div class="nfe-card-soft" style="background:#fff;font-size:0.8rem">
+        <div class="nfe-section-label" style="margin-bottom:4px">Emitente (Sua Empresa)</div>
         <strong>${escapeHtml(emit.razao_social)}</strong>
-        <div>CNPJ: <span class="font-mono">${formatarDocFiscal(emit.cnpj)}</span> · IE: ${escapeHtml(emit.inscricao_estadual)}</div>
-        <div style="color:var(--muted)">${escapeHtml(emit.municipio || "")}/${escapeHtml(emit.uf || "")}</div>
+        <div style="margin-top:2px">CNPJ: <span class="font-mono">${formatarDocFiscal(emit.cnpj)}</span> · IE: ${escapeHtml(emit.inscricao_estadual)}</div>
+        <div style="color:var(--muted);margin-top:2px">${escapeHtml(emit.municipio || "")}/${escapeHtml(emit.uf || "")}</div>
       </div>
-      <div style="border:1px solid var(--line);border-radius:8px;padding:10px;font-size:0.8rem">
-        <div style="font-size:0.7rem;font-weight:800;color:var(--muted);text-transform:uppercase;margin-bottom:4px">Destinatário</div>
+      <div class="nfe-card-soft" style="background:#fff;font-size:0.8rem">
+        <div class="nfe-section-label" style="margin-bottom:4px">Destinatário (Cliente)</div>
         <strong>${escapeHtml(dest.nome)}</strong>
-        <div>${escapeHtml(dest.tipo_documento || "Doc")}: <span class="font-mono">${formatarDocFiscal(dest.documento)}</span></div>
-        <div style="color:var(--muted)">${escapeHtml(dest.logradouro || "")}, ${escapeHtml(dest.numero || "")} — ${escapeHtml(dest.municipio || "")}/${escapeHtml(dest.uf || "")}</div>
+        <div style="margin-top:2px">${escapeHtml(dest.tipo_documento || "Documento")}: <span class="font-mono">${formatarDocFiscal(dest.documento)}</span></div>
+        <div style="color:var(--muted);margin-top:2px">${escapeHtml(dest.logradouro || "")}, ${escapeHtml(dest.numero || "")} — ${escapeHtml(dest.municipio || "")}/${escapeHtml(dest.uf || "")}</div>
       </div>
     </div>
 
@@ -2621,17 +2767,17 @@ function renderNotaFiscalAssinada(pedido, nf, transmissoes = [], eventos = []) {
         <thead>
           <tr>
             <th>PRODUTO</th>
-            <th>NCM</th>
-            <th>CFOP</th>
-            <th>CST/CSOSN</th>
-            <th style="text-align:center">QTD</th>
-            <th style="text-align:right">TOTAL</th>
+            <th title="Nomenclatura Comum do Mercosul">NCM</th>
+            <th title="Código Fiscal de Operações e Prestações">CFOP</th>
+            <th title="Código de Situação Tributária / Simples Nacional">TRIBUTAÇÃO</th>
+            <th style="text-align:center">QTD.</th>
+            <th style="text-align:right">SUBTOTAL</th>
           </tr>
         </thead>
         <tbody>
           ${itens.map((it) => `
             <tr>
-              <td><strong>${escapeHtml(it.nome_snapshot)}</strong><div style="font-size:0.72rem;color:var(--muted)">${escapeHtml(it.sku_snapshot)} · ${escapeHtml(it.unidade_snapshot)}</div></td>
+              <td><strong>${escapeHtml(it.nome_snapshot)}</strong><div style="font-size:0.72rem;color:var(--muted)">Código ${escapeHtml(it.sku_snapshot)} · ${escapeHtml(it.unidade_snapshot)}</div></td>
               <td class="font-mono">${escapeHtml(it.ncm_snapshot)}</td>
               <td class="font-mono">${escapeHtml(it.cfop_snapshot)}</td>
               <td class="font-mono">${escapeHtml(it.origem_snapshot)}-${escapeHtml(it.cst_csosn_snapshot)}</td>
@@ -2644,87 +2790,150 @@ function renderNotaFiscalAssinada(pedido, nf, transmissoes = [], eventos = []) {
     </div>
 
     <div class="finance-summary-box" style="margin-top:0;margin-bottom:14px">
-      <div class="finance-item"><span>Produtos (vProd)</span><strong>${money(tot.vProd)}</strong></div>
-      <div class="finance-item"><span>Frete (vFrete)</span><strong>${money(tot.vFrete)}</strong></div>
-      <div class="finance-item"><span>Desconto (vDesc)</span><strong>${money(tot.vDesc)}</strong></div>
-      <div class="finance-item"><span>Tributos Aprox.</span><strong>${money(tot.vTotTrib)}</strong></div>
-      <div class="finance-item highlight"><span>Total NF-e (vNF)</span><strong>${money(tot.vNF)}</strong></div>
-    </div>
-
-    <div style="margin-bottom:14px">
-      <label style="font-size:0.75rem;font-weight:700;color:var(--muted);display:block;margin-bottom:4px">
-        ${nf.xml_autorizado ? "XML NF-e v4.00 Autorizado (&lt;nfeProc&gt; com Protocolo SEFAZ)" : "XML NF-e v4.00 Assinado (&lt;Signature&gt; XMLDSig)"}
-      </label>
-      <textarea id="nfe-xml-preview" readonly rows="5" style="width:100%;font-family:monospace;font-size:0.72rem;border:1px solid var(--line);border-radius:8px;padding:8px;background:#faf7f3">${escapeHtml(xmlExibido)}</textarea>
+      <div class="finance-item"><span>Valor dos Produtos</span><strong>${money(tot.vProd)}</strong></div>
+      <div class="finance-item"><span>Frete</span><strong>${money(tot.vFrete)}</strong></div>
+      <div class="finance-item"><span>Desconto</span><strong>${money(tot.vDesc)}</strong></div>
+      <div class="finance-item"><span>Tributos Estimados</span><strong>${money(tot.vTotTrib)}</strong></div>
+      <div class="finance-item highlight"><span>Valor Total da NF-e</span><strong>${money(tot.vNF)}</strong></div>
     </div>
 
     <div style="margin-bottom:14px">
       <label style="font-size:0.75rem;font-weight:700;color:var(--muted);display:block;margin-bottom:6px">
-        Auditoria de Transmissões e Consultas SEFAZ (${transmissoes.length})
+        Histórico de Envios e Consultas à SEFAZ — ${formatarContagemRegistros(transmissoes.length, "registro", "registros")}
       </label>
       <div id="nfe-transmissoes-wrap">${renderTabelaTransmissoesSefaz(transmissoes)}</div>
     </div>
 
     <div style="margin-bottom:14px">
       <label style="font-size:0.75rem;font-weight:700;color:var(--muted);display:block;margin-bottom:6px">
-        Eventos Fiscais (Cancelamento e Carta de Correção — ${eventos.length})
+        Cancelamentos e Cartas de Correção — ${formatarContagemRegistros(eventos.length, "registro", "registros")}
       </label>
       <div id="nfe-eventos-wrap">${renderTabelaEventosSefaz(eventos)}</div>
     </div>
 
+    ${renderHistoricoNotasPedido(historicoNotas, nf.id_nota_fiscal)}
+
+    <details style="margin-bottom:14px;border:1px solid var(--line);border-radius:8px;padding:8px 12px;background:#faf7f3">
+      <summary style="font-size:0.76rem;font-weight:700;color:var(--muted);cursor:pointer;user-select:none">
+        Detalhes técnicos (arquivo XML, assinatura digital e integridade)
+      </summary>
+      <div style="margin-top:8px;font-size:0.73rem;color:var(--muted);line-height:1.5">
+        <div><strong>Certificado digital utilizado:</strong> <span class="font-mono">${escapeHtml(nf.assinada_por_certificado_serial || "—")}</span> · <strong>Tentativas de envio:</strong> ${nf.tentativas_envio || 0}</div>
+        ${nf.digest_value ? `<div><strong>Assinatura (Digest SHA-1):</strong> <span class="font-mono">${escapeHtml(nf.digest_value)}</span></div>` : ""}
+        ${nf.xml_autorizado_sha256 ? `<div><strong>Integridade do arquivo (SHA-256):</strong> <span class="font-mono">${escapeHtml(nf.xml_autorizado_sha256)}</span></div>` : ""}
+      </div>
+      <div style="margin-top:8px">
+        <label style="font-size:0.72rem;font-weight:700;color:var(--muted);display:block;margin-bottom:4px">
+          ${nf.xml_autorizado ? "Arquivo XML Autorizado pela SEFAZ" : "Arquivo XML Assinado"}
+        </label>
+        <textarea id="nfe-xml-preview" readonly rows="5" style="width:100%;font-family:monospace;font-size:0.72rem;border:1px solid var(--line);border-radius:8px;padding:8px;background:#fff">${escapeHtml(xmlExibido)}</textarea>
+      </div>
+    </details>
+
     ${isAutorizada ? `
-      <div id="nfe-box-cancelar" style="display:none;background:#fef2f2;border:1px solid #fca5a5;border-radius:10px;padding:12px;margin-bottom:12px">
-        <div style="font-size:0.84rem;font-weight:800;color:#991b1b;margin-bottom:4px">Cancelar NF-e por Evento (tpEvento 110111)</div>
-        <p style="font-size:0.74rem;color:#7f1d1d;margin:0 0 8px">Permitido até 24h após autorização e antes do despacho/entrega física. Não estorna estoque automaticamente.</p>
-        <textarea id="nfe-cancel-justificativa" rows="2" maxlength="255" placeholder="Informe a justificativa do cancelamento (15 a 255 caracteres)..." style="width:100%;font-size:0.8rem;border:1px solid #fca5a5;border-radius:6px;padding:6px;background:#fff"></textarea>
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-top:6px">
-          <span id="nfe-cancel-count" style="font-size:0.72rem;color:#7f1d1d">0/255 caracteres</span>
-          <button type="button" class="btn-primary" id="btn-confirmar-cancelar-nfe" style="background:#b91c1c;padding:5px 12px;font-size:0.78rem">Confirmar Cancelamento SEFAZ</button>
+      <div id="nfe-box-cancelar" class="nfe-panel-box nfe-panel-box--cancel" style="display:none">
+        <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:8px">
+          <div style="font-size:0.86rem;font-weight:700;color:#8c2424">Cancelar Nota Fiscal (NF-e)</div>
+          ${cancelInfo?.prazo_restante_texto ? `
+            <span id="nfe-cancel-prazo-badge" style="font-size:0.72rem;font-weight:600;padding:3px 10px;border-radius:999px;background:${cancelPermitido ? "#fdf8ee" : "#fbe8e8"};color:${cancelPermitido ? "var(--low-ink)" : "#8c2424"};border:1px solid ${cancelPermitido ? "#ebd5a7" : "#ecc4c4"}">
+              ${escapeHtml(cancelInfo.prazo_restante_texto)}
+            </span>
+          ` : ""}
         </div>
+        ${!cancelPermitido ? `
+          <div id="nfe-cancel-bloqueio" style="background:#fff;border:1px solid #ecc4c4;border-radius:8px;padding:12px;font-size:0.79rem;color:#7f1d1d">
+            <div style="font-weight:700;margin-bottom:4px;color:var(--down)">Cancelamento normal bloqueado</div>
+            <div style="margin-bottom:8px">${escapeHtml(cancelInfo?.motivo_bloqueio || "Cancelamento não permitido para esta NF-e.")}</div>
+            ${cancelInfo?.orientacao_extemporaneo ? `
+              <div style="background:#fdf8ee;border:1px solid #ebd5a7;border-radius:6px;padding:9px 11px;color:var(--low-ink);font-size:0.76rem;line-height:1.45">
+                <strong>Orientação (Cancelamento Extemporâneo na SEFAZ-SP):</strong> ${escapeHtml(cancelInfo.orientacao_extemporaneo)}
+              </div>
+            ` : ""}
+          </div>
+        ` : `
+          <p style="font-size:0.76rem;color:#7f1d1d;margin:0 0 8px;line-height:1.45">Permitido até ${cancelInfo?.prazo_normal_horas || 24}h após a autorização e antes da saída física da mercadoria. A justificativa é obrigatória (15 a 255 caracteres). O cancelamento fiscal não estorna o estoque automaticamente.</p>
+          <textarea id="nfe-cancel-justificativa" rows="2" maxlength="255" placeholder="Informe o motivo do cancelamento (15 a 255 caracteres)..." style="width:100%;font-size:0.8rem;border:1px solid #e4bebe;border-radius:8px;padding:8px 10px;background:#fff;color:var(--ink)"></textarea>
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-top:8px">
+            <span id="nfe-cancel-count" style="font-size:0.73rem;color:#7f1d1d">0/255 caracteres</span>
+            <button type="button" class="nfe-btn nfe-btn-danger-solid" id="btn-confirmar-cancelar-nfe">Confirmar Cancelamento na SEFAZ</button>
+          </div>
+        `}
       </div>
 
-      <div id="nfe-box-cce" style="display:none;background:#eff6ff;border:1px solid #bfdbfe;border-radius:10px;padding:12px;margin-bottom:12px">
-        <div style="font-size:0.84rem;font-weight:800;color:#1e40af;margin-bottom:4px">Registrar Carta de Correção Eletrônica — CC-e (tpEvento 110110)</div>
-        <p style="font-size:0.74rem;color:#1e3a8a;margin:0 0 8px">Permitido até 30 dias após emissão (máx. 20 eventos). Vedada alteração de valores, impostos, quantidades, remetente/destinatário ou datas.</p>
-        <select id="nfe-cce-tipo" class="search-input" style="width:100%;margin-bottom:8px;font-size:0.78rem">
-          <option value="endereco_observacao">Dados complementares, observações ou complemento de endereço (Permitido)</option>
-          <option value="transporte">Dados de transportadora / volume / peso (Permitido)</option>
-          <option value="natureza_cfop_complementar">Código fiscal/descrição complementar sem mudar imposto (Permitido)</option>
-        </select>
-        <textarea id="nfe-cce-texto" rows="3" maxlength="1000" placeholder="Descreva objetivamente a correção (15 a 1000 caracteres)..." style="width:100%;font-size:0.8rem;border:1px solid #93c5fd;border-radius:6px;padding:6px;background:#fff"></textarea>
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-top:6px">
-          <span id="nfe-cce-count" style="font-size:0.72rem;color:#1e3a8a">0/1000 caracteres</span>
-          <button type="button" class="btn-primary" id="btn-confirmar-cce-nfe" style="background:#1d4ed8;padding:5px 12px;font-size:0.78rem">Enviar Carta de Correção</button>
+      <div id="nfe-box-cce" class="nfe-panel-box nfe-panel-box--cce" style="display:none">
+        <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:8px">
+          <div style="font-size:0.86rem;font-weight:700;color:var(--ink)">Corrigir NF-e — Carta de Correção Eletrônica</div>
+          <span id="nfe-cce-prazo-badge" style="font-size:0.72rem;font-weight:600;padding:3px 10px;border-radius:999px;background:${ccePermitido ? "#fff" : "#fbe8e8"};color:${ccePermitido ? "var(--ink)" : "#8c2424"};border:1px solid ${ccePermitido ? "#dcd3c8" : "#ecc4c4"}">
+            ${cceInfo?.proxima_sequencia ? `Carta de Correção ${cceInfo.proxima_sequencia} de ${cceInfo.limite_maximo_eventos || 20}` : "Carta de Correção"}${cceInfo?.prazo_restante_texto ? ` · ${escapeHtml(cceInfo.prazo_restante_texto)}` : ""}
+          </span>
         </div>
+        ${!ccePermitido ? `
+          <div id="nfe-cce-bloqueio" style="background:#fff;border:1px solid #ecc4c4;border-radius:8px;padding:12px;font-size:0.79rem;color:#7f1d1d">
+            <div style="font-weight:700;margin-bottom:4px;color:var(--down)">Carta de Correção bloqueada</div>
+            <div>${escapeHtml(cceInfo?.motivo_bloqueio || "Não é possível registrar Carta de Correção para esta NF-e.")}</div>
+          </div>
+        ` : `
+          <div id="nfe-cce-aviso-proibido" style="background:#fdf8ee;border:1px solid #ebd5a7;border-radius:8px;padding:10px 12px;margin-bottom:10px;font-size:0.75rem;color:var(--low-ink)">
+            <div style="font-weight:700;margin-bottom:4px">Atenção: o que a Carta de Correção NÃO pode alterar</div>
+            <ul style="margin:0 0 6px 16px;padding:0;line-height:1.45">
+              <li><strong>Valores</strong> (preço unitário, valor total, frete, desconto);</li>
+              <li><strong>Campos do cálculo do imposto</strong> (base de cálculo, alíquota, diferença de preço ou quantidade);</li>
+              <li><strong>Remetente ou destinatário</strong> (CNPJ/CPF ou mudança de partes);</li>
+              <li><strong>Datas</strong> de emissão ou de saída da NF-e.</li>
+            </ul>
+            <div><strong>Erro em algum desses itens?</strong> Cancele a NF-e (se ainda estiver dentro do prazo) e <strong>emita uma nova NF-e</strong>.</div>
+          </div>
+          <select id="nfe-cce-tipo" class="search-input" style="width:100%;margin-bottom:8px;font-size:0.8rem;background:#fff">
+            <option value="endereco_observacao">Dados complementares, observações ou complemento de endereço</option>
+            <option value="transporte">Dados da transportadora, volume ou peso</option>
+            <option value="natureza_cfop_complementar">Descrição complementar sem alterar impostos</option>
+          </select>
+          <textarea id="nfe-cce-texto" rows="3" maxlength="1000" placeholder="Descreva objetivamente a correção desejada (15 a 1000 caracteres)..." style="width:100%;font-size:0.8rem;border:1px solid #dcd3c8;border-radius:8px;padding:8px 10px;background:#fff;color:var(--ink)"></textarea>
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-top:8px">
+            <span id="nfe-cce-count" style="font-size:0.73rem;color:var(--muted)">0/1000 caracteres</span>
+            <button type="button" class="nfe-btn nfe-btn-dark" id="btn-confirmar-cce-nfe">Enviar Carta de Correção</button>
+          </div>
+        `}
       </div>
     ` : ""}
   `;
 
   actions.innerHTML = `
-    ${!isAutorizada && !isDenegada && !isCancelada ? `
-      <button type="button" class="btn-primary" id="btn-nfe-transmitir" style="background:#0f766e">
-        ${isEmProc ? "⚡ Verificar e Transmitir (Anti-Duplicidade)" : isRejeitada ? "Reenviar à SEFAZ" : "🚀 Transmitir à SEFAZ"}
-      </button>
-    ` : ""}
-    <button type="button" class="btn-ghost" id="btn-nfe-consultar">🔎 Consultar Situação SEFAZ</button>
-    ${(!isAutorizada && !isEmProc && !isDenegada && !isCancelada) ? `
-      <button type="button" class="btn-ghost" id="btn-nfe-regerar" title="Regera e reassina XML com os dados atuais mantendo a mesma numeração">
-        ${isRejeitada ? "Corrigir / Regerar XML" : "Regerar Assinatura"}
-      </button>
-    ` : ""}
-    ${sugereAvancar ? `
-      <button type="button" class="btn-ghost" id="btn-nfe-regerar-avancar" style="border-color:#fca5a5;color:#b91c1c" title="Avança para o próximo número NF-e em casos de duplicidade 204/539">
-        Avançar Nº NF-e
-      </button>
-    ` : ""}
-    ${isAutorizada ? `
-      <button type="button" class="btn-ghost" id="btn-nfe-toggle-cce" style="border-color:#93c5fd;color:#1d4ed8">📝 Carta de Correção</button>
-      <button type="button" class="btn-ghost" id="btn-nfe-toggle-cancelar" style="border-color:#fca5a5;color:#b91c1c">⛔ Cancelar NF-e</button>
-    ` : ""}
-    <button type="button" class="btn-ghost" id="btn-nfe-copiar-xml">${nf.xml_autorizado ? "Copiar nfeProc" : "Copiar XML"}</button>
-    ${podeDanfe ? `<button type="button" class="btn-primary" id="btn-nfe-danfe" style="background:#0f766e">🖨️ Visualizar / Imprimir DANFE</button>` : ""}
-    <button type="button" class="btn-primary" id="btn-nfe-baixar-xml">${nf.xml_autorizado ? "Baixar XML Autorizado" : "Baixar XML Assinado"}</button>
-    <button type="button" class="btn-ghost" id="btn-nfe-modal-fechar" style="margin-left:auto">Fechar</button>
+    <div class="nfe-actions-bar">
+      <div class="nfe-actions-group">
+        <button type="button" class="nfe-btn nfe-btn-neutral" id="btn-nfe-consultar">Consultar Situação</button>
+        ${(!isAutorizada && !isEmProc && !isDenegada && !isCancelada) ? `
+          <button type="button" class="nfe-btn nfe-btn-neutral" id="btn-nfe-regerar" title="Atualiza e reassina a nota fiscal com os dados atuais mantendo a mesma numeração">
+            ${isRejeitada ? "Corrigir e Regerar Nota" : "Atualizar Assinatura"}
+          </button>
+        ` : ""}
+        ${sugereAvancar ? `
+          <button type="button" class="nfe-btn nfe-btn-danger" id="btn-nfe-regerar-avancar" title="Gera a nota usando o próximo número sequencial para evitar duplicidade">
+            Gerar com Próximo Número
+          </button>
+        ` : ""}
+        ${isAutorizada ? `
+          <button type="button" class="nfe-btn nfe-btn-neutral" id="btn-nfe-toggle-cce">Corrigir NF-e</button>
+          <button type="button" class="nfe-btn nfe-btn-danger" id="btn-nfe-toggle-cancelar">Cancelar NF-e</button>
+        ` : ""}
+        <button type="button" class="nfe-btn nfe-btn-neutral" id="btn-nfe-copiar-xml">Copiar XML</button>
+      </div>
+      <div class="nfe-actions-group">
+        ${!isAutorizada && !isDenegada && !isCancelada ? `
+          <button type="button" class="nfe-btn nfe-btn-brand" id="btn-nfe-transmitir">
+            ${isEmProc ? "Verificar e Transmitir" : isRejeitada ? "Reenviar à SEFAZ" : "Transmitir à SEFAZ"}
+          </button>
+        ` : ""}
+        ${podeEmitirNovaAposCancelamento ? `
+          <button type="button" class="nfe-btn nfe-btn-brand" id="btn-nfe-emitir-nova" title="Gera uma nova NF-e sequencial para este pedido preservando a NF-e cancelada no histórico">
+            Emitir Nova NF-e
+          </button>
+        ` : ""}
+        <button type="button" class="nfe-btn ${podeDanfe ? "nfe-btn-dark" : "nfe-btn-neutral"}" id="btn-nfe-baixar-xml">${nf.xml_autorizado ? "Baixar XML" : "Baixar XML Assinado"}</button>
+        ${podeDanfe ? `<button type="button" class="nfe-btn nfe-btn-brand" id="btn-nfe-danfe">Visualizar / Imprimir DANFE</button>` : ""}
+        <button type="button" class="nfe-btn nfe-btn-subtle" id="btn-nfe-modal-fechar">Fechar</button>
+      </div>
+    </div>
   `;
 
   const setFeedbackSefaz = (tipo, msg) => {
@@ -2746,11 +2955,22 @@ function renderNotaFiscalAssinada(pedido, nf, transmissoes = [], eventos = []) {
       const res = await acaoFn();
       if (res?.nota_fiscal) {
         sincronizarEstadoNotaPedido(pedido, res.nota_fiscal);
+        const atualizado = await window.RezFireAPI.fiscal
+          .obterNFePedido(pedido.id_pedido)
+          .catch(() => null);
         renderNotaFiscalAssinada(
           pedido,
-          res.nota_fiscal,
-          res.transmissoes || transmissoes,
-          res.eventos || eventos
+          atualizado?.nota_fiscal || res.nota_fiscal,
+          atualizado?.transmissoes || res.transmissoes || transmissoes,
+          atualizado?.eventos || res.eventos || eventos,
+          {
+            cancelamento_info: atualizado?.cancelamento_info || res.cancelamento_info || extras.cancelamento_info,
+            cancelamento_auditoria:
+              atualizado?.cancelamento_auditoria || res.cancelamento_auditoria || extras.cancelamento_auditoria,
+            carta_correcao_info:
+              atualizado?.carta_correcao_info || res.carta_correcao_info || extras.carta_correcao_info,
+            historico_notas: atualizado?.historico_notas || extras.historico_notas || [],
+          }
         );
       }
       showToast(
@@ -2810,6 +3030,9 @@ function renderNotaFiscalAssinada(pedido, nf, transmissoes = [], eventos = []) {
   document.getElementById("btn-nfe-regerar")?.addEventListener("click", () => {
     abrirModalPrepararNFe(pedido, { regerar: true });
   });
+  document.getElementById("btn-nfe-emitir-nova")?.addEventListener("click", () => {
+    abrirModalPrepararNFe(pedido, { regerar: true });
+  });
   document.getElementById("btn-nfe-regerar-avancar")?.addEventListener("click", () => {
     abrirModalPrepararNFe(pedido, { regerar: true, avancar_numero: true });
   });
@@ -2836,6 +3059,11 @@ function renderNotaFiscalAssinada(pedido, nf, transmissoes = [], eventos = []) {
   document.getElementById("btn-confirmar-cancelar-nfe")?.addEventListener("click", (e) => {
     const btn = e.currentTarget;
     const just = document.getElementById("nfe-cancel-justificativa")?.value?.trim() || "";
+    if (just.length < 15 || just.length > 255) {
+      setFeedbackSefaz("erro", "Informe uma justificativa obrigatória entre 15 e 255 caracteres para cancelar a NF-e.");
+      showToast("Justificativa obrigatória (mínimo 15 caracteres).", "erro");
+      return;
+    }
     executarAcaoSefaz(
       () => window.RezFireAPI.fiscal.cancelarNFe(pedido.id_pedido, { justificativa: just }),
       btn,
@@ -2847,6 +3075,11 @@ function renderNotaFiscalAssinada(pedido, nf, transmissoes = [], eventos = []) {
     const btn = e.currentTarget;
     const tipo = document.getElementById("nfe-cce-tipo")?.value || "endereco_observacao";
     const texto = document.getElementById("nfe-cce-texto")?.value?.trim() || "";
+    if (texto.length < 15 || texto.length > 1000) {
+      setFeedbackSefaz("erro", "Descreva a correção com pelo menos 15 caracteres (máximo 1000).");
+      showToast("Texto da correção obrigatório (mínimo 15 caracteres).", "erro");
+      return;
+    }
     executarAcaoSefaz(
       () =>
         window.RezFireAPI.fiscal.registrarCartaCorrecao(pedido.id_pedido, {
@@ -2917,7 +3150,13 @@ async function abrirModalPrepararNFe(pedido, opcoes = {}) {
           pedido,
           atual.nota_fiscal,
           atual.transmissoes || [],
-          atual.eventos || []
+          atual.eventos || [],
+          {
+            cancelamento_info: atual.cancelamento_info || null,
+            cancelamento_auditoria: atual.cancelamento_auditoria || null,
+            carta_correcao_info: atual.carta_correcao_info || null,
+            historico_notas: atual.historico_notas || [],
+          }
         );
         return;
       }
@@ -2925,16 +3164,21 @@ async function abrirModalPrepararNFe(pedido, opcoes = {}) {
 
     const res = await window.RezFireAPI.fiscal.prepararNFe(pedido.id_pedido, opcoes);
     if (res && res.nota_fiscal) {
-      const [hist, histEvt] = await Promise.all([
-        window.RezFireAPI.fiscal.listarTransmissoesNFe(pedido.id_pedido).catch(() => null),
-        window.RezFireAPI.fiscal.listarEventosNFe(pedido.id_pedido).catch(() => null),
-      ]);
+      const atualizado = await window.RezFireAPI.fiscal
+        .obterNFePedido(pedido.id_pedido)
+        .catch(() => null);
       sincronizarEstadoNotaPedido(pedido, res.nota_fiscal);
       renderNotaFiscalAssinada(
         pedido,
-        res.nota_fiscal,
-        hist?.transmissoes || [],
-        histEvt?.eventos || []
+        atualizado?.nota_fiscal || res.nota_fiscal,
+        atualizado?.transmissoes || [],
+        atualizado?.eventos || [],
+        {
+          cancelamento_info: atualizado?.cancelamento_info || null,
+          cancelamento_auditoria: atualizado?.cancelamento_auditoria || null,
+          carta_correcao_info: atualizado?.carta_correcao_info || null,
+          historico_notas: atualizado?.historico_notas || [],
+        }
       );
       showToast(res.mensagem || "NF-e assinada com sucesso!", "sucesso");
     }

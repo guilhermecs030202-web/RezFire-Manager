@@ -221,7 +221,15 @@ export class FiscalController {
       return res.send(html);
     } catch (error: any) {
       const status = error.statusCode || 400;
-      return res.status(status).json({ sucesso: false, mensagem: error.message });
+      const body: Record<string, any> = {
+        sucesso: false,
+        mensagem: error.message,
+      };
+      if (error.codigo_bloqueio) body.codigo_bloqueio = error.codigo_bloqueio;
+      if (error.orientacao_extemporaneo) body.orientacao_extemporaneo = error.orientacao_extemporaneo;
+      if (error.cancelamento_info) body.cancelamento_info = error.cancelamento_info;
+      if (error.carta_correcao_info) body.carta_correcao_info = error.carta_correcao_info;
+      return res.status(status).json(body);
     }
   }
 
@@ -233,7 +241,15 @@ export class FiscalController {
       return res.send(html);
     } catch (error: any) {
       const status = error.statusCode || 400;
-      return res.status(status).json({ sucesso: false, mensagem: error.message });
+      const body: Record<string, any> = {
+        sucesso: false,
+        mensagem: error.message,
+      };
+      if (error.codigo_bloqueio) body.codigo_bloqueio = error.codigo_bloqueio;
+      if (error.orientacao_extemporaneo) body.orientacao_extemporaneo = error.orientacao_extemporaneo;
+      if (error.cancelamento_info) body.cancelamento_info = error.cancelamento_info;
+      if (error.carta_correcao_info) body.carta_correcao_info = error.carta_correcao_info;
+      return res.status(status).json(body);
     }
   }
 
@@ -272,7 +288,15 @@ export class FiscalController {
       return res.json(resultado);
     } catch (error: any) {
       const status = error.statusCode || 400;
-      return res.status(status).json({ sucesso: false, mensagem: error.message });
+      const body: Record<string, any> = {
+        sucesso: false,
+        mensagem: error.message,
+      };
+      if (error.codigo_bloqueio) body.codigo_bloqueio = error.codigo_bloqueio;
+      if (error.orientacao_extemporaneo) body.orientacao_extemporaneo = error.orientacao_extemporaneo;
+      if (error.cancelamento_info) body.cancelamento_info = error.cancelamento_info;
+      if (error.carta_correcao_info) body.carta_correcao_info = error.carta_correcao_info;
+      return res.status(status).json(body);
     }
   }
 
@@ -298,7 +322,15 @@ export class FiscalController {
       return res.json(resultado);
     } catch (error: any) {
       const status = error.statusCode || 400;
-      return res.status(status).json({ sucesso: false, mensagem: error.message });
+      const body: Record<string, any> = {
+        sucesso: false,
+        mensagem: error.message,
+      };
+      if (error.codigo_bloqueio) body.codigo_bloqueio = error.codigo_bloqueio;
+      if (error.orientacao_extemporaneo) body.orientacao_extemporaneo = error.orientacao_extemporaneo;
+      if (error.cancelamento_info) body.cancelamento_info = error.cancelamento_info;
+      if (error.carta_correcao_info) body.carta_correcao_info = error.carta_correcao_info;
+      return res.status(status).json(body);
     }
   }
 
@@ -334,7 +366,15 @@ export class FiscalController {
       return res.json(resultado);
     } catch (error: any) {
       const status = error.statusCode || 400;
-      return res.status(status).json({ sucesso: false, mensagem: error.message });
+      const body: Record<string, any> = {
+        sucesso: false,
+        mensagem: error.message,
+      };
+      if (error.codigo_bloqueio) body.codigo_bloqueio = error.codigo_bloqueio;
+      if (error.orientacao_extemporaneo) body.orientacao_extemporaneo = error.orientacao_extemporaneo;
+      if (error.cancelamento_info) body.cancelamento_info = error.cancelamento_info;
+      if (error.carta_correcao_info) body.carta_correcao_info = error.carta_correcao_info;
+      return res.status(status).json(body);
     }
   }
 
@@ -349,7 +389,15 @@ export class FiscalController {
       return res.json(resultado);
     } catch (error: any) {
       const status = error.statusCode || 400;
-      return res.status(status).json({ sucesso: false, mensagem: error.message });
+      const body: Record<string, any> = {
+        sucesso: false,
+        mensagem: error.message,
+      };
+      if (error.codigo_bloqueio) body.codigo_bloqueio = error.codigo_bloqueio;
+      if (error.orientacao_extemporaneo) body.orientacao_extemporaneo = error.orientacao_extemporaneo;
+      if (error.cancelamento_info) body.cancelamento_info = error.cancelamento_info;
+      if (error.carta_correcao_info) body.carta_correcao_info = error.carta_correcao_info;
+      return res.status(status).json(body);
     }
   }
 
@@ -368,7 +416,15 @@ export class FiscalController {
       return res.json(resultado);
     } catch (error: any) {
       const status = error.statusCode || 400;
-      return res.status(status).json({ sucesso: false, mensagem: error.message });
+      const body: Record<string, any> = {
+        sucesso: false,
+        mensagem: error.message,
+      };
+      if (error.codigo_bloqueio) body.codigo_bloqueio = error.codigo_bloqueio;
+      if (error.orientacao_extemporaneo) body.orientacao_extemporaneo = error.orientacao_extemporaneo;
+      if (error.cancelamento_info) body.cancelamento_info = error.cancelamento_info;
+      if (error.carta_correcao_info) body.carta_correcao_info = error.carta_correcao_info;
+      return res.status(status).json(body);
     }
   }
 
@@ -414,7 +470,15 @@ export class FiscalController {
       return res.json(resultado);
     } catch (error: any) {
       const status = error.statusCode || 400;
-      return res.status(status).json({ sucesso: false, mensagem: error.message });
+      const body: Record<string, any> = {
+        sucesso: false,
+        mensagem: error.message,
+      };
+      if (error.codigo_bloqueio) body.codigo_bloqueio = error.codigo_bloqueio;
+      if (error.orientacao_extemporaneo) body.orientacao_extemporaneo = error.orientacao_extemporaneo;
+      if (error.cancelamento_info) body.cancelamento_info = error.cancelamento_info;
+      if (error.carta_correcao_info) body.carta_correcao_info = error.carta_correcao_info;
+      return res.status(status).json(body);
     }
   }
 

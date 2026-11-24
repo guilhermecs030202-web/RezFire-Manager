@@ -2496,19 +2496,19 @@ function renderBannerStatusSefaz(nf, extras = {}) {
   const ambTexto = formatarAmbienteFiscalAmigavel(nf.ambiente);
   if (st === "autorizada") {
     return `
-      <div style="background:#ecfdf5;border:1px solid #86efac;border-radius:10px;padding:14px;color:#065f46;margin-bottom:14px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
+      <div style="background:#f1f9f4;border:1px solid #b9e3cb;border-radius:10px;padding:14px 16px;color:#165b36;margin-bottom:14px;display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:10px">
         <div>
-          <strong style="font-size:0.95rem">✓ Nota Fiscal Autorizada pela SEFAZ</strong>
-          <div style="font-size:0.8rem;margin-top:2px">
+          <strong style="font-size:0.95rem;color:#145331">Nota Fiscal Autorizada pela SEFAZ</strong>
+          <div style="font-size:0.8rem;margin-top:3px;color:#276744">
             Série <strong>${nf.serie}</strong> · Número <strong>${nf.numero}</strong> · Ambiente: <strong>${escapeHtml(ambTexto)}</strong>
           </div>
-          <div style="font-size:0.8rem;margin-top:4px">
-            <strong>Protocolo de Autorização:</strong> <span class="font-mono" style="font-weight:800">${escapeHtml(nf.protocolo_autorizacao || "—")}</span>
+          <div style="font-size:0.8rem;margin-top:4px;color:#165b36">
+            <strong>Protocolo de Autorização:</strong> <span class="font-mono" style="font-weight:700">${escapeHtml(nf.protocolo_autorizacao || "—")}</span>
             ${nf.autorizada_em ? ` · em ${formatDate(nf.autorizada_em)}` : ""}
-            ${Number(nf.total_cartas_correcao || 0) > 0 ? ` · <strong style="color:#1d4ed8">${Number(nf.total_cartas_correcao)} Carta(s) de Correção</strong>` : ""}
+            ${Number(nf.total_cartas_correcao || 0) > 0 ? ` · <strong style="color:var(--ink)">${Number(nf.total_cartas_correcao)} Carta(s) de Correção</strong>` : ""}
           </div>
         </div>
-        <span style="font-size:0.75rem;font-weight:800;padding:4px 10px;border-radius:999px;background:#fff;border:1px solid #86efac">
+        <span style="font-size:0.7rem;font-weight:800;letter-spacing:0.04em;padding:4px 10px;border-radius:999px;background:#1f9d5c;color:#fff">
           AUTORIZADA
         </span>
       </div>
@@ -2522,18 +2522,18 @@ function renderBannerStatusSefaz(nf, extras = {}) {
     const justCancel = aud?.justificativa || nf.justificativa_cancelamento;
     const protCancel = aud?.protocolo_evento || nf.protocolo_cancelamento;
     return `
-      <div style="background:#fef2f2;border:1px solid #dc2626;border-radius:10px;padding:14px;color:#7f1d1d;margin-bottom:14px;">
+      <div style="background:#fdf3f3;border:1px solid #ecc4c4;border-radius:10px;padding:14px 16px;color:#7f1d1d;margin-bottom:14px;">
         <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap">
-          <strong style="font-size:0.95rem">⛔ Nota Fiscal Cancelada na SEFAZ</strong>
-          <span style="font-size:0.72rem;font-weight:800;padding:3px 9px;border-radius:999px;background:#991b1b;color:#fff">CANCELADA</span>
+          <strong style="font-size:0.95rem;color:#8c2424">Nota Fiscal Cancelada na SEFAZ</strong>
+          <span style="font-size:0.7rem;font-weight:800;letter-spacing:0.04em;padding:4px 10px;border-radius:999px;background:var(--down);color:#fff">CANCELADA</span>
         </div>
-        <div style="font-size:0.8rem;margin-top:4px">
+        <div style="font-size:0.8rem;margin-top:5px">
           Série <strong>${nf.serie}</strong> · Número <strong>${nf.numero}</strong> · <strong>Protocolo de Cancelamento:</strong> <span class="font-mono">${escapeHtml(protCancel || "—")}</span>
           ${dataCancel ? ` · em ${formatDate(dataCancel)}` : ""}
         </div>
-        ${responsavel ? `<div style="font-size:0.76rem;margin-top:4px"><strong>Responsável:</strong> ${escapeHtml(responsavel)}${aud?.usuario_email ? ` (${escapeHtml(aud.usuario_email)})` : ""}</div>` : ""}
-        ${justCancel ? `<div style="font-size:0.76rem;margin-top:4px"><strong>Justificativa:</strong> ${escapeHtml(justCancel)}</div>` : ""}
-        <div style="font-size:0.74rem;margin-top:6px;color:#991b1b">
+        ${responsavel ? `<div style="font-size:0.78rem;margin-top:4px"><strong>Responsável:</strong> ${escapeHtml(responsavel)}${aud?.usuario_email ? ` (${escapeHtml(aud.usuario_email)})` : ""}</div>` : ""}
+        ${justCancel ? `<div style="font-size:0.78rem;margin-top:4px"><strong>Justificativa:</strong> ${escapeHtml(justCancel)}</div>` : ""}
+        <div style="font-size:0.75rem;margin-top:8px;color:#8c2424;padding-top:8px;border-top:1px dashed #ecc4c4">
           Esta nota está cancelada na SEFAZ e preservada no histórico. Caso necessário, você pode emitir uma <strong>nova NF-e</strong> para este pedido.
         </div>
       </div>
@@ -2542,12 +2542,12 @@ function renderBannerStatusSefaz(nf, extras = {}) {
 
   if (st === "em_processamento") {
     return `
-      <div style="background:#fff7ed;border:1px solid #fdba74;border-radius:10px;padding:14px;color:#9a3412;margin-bottom:14px;">
+      <div style="background:#fdf8ee;border:1px solid #ebd5a7;border-radius:10px;padding:14px 16px;color:#7c5c10;margin-bottom:14px;">
         <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap">
-          <strong style="font-size:0.95rem">⏳ Nota Fiscal em Processamento na SEFAZ</strong>
-          <span style="font-size:0.72rem;font-weight:800;padding:3px 9px;border-radius:999px;background:#fff;border:1px solid #fdba74">EM PROCESSAMENTO</span>
+          <strong style="font-size:0.95rem">Nota Fiscal em Processamento na SEFAZ</strong>
+          <span style="font-size:0.7rem;font-weight:800;letter-spacing:0.04em;padding:4px 10px;border-radius:999px;background:var(--low);color:var(--low-ink);border:1px solid #e2c891">EM PROCESSAMENTO</span>
         </div>
-        <div style="font-size:0.8rem;margin-top:4px">
+        <div style="font-size:0.8rem;margin-top:5px">
           ${nf.numero_recibo ? `<strong>Número do Recibo:</strong> <span class="font-mono">${escapeHtml(nf.numero_recibo)}</span> · ` : ""}
           ${escapeHtml(nf.ultima_mensagem_amigavel || "Consulte a situação na SEFAZ antes de reenviar para evitar duplicidade.")}
         </div>
@@ -2557,10 +2557,10 @@ function renderBannerStatusSefaz(nf, extras = {}) {
 
   if (st === "rejeitada") {
     return `
-      <div style="background:#fef2f2;border:1px solid #fca5a5;border-radius:10px;padding:14px;color:#991b1b;margin-bottom:14px;">
+      <div style="background:#fdf3f3;border:1px solid #ecc4c4;border-radius:10px;padding:14px 16px;color:#8c2424;margin-bottom:14px;">
         <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap">
-          <strong style="font-size:0.95rem">✕ Nota Fiscal Rejeitada pela SEFAZ</strong>
-          <span style="font-size:0.72rem;font-weight:800;padding:3px 9px;border-radius:999px;background:#fff;border:1px solid #fca5a5">REJEITADA</span>
+          <strong style="font-size:0.95rem">Nota Fiscal Rejeitada pela SEFAZ</strong>
+          <span style="font-size:0.7rem;font-weight:800;letter-spacing:0.04em;padding:4px 10px;border-radius:999px;background:#fff;color:var(--down);border:1px solid #ecc4c4">REJEITADA</span>
         </div>
         <div style="font-size:0.82rem;margin-top:6px;font-weight:600">${escapeHtml(nf.ultima_mensagem_amigavel || "")}</div>
         ${nf.ultimo_motivo_sefaz ? `<div style="font-size:0.75rem;margin-top:4px;color:#7f1d1d"><strong>Motivo informado pela SEFAZ${nf.ultimo_codigo_sefaz ? ` (código ${escapeHtml(nf.ultimo_codigo_sefaz)})` : ""}:</strong> ${escapeHtml(nf.ultimo_motivo_sefaz)}</div>` : ""}
@@ -2570,10 +2570,10 @@ function renderBannerStatusSefaz(nf, extras = {}) {
 
   if (st === "denegada") {
     return `
-      <div style="background:#450a0a;border:1px solid #991b1b;border-radius:10px;padding:14px;color:#fef2f2;margin-bottom:14px;">
+      <div style="background:#2d1616;border:1px solid #7f1d1d;border-radius:10px;padding:14px 16px;color:#fef2f2;margin-bottom:14px;">
         <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap">
-          <strong style="font-size:0.95rem">⛔ Uso Denegado pela SEFAZ</strong>
-          <span style="font-size:0.72rem;font-weight:800;padding:3px 9px;border-radius:999px;background:#7f1d1d;color:#fff">USO DENEGADO</span>
+          <strong style="font-size:0.95rem">Uso Denegado pela SEFAZ</strong>
+          <span style="font-size:0.7rem;font-weight:800;letter-spacing:0.04em;padding:4px 10px;border-radius:999px;background:var(--down);color:#fff">USO DENEGADO</span>
         </div>
         <div style="font-size:0.8rem;margin-top:6px">${escapeHtml(nf.ultima_mensagem_amigavel || nf.ultimo_motivo_sefaz || "Numeração consumida por restrição cadastral junto à SEFAZ.")}</div>
       </div>
@@ -2581,19 +2581,19 @@ function renderBannerStatusSefaz(nf, extras = {}) {
   }
 
   return `
-    <div style="background:#ecfdf5;border:1px solid #a7f3d0;border-radius:10px;padding:14px;color:#065f46;margin-bottom:14px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
+    <div style="background:#faf7f3;border:1px solid #dcd3c8;border-radius:10px;padding:14px 16px;color:var(--ink);margin-bottom:14px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
       <div>
-        <strong style="font-size:0.95rem">✓ Nota Fiscal Validada e Assinada Digitalmente</strong>
-        <div style="font-size:0.8rem;margin-top:2px">
-          Série <strong>${nf.serie}</strong> · Número <strong>${nf.numero}</strong> · Ambiente: <strong>${escapeHtml(ambTexto)}</strong>
+        <strong style="font-size:0.95rem">Nota Fiscal Validada e Assinada Digitalmente</strong>
+        <div style="font-size:0.8rem;margin-top:3px;color:var(--muted)">
+          Série <strong style="color:var(--ink)">${nf.serie}</strong> · Número <strong style="color:var(--ink)">${nf.numero}</strong> · Ambiente: <strong style="color:var(--ink)">${escapeHtml(ambTexto)}</strong>
         </div>
       </div>
-      <span style="font-size:0.75rem;font-weight:800;padding:4px 10px;border-radius:999px;background:#fff;border:1px solid #86efac">
+      <span style="font-size:0.7rem;font-weight:800;letter-spacing:0.04em;padding:4px 10px;border-radius:999px;background:var(--accent);color:#fff">
         PRONTA PARA ENVIO
       </span>
     </div>
     ${nf.ultima_mensagem_amigavel ? `
-      <div style="background:#fffbeb;border:1px solid #fcd34d;border-radius:8px;padding:10px 12px;margin-bottom:12px;font-size:0.78rem;color:#92400e">
+      <div style="background:#fdf8ee;border:1px solid #ebd5a7;border-radius:8px;padding:10px 12px;margin-bottom:12px;font-size:0.78rem;color:var(--low-ink)">
         <strong>Último retorno da SEFAZ:</strong> ${escapeHtml(nf.ultima_mensagem_amigavel)}
       </div>
     ` : ""}
@@ -2738,27 +2738,27 @@ function renderNotaFiscalAssinada(pedido, nf, transmissoes = [], eventos = [], e
     ${renderBannerStatusSefaz(nf, extras)}
     <div id="nfe-sefaz-feedback" style="display:none;margin-bottom:12px;padding:12px;border-radius:8px;font-size:0.82rem"></div>
 
-    <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:10px 12px;margin-bottom:14px;font-size:0.78rem">
-      <div><strong>Chave de Acesso da NF-e:</strong> <span style="font-family:monospace;font-weight:700;word-break:break-all">${escapeHtml(nf.chave_acesso)}</span></div>
+    <div class="nfe-card-soft" style="margin-bottom:14px;font-size:0.79rem">
+      <div style="color:var(--ink)"><strong>Chave de Acesso da NF-e:</strong> <span style="font-family:monospace;font-weight:700;word-break:break-all">${escapeHtml(nf.chave_acesso)}</span></div>
       ${(nf.xml_autorizado_path || nf.guarda_legal_ate) ? `
-        <div style="margin-top:4px;color:#065f46;font-size:0.75rem">
+        <div style="margin-top:4px;color:#16653c;font-size:0.75rem">
           <strong>Arquivo XML guardado (obrigação legal de 5 anos):</strong> protegido até ${nf.guarda_legal_ate ? escapeHtml(formatDateOnly(nf.guarda_legal_ate)) : "—"}
         </div>
       ` : ""}
     </div>
 
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px">
-      <div style="border:1px solid var(--line);border-radius:8px;padding:10px;font-size:0.8rem">
-        <div style="font-size:0.7rem;font-weight:800;color:var(--muted);text-transform:uppercase;margin-bottom:4px">Emitente (Sua Empresa)</div>
+      <div class="nfe-card-soft" style="background:#fff;font-size:0.8rem">
+        <div class="nfe-section-label" style="margin-bottom:4px">Emitente (Sua Empresa)</div>
         <strong>${escapeHtml(emit.razao_social)}</strong>
-        <div>CNPJ: <span class="font-mono">${formatarDocFiscal(emit.cnpj)}</span> · Inscrição Estadual: ${escapeHtml(emit.inscricao_estadual)}</div>
-        <div style="color:var(--muted)">${escapeHtml(emit.municipio || "")}/${escapeHtml(emit.uf || "")}</div>
+        <div style="margin-top:2px">CNPJ: <span class="font-mono">${formatarDocFiscal(emit.cnpj)}</span> · IE: ${escapeHtml(emit.inscricao_estadual)}</div>
+        <div style="color:var(--muted);margin-top:2px">${escapeHtml(emit.municipio || "")}/${escapeHtml(emit.uf || "")}</div>
       </div>
-      <div style="border:1px solid var(--line);border-radius:8px;padding:10px;font-size:0.8rem">
-        <div style="font-size:0.7rem;font-weight:800;color:var(--muted);text-transform:uppercase;margin-bottom:4px">Destinatário (Cliente)</div>
+      <div class="nfe-card-soft" style="background:#fff;font-size:0.8rem">
+        <div class="nfe-section-label" style="margin-bottom:4px">Destinatário (Cliente)</div>
         <strong>${escapeHtml(dest.nome)}</strong>
-        <div>${escapeHtml(dest.tipo_documento || "Documento")}: <span class="font-mono">${formatarDocFiscal(dest.documento)}</span></div>
-        <div style="color:var(--muted)">${escapeHtml(dest.logradouro || "")}, ${escapeHtml(dest.numero || "")} — ${escapeHtml(dest.municipio || "")}/${escapeHtml(dest.uf || "")}</div>
+        <div style="margin-top:2px">${escapeHtml(dest.tipo_documento || "Documento")}: <span class="font-mono">${formatarDocFiscal(dest.documento)}</span></div>
+        <div style="color:var(--muted);margin-top:2px">${escapeHtml(dest.logradouro || "")}, ${escapeHtml(dest.numero || "")} — ${escapeHtml(dest.municipio || "")}/${escapeHtml(dest.uf || "")}</div>
       </div>
     </div>
 
@@ -2831,50 +2831,50 @@ function renderNotaFiscalAssinada(pedido, nf, transmissoes = [], eventos = [], e
     </details>
 
     ${isAutorizada ? `
-      <div id="nfe-box-cancelar" style="display:none;background:#fef2f2;border:1px solid #fca5a5;border-radius:10px;padding:12px;margin-bottom:12px">
-        <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:6px">
-          <div style="font-size:0.84rem;font-weight:800;color:#991b1b">Cancelar Nota Fiscal (NF-e)</div>
+      <div id="nfe-box-cancelar" class="nfe-panel-box nfe-panel-box--cancel" style="display:none">
+        <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:8px">
+          <div style="font-size:0.86rem;font-weight:700;color:#8c2424">Cancelar Nota Fiscal (NF-e)</div>
           ${cancelInfo?.prazo_restante_texto ? `
-            <span id="nfe-cancel-prazo-badge" style="font-size:0.72rem;font-weight:700;padding:3px 9px;border-radius:999px;background:${cancelPermitido ? "#fff7ed" : "#fee2e2"};color:${cancelPermitido ? "#9a3412" : "#991b1b"};border:1px solid ${cancelPermitido ? "#fdba74" : "#fca5a5"}">
-              ⏱ ${escapeHtml(cancelInfo.prazo_restante_texto)}
+            <span id="nfe-cancel-prazo-badge" style="font-size:0.72rem;font-weight:600;padding:3px 10px;border-radius:999px;background:${cancelPermitido ? "#fdf8ee" : "#fbe8e8"};color:${cancelPermitido ? "var(--low-ink)" : "#8c2424"};border:1px solid ${cancelPermitido ? "#ebd5a7" : "#ecc4c4"}">
+              ${escapeHtml(cancelInfo.prazo_restante_texto)}
             </span>
           ` : ""}
         </div>
         ${!cancelPermitido ? `
-          <div id="nfe-cancel-bloqueio" style="background:#fff;border:1px solid #dc2626;border-radius:8px;padding:10px 12px;font-size:0.78rem;color:#7f1d1d">
-            <div style="font-weight:800;margin-bottom:4px">⛔ Cancelamento normal bloqueado</div>
-            <div style="margin-bottom:6px">${escapeHtml(cancelInfo?.motivo_bloqueio || "Cancelamento não permitido para esta NF-e.")}</div>
+          <div id="nfe-cancel-bloqueio" style="background:#fff;border:1px solid #ecc4c4;border-radius:8px;padding:12px;font-size:0.79rem;color:#7f1d1d">
+            <div style="font-weight:700;margin-bottom:4px;color:var(--down)">Cancelamento normal bloqueado</div>
+            <div style="margin-bottom:8px">${escapeHtml(cancelInfo?.motivo_bloqueio || "Cancelamento não permitido para esta NF-e.")}</div>
             ${cancelInfo?.orientacao_extemporaneo ? `
-              <div style="background:#fff7ed;border:1px solid #fdba74;border-radius:6px;padding:8px 10px;color:#9a3412;font-size:0.75rem">
+              <div style="background:#fdf8ee;border:1px solid #ebd5a7;border-radius:6px;padding:9px 11px;color:var(--low-ink);font-size:0.76rem;line-height:1.45">
                 <strong>Orientação (Cancelamento Extemporâneo na SEFAZ-SP):</strong> ${escapeHtml(cancelInfo.orientacao_extemporaneo)}
               </div>
             ` : ""}
           </div>
         ` : `
-          <p style="font-size:0.74rem;color:#7f1d1d;margin:0 0 8px">Permitido até ${cancelInfo?.prazo_normal_horas || 24}h após a autorização e antes da saída física da mercadoria. A justificativa é obrigatória (15 a 255 caracteres). O cancelamento fiscal não estorna o estoque automaticamente.</p>
-          <textarea id="nfe-cancel-justificativa" rows="2" maxlength="255" placeholder="Informe o motivo do cancelamento (15 a 255 caracteres)..." style="width:100%;font-size:0.8rem;border:1px solid #fca5a5;border-radius:6px;padding:6px;background:#fff"></textarea>
-          <div style="display:flex;justify-content:space-between;align-items:center;margin-top:6px">
-            <span id="nfe-cancel-count" style="font-size:0.72rem;color:#7f1d1d">0/255 caracteres</span>
-            <button type="button" class="btn-primary" id="btn-confirmar-cancelar-nfe" style="background:#b91c1c;padding:5px 12px;font-size:0.78rem">Confirmar Cancelamento na SEFAZ</button>
+          <p style="font-size:0.76rem;color:#7f1d1d;margin:0 0 8px;line-height:1.45">Permitido até ${cancelInfo?.prazo_normal_horas || 24}h após a autorização e antes da saída física da mercadoria. A justificativa é obrigatória (15 a 255 caracteres). O cancelamento fiscal não estorna o estoque automaticamente.</p>
+          <textarea id="nfe-cancel-justificativa" rows="2" maxlength="255" placeholder="Informe o motivo do cancelamento (15 a 255 caracteres)..." style="width:100%;font-size:0.8rem;border:1px solid #e4bebe;border-radius:8px;padding:8px 10px;background:#fff;color:var(--ink)"></textarea>
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-top:8px">
+            <span id="nfe-cancel-count" style="font-size:0.73rem;color:#7f1d1d">0/255 caracteres</span>
+            <button type="button" class="nfe-btn nfe-btn-danger-solid" id="btn-confirmar-cancelar-nfe">Confirmar Cancelamento na SEFAZ</button>
           </div>
         `}
       </div>
 
-      <div id="nfe-box-cce" style="display:none;background:#eff6ff;border:1px solid #bfdbfe;border-radius:10px;padding:12px;margin-bottom:12px">
-        <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:6px">
-          <div style="font-size:0.84rem;font-weight:800;color:#1e40af">Corrigir NF-e — Carta de Correção Eletrônica</div>
-          <span id="nfe-cce-prazo-badge" style="font-size:0.72rem;font-weight:700;padding:3px 9px;border-radius:999px;background:${ccePermitido ? "#dbeafe" : "#fee2e2"};color:${ccePermitido ? "#1e40af" : "#991b1b"};border:1px solid ${ccePermitido ? "#93c5fd" : "#fca5a5"}">
+      <div id="nfe-box-cce" class="nfe-panel-box nfe-panel-box--cce" style="display:none">
+        <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:8px">
+          <div style="font-size:0.86rem;font-weight:700;color:var(--ink)">Corrigir NF-e — Carta de Correção Eletrônica</div>
+          <span id="nfe-cce-prazo-badge" style="font-size:0.72rem;font-weight:600;padding:3px 10px;border-radius:999px;background:${ccePermitido ? "#fff" : "#fbe8e8"};color:${ccePermitido ? "var(--ink)" : "#8c2424"};border:1px solid ${ccePermitido ? "#dcd3c8" : "#ecc4c4"}">
             ${cceInfo?.proxima_sequencia ? `Carta de Correção ${cceInfo.proxima_sequencia} de ${cceInfo.limite_maximo_eventos || 20}` : "Carta de Correção"}${cceInfo?.prazo_restante_texto ? ` · ${escapeHtml(cceInfo.prazo_restante_texto)}` : ""}
           </span>
         </div>
         ${!ccePermitido ? `
-          <div id="nfe-cce-bloqueio" style="background:#fff;border:1px solid #dc2626;border-radius:8px;padding:10px 12px;font-size:0.78rem;color:#7f1d1d">
-            <div style="font-weight:800;margin-bottom:4px">⛔ Carta de Correção bloqueada</div>
+          <div id="nfe-cce-bloqueio" style="background:#fff;border:1px solid #ecc4c4;border-radius:8px;padding:12px;font-size:0.79rem;color:#7f1d1d">
+            <div style="font-weight:700;margin-bottom:4px;color:var(--down)">Carta de Correção bloqueada</div>
             <div>${escapeHtml(cceInfo?.motivo_bloqueio || "Não é possível registrar Carta de Correção para esta NF-e.")}</div>
           </div>
         ` : `
-          <div id="nfe-cce-aviso-proibido" style="background:#fffbeb;border:1px solid #f59e0b;border-radius:8px;padding:9px 11px;margin-bottom:10px;font-size:0.74rem;color:#92400e">
-            <div style="font-weight:800;margin-bottom:4px">⚠️ Atenção: o que a Carta de Correção NÃO pode alterar</div>
+          <div id="nfe-cce-aviso-proibido" style="background:#fdf8ee;border:1px solid #ebd5a7;border-radius:8px;padding:10px 12px;margin-bottom:10px;font-size:0.75rem;color:var(--low-ink)">
+            <div style="font-weight:700;margin-bottom:4px">Atenção: o que a Carta de Correção NÃO pode alterar</div>
             <ul style="margin:0 0 6px 16px;padding:0;line-height:1.45">
               <li><strong>Valores</strong> (preço unitário, valor total, frete, desconto);</li>
               <li><strong>Campos do cálculo do imposto</strong> (base de cálculo, alíquota, diferença de preço ou quantidade);</li>
@@ -2883,15 +2883,15 @@ function renderNotaFiscalAssinada(pedido, nf, transmissoes = [], eventos = [], e
             </ul>
             <div><strong>Erro em algum desses itens?</strong> Cancele a NF-e (se ainda estiver dentro do prazo) e <strong>emita uma nova NF-e</strong>.</div>
           </div>
-          <select id="nfe-cce-tipo" class="search-input" style="width:100%;margin-bottom:8px;font-size:0.78rem">
+          <select id="nfe-cce-tipo" class="search-input" style="width:100%;margin-bottom:8px;font-size:0.8rem;background:#fff">
             <option value="endereco_observacao">Dados complementares, observações ou complemento de endereço</option>
             <option value="transporte">Dados da transportadora, volume ou peso</option>
             <option value="natureza_cfop_complementar">Descrição complementar sem alterar impostos</option>
           </select>
-          <textarea id="nfe-cce-texto" rows="3" maxlength="1000" placeholder="Descreva objetivamente a correção desejada (15 a 1000 caracteres)..." style="width:100%;font-size:0.8rem;border:1px solid #93c5fd;border-radius:6px;padding:6px;background:#fff"></textarea>
-          <div style="display:flex;justify-content:space-between;align-items:center;margin-top:6px">
-            <span id="nfe-cce-count" style="font-size:0.72rem;color:#1e3a8a">0/1000 caracteres</span>
-            <button type="button" class="btn-primary" id="btn-confirmar-cce-nfe" style="background:#1d4ed8;padding:5px 12px;font-size:0.78rem">Enviar Carta de Correção</button>
+          <textarea id="nfe-cce-texto" rows="3" maxlength="1000" placeholder="Descreva objetivamente a correção desejada (15 a 1000 caracteres)..." style="width:100%;font-size:0.8rem;border:1px solid #dcd3c8;border-radius:8px;padding:8px 10px;background:#fff;color:var(--ink)"></textarea>
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-top:8px">
+            <span id="nfe-cce-count" style="font-size:0.73rem;color:var(--muted)">0/1000 caracteres</span>
+            <button type="button" class="nfe-btn nfe-btn-dark" id="btn-confirmar-cce-nfe">Enviar Carta de Correção</button>
           </div>
         `}
       </div>
@@ -2899,35 +2899,41 @@ function renderNotaFiscalAssinada(pedido, nf, transmissoes = [], eventos = [], e
   `;
 
   actions.innerHTML = `
-    ${!isAutorizada && !isDenegada && !isCancelada ? `
-      <button type="button" class="btn-primary" id="btn-nfe-transmitir" style="background:#0f766e">
-        ${isEmProc ? "⚡ Verificar Situação e Transmitir" : isRejeitada ? "Reenviar à SEFAZ" : "🚀 Transmitir à SEFAZ"}
-      </button>
-    ` : ""}
-    ${podeEmitirNovaAposCancelamento ? `
-      <button type="button" class="btn-primary" id="btn-nfe-emitir-nova" style="background:#0f766e" title="Gera uma nova NF-e sequencial para este pedido preservando a NF-e cancelada no histórico">
-        🧾 Emitir Nova NF-e
-      </button>
-    ` : ""}
-    <button type="button" class="btn-ghost" id="btn-nfe-consultar">🔎 Consultar Situação na SEFAZ</button>
-    ${(!isAutorizada && !isEmProc && !isDenegada && !isCancelada) ? `
-      <button type="button" class="btn-ghost" id="btn-nfe-regerar" title="Atualiza e reassina a nota fiscal com os dados atuais mantendo a mesma numeração">
-        ${isRejeitada ? "Corrigir e Regerar Nota" : "Atualizar Assinatura"}
-      </button>
-    ` : ""}
-    ${sugereAvancar ? `
-      <button type="button" class="btn-ghost" id="btn-nfe-regerar-avancar" style="border-color:#fca5a5;color:#b91c1c" title="Gera a nota usando o próximo número sequencial para evitar duplicidade">
-        Gerar com Próximo Número
-      </button>
-    ` : ""}
-    ${isAutorizada ? `
-      <button type="button" class="btn-ghost" id="btn-nfe-toggle-cce" style="border-color:#93c5fd;color:#1d4ed8">📝 Corrigir NF-e</button>
-      <button type="button" class="btn-ghost" id="btn-nfe-toggle-cancelar" style="border-color:#fca5a5;color:#b91c1c">⛔ Cancelar NF-e</button>
-    ` : ""}
-    <button type="button" class="btn-ghost" id="btn-nfe-copiar-xml">Copiar XML</button>
-    ${podeDanfe ? `<button type="button" class="btn-primary" id="btn-nfe-danfe" style="background:#0f766e">🖨️ Visualizar / Imprimir DANFE</button>` : ""}
-    <button type="button" class="btn-primary" id="btn-nfe-baixar-xml">${nf.xml_autorizado ? "Baixar XML Autorizado" : "Baixar XML Assinado"}</button>
-    <button type="button" class="btn-ghost" id="btn-nfe-modal-fechar" style="margin-left:auto">Fechar</button>
+    <div class="nfe-actions-bar">
+      <div class="nfe-actions-group">
+        <button type="button" class="nfe-btn nfe-btn-neutral" id="btn-nfe-consultar">Consultar Situação</button>
+        ${(!isAutorizada && !isEmProc && !isDenegada && !isCancelada) ? `
+          <button type="button" class="nfe-btn nfe-btn-neutral" id="btn-nfe-regerar" title="Atualiza e reassina a nota fiscal com os dados atuais mantendo a mesma numeração">
+            ${isRejeitada ? "Corrigir e Regerar Nota" : "Atualizar Assinatura"}
+          </button>
+        ` : ""}
+        ${sugereAvancar ? `
+          <button type="button" class="nfe-btn nfe-btn-danger" id="btn-nfe-regerar-avancar" title="Gera a nota usando o próximo número sequencial para evitar duplicidade">
+            Gerar com Próximo Número
+          </button>
+        ` : ""}
+        ${isAutorizada ? `
+          <button type="button" class="nfe-btn nfe-btn-neutral" id="btn-nfe-toggle-cce">Corrigir NF-e</button>
+          <button type="button" class="nfe-btn nfe-btn-danger" id="btn-nfe-toggle-cancelar">Cancelar NF-e</button>
+        ` : ""}
+        <button type="button" class="nfe-btn nfe-btn-neutral" id="btn-nfe-copiar-xml">Copiar XML</button>
+      </div>
+      <div class="nfe-actions-group">
+        ${!isAutorizada && !isDenegada && !isCancelada ? `
+          <button type="button" class="nfe-btn nfe-btn-brand" id="btn-nfe-transmitir">
+            ${isEmProc ? "Verificar e Transmitir" : isRejeitada ? "Reenviar à SEFAZ" : "Transmitir à SEFAZ"}
+          </button>
+        ` : ""}
+        ${podeEmitirNovaAposCancelamento ? `
+          <button type="button" class="nfe-btn nfe-btn-brand" id="btn-nfe-emitir-nova" title="Gera uma nova NF-e sequencial para este pedido preservando a NF-e cancelada no histórico">
+            Emitir Nova NF-e
+          </button>
+        ` : ""}
+        <button type="button" class="nfe-btn ${podeDanfe ? "nfe-btn-dark" : "nfe-btn-neutral"}" id="btn-nfe-baixar-xml">${nf.xml_autorizado ? "Baixar XML" : "Baixar XML Assinado"}</button>
+        ${podeDanfe ? `<button type="button" class="nfe-btn nfe-btn-brand" id="btn-nfe-danfe">Visualizar / Imprimir DANFE</button>` : ""}
+        <button type="button" class="nfe-btn nfe-btn-subtle" id="btn-nfe-modal-fechar">Fechar</button>
+      </div>
+    </div>
   `;
 
   const setFeedbackSefaz = (tipo, msg) => {

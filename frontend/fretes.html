@@ -1,0 +1,457 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Gerador de Cotações de Frete · RezFire Manager</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            cream: "#f4efe8",
+            sidebar: "#1a1412",
+            accent: "#e85c2a",
+          },
+          fontFamily: { sans: ["Inter", "ui-sans-serif", "system-ui"] },
+        },
+      },
+    };
+  </script>
+  <link rel="stylesheet" href="css/app.css" />
+</head>
+
+<body>
+  <div class="app-shell" id="app-shell">
+    <main class="app-main">
+      <!-- Navegação rápida em telas mobile (onde a sidebar fica oculta) -->
+      <div class="frete-mobile-nav">
+        <a href="dashboard.html" class="frete-mobile-back">← Painel</a>
+        <span class="frete-mobile-brand">REZFIRE · FRETES</span>
+      </div>
+
+      <!-- Área Superior -->
+      <header class="page-toolbar frete-page-header">
+        <div>
+          <h1 class="page-title">GERADOR DE COTAÇÕES DE FRETE</h1>
+          <p class="page-subtitle">Calcule o frete e gere mensagens prontas para seus clientes.</p>
+        </div>
+
+        <div class="frete-modo-switch" role="group" aria-label="Tipo de mensagem de frete">
+          <button
+            type="button"
+            class="frete-modo-btn is-active"
+            id="frete-btn-modo-padrao"
+            data-frete-modo="padrao"
+            aria-pressed="true"
+          >
+            Mensagem Padrão
+          </button>
+          <button
+            type="button"
+            class="frete-modo-btn"
+            id="frete-btn-modo-direta"
+            data-frete-modo="direta"
+            aria-pressed="false"
+          >
+            Mensagem Direta
+          </button>
+        </div>
+      </header>
+
+      <p id="frete-modo-descricao" class="frete-modo-descricao">
+        Atendimento em perguntas públicas de anúncios no Mercado Livre: mensagem direta com CEP, valor final e prazo em dias úteis.
+      </p>
+
+      <!-- Layout Principal Responsivo: 2 colunas no desktop, 1 coluna no celular -->
+      <div class="frete-layout-grid">
+        <!-- COLUNA ESQUERDA: Formulário + Configurações -->
+        <div class="frete-col-esquerda">
+          <section class="card frete-card">
+            <div class="frete-card-head">
+              <div>
+                <h2 class="frete-card-title">Dados da Cotação</h2>
+                <p class="frete-card-subtitle">
+                  Preencha os campos abaixo; o cálculo e a mensagem são atualizados automaticamente.
+                </p>
+              </div>
+              <button type="button" id="frete-btn-limpar" class="btn-ghost frete-btn-sm">
+                Limpar formulário
+              </button>
+            </div>
+
+            <form id="frete-form" novalidate>
+              <!-- Grupo 1: Campos Fundamentais -->
+              <div class="frete-group-label">Informações principais</div>
+              <div class="frete-form-grid-3">
+                <div class="form-field">
+                  <label for="freteCepDestino">CEP de destino *</label>
+                  <input
+                    id="freteCepDestino"
+                    name="freteCepDestino"
+                    type="text"
+                    inputmode="numeric"
+                    maxlength="9"
+                    autocomplete="postal-code"
+                    placeholder="00000-000"
+                    required
+                  />
+                  <span id="frete-erro-cep" class="frete-field-error" role="alert"></span>
+                </div>
+
+                <div class="form-field">
+                  <label for="freteValorOriginal">Valor original do frete *</label>
+                  <div class="frete-input-adorned">
+                    <span class="frete-adorn-left" aria-hidden="true">R$</span>
+                    <input
+                      id="freteValorOriginal"
+                      name="freteValorOriginal"
+                      type="text"
+                      inputmode="decimal"
+                      autocomplete="off"
+                      placeholder="0,00"
+                      required
+                    />
+                  </div>
+                  <span id="frete-erro-valor" class="frete-field-error" role="alert"></span>
+                </div>
+
+                <div class="form-field">
+                  <label for="fretePrazoDiasUteis">Prazo (dias úteis) *</label>
+                  <input
+                    id="fretePrazoDiasUteis"
+                    name="fretePrazoDiasUteis"
+                    type="number"
+                    min="1"
+                    step="1"
+                    inputmode="numeric"
+                    placeholder="Ex: 5"
+                    required
+                  />
+                  <span id="frete-erro-prazo" class="frete-field-error" role="alert"></span>
+                </div>
+              </div>
+
+              <!-- Grupo 2: Custos, Taxa, Quantidade e Transportadora -->
+              <div class="frete-group-label frete-group-spaced">Custos e parâmetros</div>
+              <div class="form-grid">
+                <div class="form-field">
+                  <div class="frete-label-row">
+                    <label for="freteTaxaPercentual">Taxa percentual</label>
+                    <span id="frete-taxa-override-badge" class="frete-override-badge" style="display:none;">
+                      Cotação atual
+                    </span>
+                  </div>
+                  <div class="frete-input-adorned">
+                    <input
+                      id="freteTaxaPercentual"
+                      name="freteTaxaPercentual"
+                      type="text"
+                      inputmode="decimal"
+                      autocomplete="off"
+                      value="4,5"
+                    />
+                    <span class="frete-adorn-right" aria-hidden="true">%</span>
+                  </div>
+                  <div class="frete-field-meta">
+                    <span id="frete-taxa-hint" class="frete-field-hint">
+                      Você pode alterar a taxa só para esta cotação sem mudar a configuração global.
+                    </span>
+                    <button
+                      type="button"
+                      id="frete-btn-restaurar-taxa"
+                      class="frete-link-btn"
+                      style="display:none;"
+                    >
+                      Usar padrão
+                    </button>
+                  </div>
+                  <span id="frete-erro-taxa" class="frete-field-error" role="alert"></span>
+                </div>
+
+                <div class="form-field">
+                  <label for="freteCustoGasolina">Custo adicional de gasolina</label>
+                  <div class="frete-input-adorned">
+                    <span class="frete-adorn-left" aria-hidden="true">R$</span>
+                    <input
+                      id="freteCustoGasolina"
+                      name="freteCustoGasolina"
+                      type="text"
+                      inputmode="decimal"
+                      autocomplete="off"
+                      value="0,00"
+                      placeholder="0,00"
+                    />
+                  </div>
+                  <div class="frete-gasolina-chips" aria-label="Atalhos de custo de gasolina">
+                    <button type="button" class="frete-chip-btn is-active" data-frete-gasolina="0">R$ 0</button>
+                    <button type="button" class="frete-chip-btn" data-frete-gasolina="5">R$ 5</button>
+                    <button type="button" class="frete-chip-btn" data-frete-gasolina="10">R$ 10</button>
+                    <button type="button" class="frete-chip-btn" data-frete-gasolina="15">R$ 15</button>
+                    <button type="button" class="frete-chip-btn" data-frete-gasolina="20">R$ 20</button>
+                  </div>
+                  <span id="frete-erro-gasolina" class="frete-field-error" role="alert"></span>
+                </div>
+
+                <div class="form-field">
+                  <label for="freteQuantidadeUnidades">Quantidade de unidades</label>
+                  <input
+                    id="freteQuantidadeUnidades"
+                    name="freteQuantidadeUnidades"
+                    type="number"
+                    min="1"
+                    step="1"
+                    inputmode="numeric"
+                    value="1"
+                  />
+                  <span class="frete-field-hint">
+                    O valor informado já representa o frete total da cotação (não multiplica automaticamente).
+                  </span>
+                  <span id="frete-erro-quantidade" class="frete-field-error" role="alert"></span>
+                </div>
+
+                <div class="form-field">
+                  <label for="freteTransportadoraSelect">
+                    Transportadora
+                    <span id="frete-transportadora-obrigatorio" style="display:none; color: var(--accent);">*</span>
+                  </label>
+                  <select id="freteTransportadoraSelect" name="freteTransportadoraSelect">
+                    <option value="">Não informar</option>
+                    <option value="JadLog">JadLog</option>
+                    <option value="Loggi">Loggi</option>
+                    <option value="Buslog">Buslog</option>
+                    <option value="Outra">Outra</option>
+                  </select>
+                  <div id="frete-transportadora-outra-wrap" class="frete-outra-wrap" style="display:none;">
+                    <input
+                      id="freteTransportadoraOutra"
+                      name="freteTransportadoraOutra"
+                      type="text"
+                      maxlength="80"
+                      placeholder="Digite o nome da transportadora"
+                    />
+                  </div>
+                  <span id="frete-erro-transportadora" class="frete-field-error" role="alert"></span>
+                </div>
+              </div>
+
+              <!-- Grupo 3: Campos Adicionais para Modo 2 — Mensagem Direta -->
+              <div id="frete-secao-direta" class="frete-secao-direta" style="display:none;">
+                <div class="frete-group-label frete-group-spaced">Dados do atendimento direto (não armazenados)</div>
+                <div class="form-grid">
+                  <div class="form-field span-2">
+                    <label for="freteClienteNome">Nome do cliente (opcional)</label>
+                    <input
+                      id="freteClienteNome"
+                      name="freteClienteNome"
+                      type="text"
+                      maxlength="150"
+                      autocomplete="off"
+                      placeholder="Ex: João Silva (a saudação usará somente o primeiro nome)"
+                    />
+                    <span class="frete-field-hint">
+                      Se vazio, a mensagem usará "Olá! Tudo bem?". Nenhum dado pessoal é salvo.
+                    </span>
+                  </div>
+
+                  <div class="form-field span-2">
+                    <label for="freteClienteEndereco">Endereço completo *</label>
+                    <input
+                      id="freteClienteEndereco"
+                      name="freteClienteEndereco"
+                      type="text"
+                      maxlength="300"
+                      autocomplete="off"
+                      placeholder="Rua, número, CEP: 00000-000, Cidade/UF"
+                    />
+                    <span class="frete-field-hint">
+                      Padrão recomendado: Rua, número, CEP: 00000-000, Cidade/UF.
+                    </span>
+                    <span id="frete-erro-endereco" class="frete-field-error" role="alert"></span>
+                  </div>
+                </div>
+              </div>
+            </form>
+          </section>
+
+          <!-- Configurações Globais do Módulo -->
+          <section class="card frete-card frete-config-card">
+            <div class="frete-card-head">
+              <div>
+                <h2 class="frete-card-title">Configurações do Módulo</h2>
+                <p class="frete-card-subtitle">
+                  Taxa padrão global aplicada nas cotações (<strong id="frete-config-taxa-resumo">4,5%</strong>).
+                </p>
+              </div>
+              <span id="frete-config-badge-permissao" class="frete-perm-badge is-gestor">Gestor</span>
+            </div>
+
+            <form id="frete-config-form" class="frete-config-form" novalidate>
+              <div class="form-grid">
+                <div class="form-field">
+                  <label for="freteTaxaPercentualPadrao">Taxa percentual padrão (%)</label>
+                  <div class="frete-input-adorned">
+                    <input
+                      id="freteTaxaPercentualPadrao"
+                      name="freteTaxaPercentualPadrao"
+                      type="text"
+                      inputmode="decimal"
+                      value="4,5"
+                    />
+                    <span class="frete-adorn-right" aria-hidden="true">%</span>
+                  </div>
+                  <span class="frete-field-hint">Aceita decimais de 0% até menos de 100%.</span>
+                </div>
+
+                <div class="form-field">
+                  <label for="freteTransportadoraPadrao">Transportadora padrão (opcional)</label>
+                  <select id="freteTransportadoraPadrao" name="freteTransportadoraPadrao">
+                    <option value="">Nenhuma padrão</option>
+                    <option value="JadLog">JadLog</option>
+                    <option value="Loggi">Loggi</option>
+                    <option value="Buslog">Buslog</option>
+                  </select>
+                </div>
+              </div>
+
+              <p id="frete-config-aviso-operador" class="frete-aviso-operador" style="display:none;">
+                A alteração da taxa percentual é restrita ao perfil <strong>Gestor</strong>.
+              </p>
+
+              <div class="frete-config-actions">
+                <button type="submit" id="frete-btn-salvar-config" class="btn-primary frete-btn-sm">
+                  Salvar configuração padrão
+                </button>
+              </div>
+
+              <div id="frete-config-feedback" class="frete-config-feedback" role="status" aria-live="polite" style="display:none;"></div>
+            </form>
+          </section>
+        </div>
+
+        <!-- COLUNA DIREITA: Resumo do Cálculo + Mensagem Pronta -->
+        <div class="frete-col-direita">
+          <!-- Área de Resultado -->
+          <section class="card frete-card" aria-labelledby="frete-resumo-titulo">
+            <div class="frete-card-head">
+              <div>
+                <h2 id="frete-resumo-titulo" class="frete-card-title">Resumo do Cálculo</h2>
+                <p class="frete-card-subtitle">Detalhamento interno (não enviado ao cliente).</p>
+              </div>
+            </div>
+
+            <div id="frete-resumo-vazio" class="frete-empty-state">
+              <p id="frete-resumo-vazio-texto">
+                Preencha CEP de destino, valor original do frete e prazo em dias úteis para calcular automaticamente.
+              </p>
+            </div>
+
+            <div id="frete-resumo-conteudo" style="display:none;">
+              <div class="frete-valor-final-box">
+                <span class="frete-valor-final-label">VALOR FINAL ARREDONDADO</span>
+                <div id="frete-res-final" class="frete-valor-final-numero">R$ 0,00</div>
+                <span id="frete-res-nota-quantidade" class="frete-valor-final-nota">
+                  Valor unitário da cotação (1 unidade).
+                </span>
+              </div>
+
+              <dl class="frete-breakdown-list">
+                <div class="frete-breakdown-row">
+                  <dt>Valor original do frete</dt>
+                  <dd id="frete-res-original">R$ 0,00</dd>
+                </div>
+                <div class="frete-breakdown-row">
+                  <dt>Custo adicional de gasolina</dt>
+                  <dd id="frete-res-gasolina">R$ 0,00</dd>
+                </div>
+                <div class="frete-breakdown-row frete-breakdown-subtotal">
+                  <dt>Valor líquido necessário</dt>
+                  <dd id="frete-res-liquido">R$ 0,00</dd>
+                </div>
+                <div class="frete-breakdown-row">
+                  <dt>Taxa percentual aplicada</dt>
+                  <dd id="frete-res-taxa">4,5%</dd>
+                </div>
+                <div class="frete-breakdown-row">
+                  <dt>Valor calculado com taxa</dt>
+                  <dd id="frete-res-com-taxa">R$ 0,00</dd>
+                </div>
+              </dl>
+            </div>
+          </section>
+
+          <!-- Área de Mensagem Pronta -->
+          <section class="card frete-card frete-mensagem-card" aria-labelledby="frete-mensagem-titulo">
+            <div class="frete-card-head">
+              <div>
+                <div class="frete-title-inline">
+                  <h2 id="frete-mensagem-titulo" class="frete-card-title">Mensagem para o Cliente</h2>
+                  <span id="frete-badge-editado" class="frete-editado-badge" style="display:none;">
+                    Editada manualmente
+                  </span>
+                </div>
+                <p class="frete-card-subtitle">
+                  Pronta para colar no Mercado Livre. Você pode ajustar o texto antes de copiar.
+                </p>
+              </div>
+              <button
+                type="button"
+                id="frete-btn-restaurar-mensagem"
+                class="btn-ghost frete-btn-sm"
+                style="display:none;"
+              >
+                Restaurar texto gerado
+              </button>
+            </div>
+
+            <div id="frete-mensagem-vazia" class="frete-empty-state">
+              <p>A mensagem pronta aparecerá aqui assim que os campos obrigatórios forem preenchidos.</p>
+            </div>
+
+            <div id="frete-mensagem-ativa" style="display:none;">
+              <label for="freteMensagemGerada" class="sr-only">Texto da mensagem pronta</label>
+              <textarea
+                id="freteMensagemGerada"
+                class="frete-mensagem-textarea"
+                rows="8"
+                spellcheck="true"
+              ></textarea>
+
+              <!-- Contador discreto do limite de 350 caracteres (apenas Mensagem Direta) -->
+              <div id="frete-contador-final-wrap" class="frete-contador-wrap" style="display:none;">
+                <span id="frete-contador-final-texto" class="frete-contador-texto">
+                  Trecho final: 0 / 350 caracteres
+                </span>
+              </div>
+              <div id="frete-alerta-limite-final" class="frete-alerta-limite" role="alert" style="display:none;"></div>
+
+              <div class="frete-mensagem-actions">
+                <button type="button" id="frete-btn-copiar" class="btn-primary frete-btn-copiar" disabled>
+                  Copiar mensagem
+                </button>
+                <span
+                  id="frete-feedback-copia"
+                  class="frete-feedback-copia"
+                  role="status"
+                  aria-live="polite"
+                  style="display:none;"
+                ></span>
+              </div>
+            </div>
+          </section>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <script src="js/api.js"></script>
+  <script src="js/layout.js"></script>
+  <script type="module" src="js/fretes/fretePagina.js"></script>
+</body>
+
+</html>

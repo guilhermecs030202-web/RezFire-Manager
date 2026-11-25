@@ -27,6 +27,8 @@ function icon(name) {
       '<path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1" ry="1"/><path d="M9 14h6"/><path d="M9 10h6"/><path d="M9 18h4"/>',
     fiscal:
       '<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><line x1="10" y1="9" x2="8" y2="9"/>',
+    fretes:
+      '<rect x="4" y="2" width="16" height="20" rx="2"/><line x1="8" y1="6" x2="16" y2="6"/><line x1="8" y1="11" x2="10" y2="11"/><line x1="14" y1="11" x2="16" y2="11"/><line x1="8" y1="15" x2="10" y2="15"/><line x1="14" y1="15" x2="16" y2="15"/><line x1="8" y1="19" x2="16" y2="19"/>',
   };
 
   return `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${paths[name]}</svg>`;
@@ -70,6 +72,9 @@ function renderSidebar(active) {
       </a>
       <a class="nav-item ${active === "entregas" ? "is-active" : ""}" href="entregas.html">
         ${icon("truck")} Entregas
+      </a>
+      <a class="nav-item ${active === "fretes" ? "is-active" : ""}" href="fretes.html" id="nav-item-fretes">
+        ${icon("fretes")} Cotações de Frete
       </a>
       <a class="nav-item ${active === "anuncios" ? "is-active" : ""}" href="anuncios.html">
         ${icon("anuncios")} Anúncios ML

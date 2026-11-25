@@ -18,6 +18,7 @@ import customerRoutes from './customer.routes';
 import supplierRoutes from './supplier.routes';
 import purchaseOrderRoutes from './purchaseOrder.routes';
 import fiscalRoutes from './fiscal.routes';
+import freteCotacaoRoutes from './freteCotacao.routes';
 
 const router = Router();
 
@@ -43,5 +44,6 @@ router.use('/fornecedores', supplierRoutes);
 router.use('/purchase-orders', purchaseOrderRoutes);
 router.use('/pedidos-compra', purchaseOrderRoutes);
 router.use('/fiscal', fiscalRoutes);
+router.use('/fretes', freteCotacaoRoutes);
 
 export default router;

@@ -9,20 +9,128 @@ function kpiCard(label, value, hint) {
 }
 window.kpiCard = kpiCard;
 
+// Estado vivo do painel (inicializa com RezFireData e hidrata do MySQL quando autenticado)
+let dashboardProducts = RezFireData.loadProducts();
+let dashboardOrders = RezFireData.loadOrders();
+let dashboardUsingBackend = false;
+
+function getDashboardProducts() {
+  return dashboardProducts;
+}
+
+function getDashboardOrders() {
+  return dashboardOrders;
+}
+
+function mapBackendProduct(p) {
+  return {
+    ...p,
+    id_produto: Number(p.id_produto),
+    custo: Number(p.custo || 0),
+    preco: Number(p.preco || 0),
+    quantidade_atual: Number(p.quantidade_atual ?? p.estoque?.quantidade_atual ?? 0),
+    estoque_minimo: Number(p.estoque_minimo ?? p.estoque?.estoque_minimo ?? 0),
+    ativo: Boolean(p.ativo),
+  };
+}
+
+function mapBackendOrder(p) {
+  const itens = (p.itens || []).map((i) => {
+    const qtd = Number(i.quantidade || 1);
+    const precoUnit = Number(i.preco_unitario || i.produto?.preco || 0);
+    const custoUnit = Number(i.produto?.custo || 0);
+    const subtotal = Number(i.subtotal || qtd * precoUnit);
+    return {
+      id_produto: Number(i.id_produto),
+      sku: i.produto?.sku || `SKU-${i.id_produto}`,
+      nome: i.produto?.nome || `Produto #${i.id_produto}`,
+      categoria: i.produto?.categoria || "Extintores",
+      quantidade: qtd,
+      preco_unitario: precoUnit,
+      custo_unitario: custoUnit,
+      subtotal,
+      custo_total: qtd * custoUnit,
+    };
+  });
+
+  const custoTotalCalc = itens.reduce((s, it) => s + it.custo_total, 0);
+  const canal = p.origem || (p.origem_dado === "mercado_livre" ? "Mercado Livre" : "Venda Direta");
+
+  return {
+    id_pedido: Number(p.id_pedido),
+    codigo_pedido: p.codigo_pedido,
+    data_pedido: p.data_pedido,
+    canal,
+    origem: canal,
+    cliente: p.cliente_nome || p.cliente?.name || p.cliente?.nome || "Cliente",
+    uf: p.destinatario_uf || p.cliente?.state || p.cliente?.estado || "SP",
+    status: p.status,
+    status_entrega: p.status_entrega,
+    tipo_envio: p.modalidade_envio || "Coleta",
+    modalidade_envio: p.modalidade_envio || "Coleta",
+    prazo_despacho: p.prazo_despacho,
+    data_despacho: p.data_despacho,
+    data_entrega_efetiva: p.data_entrega_efetiva,
+    prazo_dias_estimado: Number(p.prazo_dias_estimado || 3),
+    valor_total: Number(p.valor_total || 0),
+    custo_total: Number(p.custo_produtos || custoTotalCalc || 0),
+    custo_impostos: Number(p.custo_impostos || 0),
+    tarifa_ml_comissao: Number(p.tarifa_ml_comissao || 0),
+    lucro_liquido: Number(p.lucro_liquido || 0),
+    motivo_devolucao: p.motivo_devolucao || null,
+    itens,
+  };
+}
+
+async function hydrateDashboardFromBackend() {
+  if (!window.RezFireAPI || !window.RezFireAPI.produtos || !window.RezFireAPI.pedidos) return;
+  try {
+    const [resProd, resPed] = await Promise.all([
+      window.RezFireAPI.produtos.listar(),
+      window.RezFireAPI.pedidos.listar({ limite: 500 }),
+    ]);
+
+    let updated = false;
+    if (resProd && resProd.sucesso && Array.isArray(resProd.produtos) && resProd.produtos.length > 0) {
+      dashboardProducts = resProd.produtos.map(mapBackendProduct);
+      updated = true;
+    }
+    if (resPed && resPed.sucesso && Array.isArray(resPed.pedidos) && resPed.pedidos.length > 0) {
+      dashboardOrders = resPed.pedidos.map(mapBackendOrder);
+      window.__rezfireBackendOrders = dashboardOrders;
+      updated = true;
+    }
+
+    if (updated) {
+      dashboardUsingBackend = true;
+      renderTabVendas(dashboardProducts);
+      renderTabEstoque(dashboardProducts);
+      renderTabFinanceiro(dashboardProducts);
+      renderTabProdutos(dashboardProducts);
+      if (typeof renderTabEntregas === "function") {
+        renderTabEntregas();
+      }
+    }
+  } catch (err) {
+    console.warn("[Dashboard] Modo fallback local ativo:", err?.message || err);
+  }
+}
+
 async function renderDashboard() {
   RezFireLayout.renderSidebar("dashboard");
 
-  let products = RezFireData.loadProducts();
+  dashboardProducts = RezFireData.loadProducts();
+  dashboardOrders = RezFireData.loadOrders();
 
-  renderTabVendas(products);
-  setupSalesFilters(products);
-  renderTabEstoque(products);
-  setupStockFilters(products);
+  renderTabVendas(dashboardProducts);
+  setupSalesFilters();
+  renderTabEstoque(dashboardProducts);
+  setupStockFilters();
   renderTabML();
   setupMLFilters();
-  renderTabFinanceiro(products);
-  setupFinancialFilters(products);
-  renderTabProdutos(products);
+  renderTabFinanceiro(dashboardProducts);
+  setupFinancialFilters();
+  renderTabProdutos(dashboardProducts);
   if (typeof renderTabEntregas === "function") {
     renderTabEntregas();
     setupDeliveryFilters();
@@ -35,6 +143,9 @@ async function renderDashboard() {
   bindStockModalEvents();
   bindFinancialRatesModalEvents();
   bindLancamentosFinanceirosModalEvents();
+
+  // Hidrata assincronamente com dados reais do MySQL sem travar o primeiro paint
+  hydrateDashboardFromBackend();
 }
 
 // Armazenamento de instâncias dos gráficos da aba Vendas para destruição limpa ao trocar filtros
@@ -53,7 +164,7 @@ function formatDateTime(isoStr) {
 }
 
 function renderTabVendas(products) {
-  const orders = RezFireData.loadOrders();
+  const orders = getDashboardOrders();
   const money = RezFireData.formatMoney;
 
   const selectPeriodo = document.getElementById("filtro-vendas-periodo");
@@ -547,18 +658,18 @@ function bindOrderModalEvents() {
   });
 }
 
-function setupSalesFilters(products) {
+function setupSalesFilters() {
   const selectPeriodo = document.getElementById("filtro-vendas-periodo");
   const selectCanal = document.getElementById("filtro-vendas-canal");
 
   if (selectPeriodo && !selectPeriodo.dataset.bound) {
     selectPeriodo.dataset.bound = "true";
-    selectPeriodo.addEventListener("change", () => renderTabVendas(products));
+    selectPeriodo.addEventListener("change", () => renderTabVendas(getDashboardProducts()));
   }
 
   if (selectCanal && !selectCanal.dataset.bound) {
     selectCanal.dataset.bound = "true";
-    selectCanal.addEventListener("change", () => renderTabVendas(products));
+    selectCanal.addEventListener("change", () => renderTabVendas(getDashboardProducts()));
   }
 }
 
@@ -577,8 +688,7 @@ function filtrarRiscoEstoque(risco) {
   const selectRisco = document.getElementById("filtro-estoque-risco");
   if (selectRisco) {
     selectRisco.value = risco;
-    const products = RezFireData.loadProducts();
-    renderTabEstoque(products);
+    renderTabEstoque(getDashboardProducts());
   }
 }
 window.filtrarRiscoEstoque = filtrarRiscoEstoque;
@@ -594,7 +704,7 @@ function renderTabEstoque(products) {
   const riscoFilter = selectRisco ? selectRisco.value : "todos";
   const queryBusca = inputBusca ? inputBusca.value.trim().toLowerCase() : "";
 
-  const metrics = RezFireData.computeStockDashboardMetrics(products, catFilter, riscoFilter);
+  const metrics = RezFireData.computeStockDashboardMetrics(products, catFilter, riscoFilter, getDashboardOrders());
 
   // 1. Renderiza Banner de Alertas Críticos Operacionais
   const bannerEl = document.getElementById("alerta-estoque-banner");
@@ -996,7 +1106,7 @@ function renderTabEstoque(products) {
   }
 }
 
-function setupStockFilters(products) {
+function setupStockFilters() {
   const selectCategoria = document.getElementById("filtro-estoque-categoria");
   const selectRisco = document.getElementById("filtro-estoque-risco");
   const inputBusca = document.getElementById("busca-estoque-tabela");
@@ -1004,24 +1114,21 @@ function setupStockFilters(products) {
   if (selectCategoria && !selectCategoria.dataset.bound) {
     selectCategoria.dataset.bound = "true";
     selectCategoria.addEventListener("change", () => {
-      const currentProducts = RezFireData.loadProducts();
-      renderTabEstoque(currentProducts);
+      renderTabEstoque(getDashboardProducts());
     });
   }
 
   if (selectRisco && !selectRisco.dataset.bound) {
     selectRisco.dataset.bound = "true";
     selectRisco.addEventListener("change", () => {
-      const currentProducts = RezFireData.loadProducts();
-      renderTabEstoque(currentProducts);
+      renderTabEstoque(getDashboardProducts());
     });
   }
 
   if (inputBusca && !inputBusca.dataset.bound) {
     inputBusca.dataset.bound = "true";
     inputBusca.addEventListener("input", () => {
-      const currentProducts = RezFireData.loadProducts();
-      renderTabEstoque(currentProducts);
+      renderTabEstoque(getDashboardProducts());
     });
   }
 }
@@ -1476,15 +1583,14 @@ function filtrarMargemFinanceiro(risco) {
   const selectMargem = document.getElementById("filtro-financeiro-margem");
   if (selectMargem) {
     selectMargem.value = risco;
-    const products = RezFireData.loadProducts();
-    renderTabFinanceiro(products);
+    renderTabFinanceiro(getDashboardProducts());
   }
 }
 window.filtrarMargemFinanceiro = filtrarMargemFinanceiro;
 
 function renderTabFinanceiro(products) {
   const money = RezFireData.formatMoney;
-  const orders = RezFireData.loadOrders();
+  const orders = getDashboardOrders();
 
   const selectPeriodo = document.getElementById("filtro-financeiro-periodo");
   const selectCanal = document.getElementById("filtro-financeiro-canal");
@@ -1908,7 +2014,7 @@ function renderTabFinanceiro(products) {
   renderSegregacaoPatrimonial();
 }
 
-function setupFinancialFilters(products) {
+function setupFinancialFilters() {
   const selectPeriodo = document.getElementById("filtro-financeiro-periodo");
   const selectCanal = document.getElementById("filtro-financeiro-canal");
   const selectMargem = document.getElementById("filtro-financeiro-margem");
@@ -1918,24 +2024,21 @@ function setupFinancialFilters(products) {
   if (selectPeriodo && !selectPeriodo.dataset.bound) {
     selectPeriodo.dataset.bound = "true";
     selectPeriodo.addEventListener("change", () => {
-      const currentProducts = RezFireData.loadProducts();
-      renderTabFinanceiro(currentProducts);
+      renderTabFinanceiro(getDashboardProducts());
     });
   }
 
   if (selectCanal && !selectCanal.dataset.bound) {
     selectCanal.dataset.bound = "true";
     selectCanal.addEventListener("change", () => {
-      const currentProducts = RezFireData.loadProducts();
-      renderTabFinanceiro(currentProducts);
+      renderTabFinanceiro(getDashboardProducts());
     });
   }
 
   if (selectMargem && !selectMargem.dataset.bound) {
     selectMargem.dataset.bound = "true";
     selectMargem.addEventListener("change", () => {
-      const currentProducts = RezFireData.loadProducts();
-      renderTabFinanceiro(currentProducts);
+      renderTabFinanceiro(getDashboardProducts());
     });
   }
 
@@ -1949,8 +2052,7 @@ function setupFinancialFilters(products) {
   if (inputBusca && !inputBusca.dataset.bound) {
     inputBusca.dataset.bound = "true";
     inputBusca.addEventListener("input", () => {
-      const currentProducts = RezFireData.loadProducts();
-      renderTabFinanceiro(currentProducts);
+      renderTabFinanceiro(getDashboardProducts());
     });
   }
 }
@@ -2009,8 +2111,7 @@ function bindFinancialRatesModalEvents() {
       fechar();
 
       // Recalcula o dashboard financeiro imediatamente com as novas taxas
-      const products = RezFireData.loadProducts();
-      renderTabFinanceiro(products);
+      renderTabFinanceiro(getDashboardProducts());
     });
   }
 }
@@ -2362,33 +2463,61 @@ async function excluirLancamentoFinanceiro(id) {
 }
 window.excluirLancamentoFinanceiro = excluirLancamentoFinanceiro;
 
+let produtosCharts = {};
+
 function renderTabProdutos(products) {
   const money = RezFireData.formatMoney;
-  
+  const orders = getDashboardOrders();
+
+  // Destrói gráficos antigos antes de recriar (hidratação MySQL)
+  Object.keys(produtosCharts).forEach((k) => {
+    try { produtosCharts[k]?.destroy(); } catch {}
+  });
+  produtosCharts = {};
+
   const total = products.length;
-  const ativos = products.filter(p => p.ativo).length;
+  const ativos = products.filter((p) => p.ativo).length;
   const inativos = total - ativos;
-  
-  // Criando dados mockados de vendas baseados nos IDs para serem consistentes
-  const mockSales = products.map((p) => {
-    let qty = (p.id_produto * 7) % 50; 
-    if (p.id_produto === 12) qty = 0; // Simulando item "Sem movimentação"
-    const faturamento = qty * (p.preco || 0);
-    const custo_total = qty * (p.custo || 0);
-    const lucro = faturamento - custo_total;
-    return { ...p, vendas_qtd: qty, faturamento: faturamento, lucro: lucro };
+
+  // Agrega vendas reais por produto a partir dos pedidos válidos (últimos 30 dias; se vazio, todos os pedidos)
+  const limite30d = Date.now() - 30 * 86400000;
+  let validOrders = orders.filter((o) => o.status !== "Cancelado" && new Date(o.data_pedido).getTime() >= limite30d);
+  if (validOrders.length === 0) {
+    validOrders = orders.filter((o) => o.status !== "Cancelado");
+  }
+
+  const vendasPorProduto = {};
+  validOrders.forEach((o) => {
+    (o.itens || []).forEach((it) => {
+      const id = Number(it.id_produto);
+      if (!vendasPorProduto[id]) vendasPorProduto[id] = { qtd: 0, fat: 0, custo: 0 };
+      const q = Number(it.quantidade || 0);
+      const sub = Number(it.subtotal || q * Number(it.preco_unitario || 0));
+      const c = Number(it.custo_total || q * Number(it.custo_unitario || 0));
+      vendasPorProduto[id].qtd += q;
+      vendasPorProduto[id].fat += sub;
+      vendasPorProduto[id].custo += c;
+    });
   });
 
-  const semMovimentacao = mockSales.filter(p => p.vendas_qtd === 0).length;
-  
-  const sortedByQty = [...mockSales].sort((a,b) => b.vendas_qtd - a.vendas_qtd);
+  const productSales = products.map((p) => {
+    const agg = vendasPorProduto[Number(p.id_produto)] || { qtd: 0, fat: 0, custo: 0 };
+    const faturamento = agg.fat;
+    const custo_total = agg.custo || agg.qtd * Number(p.custo || 0);
+    const lucro = faturamento - custo_total;
+    return { ...p, vendas_qtd: agg.qtd, faturamento, lucro };
+  });
+
+  const semMovimentacao = productSales.filter((p) => p.vendas_qtd === 0).length;
+
+  const sortedByQty = [...productSales].sort((a, b) => b.vendas_qtd - a.vendas_qtd);
   const maisVendido = sortedByQty[0];
-  const menosVendido = sortedByQty.filter(p => p.vendas_qtd > 0).pop();
-  
-  const sortedByFaturamento = [...mockSales].sort((a,b) => b.faturamento - a.faturamento);
+  const menosVendido = sortedByQty.filter((p) => p.vendas_qtd > 0).pop();
+
+  const sortedByFaturamento = [...productSales].sort((a, b) => b.faturamento - a.faturamento);
   const maiorFaturamento = sortedByFaturamento[0];
-  
-  const sortedByLucro = [...mockSales].sort((a,b) => b.lucro - a.lucro);
+
+  const sortedByLucro = [...productSales].sort((a, b) => b.lucro - a.lucro);
 
   document.getElementById("kpis-tab-produtos").innerHTML = [
     kpiCard("TOTAL DE PRODUTOS", total, `${ativos} ativos | ${inativos} inativos`),
@@ -2400,89 +2529,109 @@ function renderTabProdutos(products) {
 
   // Gráfico: Faturamento Top 5
   const top5Fat = sortedByFaturamento.slice(0, 5);
-  new ApexCharts(document.querySelector("#chart-faturamento-produtos"), {
+  produtosCharts.faturamento = new ApexCharts(document.querySelector("#chart-faturamento-produtos"), {
     chart: { type: "bar", height: 280, toolbar: { show: false }, fontFamily: "Inter, sans-serif" },
-    series: [{ name: "Faturamento", data: top5Fat.map(p => p.faturamento) }],
-    xaxis: { categories: top5Fat.map(p => p.sku) },
+    series: [{ name: "Faturamento", data: top5Fat.map((p) => Math.round(p.faturamento)) }],
+    xaxis: { categories: top5Fat.map((p) => p.sku) },
     colors: ["#e85c2a"],
     plotOptions: { bar: { borderRadius: 2, columnWidth: "50%" } },
     dataLabels: { enabled: false },
     yaxis: { labels: { formatter: (val) => money(val) } },
-    tooltip: { y: { formatter: (val) => money(val) } }
-  }).render();
+    tooltip: { y: { formatter: (val) => money(val) } },
+  });
+  produtosCharts.faturamento.render();
 
   // Gráfico: Lucro Top 5
   const top5Lucro = sortedByLucro.slice(0, 5);
-  new ApexCharts(document.querySelector("#chart-lucro-produtos"), {
+  produtosCharts.lucro = new ApexCharts(document.querySelector("#chart-lucro-produtos"), {
     chart: { type: "bar", height: 280, toolbar: { show: false }, fontFamily: "Inter, sans-serif" },
-    series: [{ name: "Lucro", data: top5Lucro.map(p => p.lucro) }],
-    xaxis: { categories: top5Lucro.map(p => p.sku) },
-    colors: ["#1f9d5c"], // Verde indicando lucro
+    series: [{ name: "Lucro", data: top5Lucro.map((p) => Math.round(p.lucro)) }],
+    xaxis: { categories: top5Lucro.map((p) => p.sku) },
+    colors: ["#1f9d5c"],
     plotOptions: { bar: { borderRadius: 2, columnWidth: "50%" } },
     dataLabels: { enabled: false },
     yaxis: { labels: { formatter: (val) => money(val) } },
-    tooltip: { y: { formatter: (val) => money(val) } }
-  }).render();
+    tooltip: { y: { formatter: (val) => money(val) } },
+  });
+  produtosCharts.lucro.render();
 
   // Gráfico: Vendas por Produto Top 10 (Qtd)
   const top10Qtd = sortedByQty.slice(0, 10);
-  new ApexCharts(document.querySelector("#chart-vendas-produtos"), {
+  produtosCharts.vendas = new ApexCharts(document.querySelector("#chart-vendas-produtos"), {
     chart: { type: "bar", height: 280, toolbar: { show: false }, fontFamily: "Inter, sans-serif" },
-    series: [{ name: "Unidades Vendidas", data: top10Qtd.map(p => p.vendas_qtd) }],
-    xaxis: { categories: top10Qtd.map(p => p.sku) },
+    series: [{ name: "Unidades Vendidas", data: top10Qtd.map((p) => p.vendas_qtd) }],
+    xaxis: { categories: top10Qtd.map((p) => p.sku) },
     colors: ["#1a1412"],
     plotOptions: { bar: { borderRadius: 2, columnWidth: "50%" } },
     dataLabels: { enabled: false },
     yaxis: { labels: { formatter: (val) => `${val} un.` } },
-    tooltip: { y: { formatter: (val) => `${val} un.` } }
-  }).render();
+    tooltip: { y: { formatter: (val) => `${val} un.` } },
+  });
+  produtosCharts.vendas.render();
 
   // Gráfico: Pizza Lucratividade (Top 5 e Outros)
-  const lucrosPositivos = sortedByLucro.filter(p => p.lucro > 0);
+  const lucrosPositivos = sortedByLucro.filter((p) => p.lucro > 0);
   let pizzaSeries = [];
   let pizzaLabels = [];
   if (lucrosPositivos.length > 5) {
     const topPizza = lucrosPositivos.slice(0, 5);
     const others = lucrosPositivos.slice(5).reduce((sum, p) => sum + p.lucro, 0);
-    pizzaSeries = [...topPizza.map(p => p.lucro), others];
-    pizzaLabels = [...topPizza.map(p => p.sku), "Outros"];
+    pizzaSeries = [...topPizza.map((p) => Math.round(p.lucro)), Math.round(others)];
+    pizzaLabels = [...topPizza.map((p) => p.sku), "Outros"];
   } else {
-    pizzaSeries = lucrosPositivos.map(p => p.lucro);
-    pizzaLabels = lucrosPositivos.map(p => p.sku);
+    pizzaSeries = lucrosPositivos.map((p) => Math.round(p.lucro));
+    pizzaLabels = lucrosPositivos.map((p) => p.sku);
   }
 
-  new ApexCharts(document.querySelector("#chart-lucratividade-pizza"), {
+  produtosCharts.pizza = new ApexCharts(document.querySelector("#chart-lucratividade-pizza"), {
     chart: { type: "pie", height: 280, fontFamily: "Inter, sans-serif" },
-    series: pizzaSeries,
-    labels: pizzaLabels,
+    series: pizzaSeries.length > 0 ? pizzaSeries : [1],
+    labels: pizzaLabels.length > 0 ? pizzaLabels : ["Sem vendas"],
     colors: ["#e85c2a", "#1f9d5c", "#1a1412", "#6b6560", "#d13c3c", "#f5e6c8"],
     dataLabels: { enabled: false },
     legend: { position: "right" },
     stroke: { show: false },
-    tooltip: { y: { formatter: (val) => money(val) } }
-  }).render();
+    tooltip: { y: { formatter: (val) => money(val) } },
+  });
+  produtosCharts.pizza.render();
 
-  // Gráfico: Curva ABC (Mock)
-  new ApexCharts(document.querySelector("#chart-curva-abc"), {
+  // Gráfico: Curva ABC Real calculada sobre o faturamento dos SKUs
+  const fatTotalCat = sortedByFaturamento.reduce((s, p) => s + p.faturamento, 0);
+  let acum = 0;
+  let fatA = 0, fatB = 0, fatC = 0;
+  sortedByFaturamento.forEach((p) => {
+    const pctPrev = fatTotalCat > 0 ? (acum / fatTotalCat) * 100 : 100;
+    acum += p.faturamento;
+    if (pctPrev < 80) fatA += p.faturamento;
+    else if (pctPrev < 95) fatB += p.faturamento;
+    else fatC += p.faturamento;
+  });
+  const abcSeries = fatTotalCat > 0
+    ? [Math.round((fatA / fatTotalCat) * 100), Math.round((fatB / fatTotalCat) * 100), Math.max(0, 100 - Math.round((fatA / fatTotalCat) * 100) - Math.round((fatB / fatTotalCat) * 100))]
+    : [70, 20, 10];
+
+  produtosCharts.abc = new ApexCharts(document.querySelector("#chart-curva-abc"), {
     chart: { type: "donut", height: 280, fontFamily: "Inter, sans-serif" },
-    series: [70, 20, 10],
+    series: abcSeries,
     labels: ["Classe A (Altíssimo Fatur.)", "Classe B (Médio Fatur.)", "Classe C (Baixo Fatur.)"],
     colors: ["#e85c2a", "#f5e6c8", "#1a1412"],
     dataLabels: { enabled: false },
     legend: { position: "bottom" },
-    stroke: { show: false }
-  }).render();
+    stroke: { show: false },
+  });
+  produtosCharts.abc.render();
 
   // Gráfico: Status dos Produtos (Ativos x Inativos)
-  new ApexCharts(document.querySelector("#chart-status-produtos"), {
+  produtosCharts.status = new ApexCharts(document.querySelector("#chart-status-produtos"), {
     chart: { type: "pie", height: 280, fontFamily: "Inter, sans-serif" },
     series: [ativos, inativos],
     labels: ["Ativos", "Inativos"],
     colors: ["#1f9d5c", "#d13c3c"],
     dataLabels: { enabled: false },
     legend: { position: "bottom" },
-    stroke: { show: false }
-  }).render();
+    stroke: { show: false },
+  });
+  produtosCharts.status.render();
 }
 
 // ─── ABA 8: DASHBOARD DE CLIENTES (INDICADORES & SINAIS DE ATENÇÃO) ───────────
@@ -3591,6 +3740,12 @@ function renderGraficosCompras(graficos, money) {
             fontFamily: "Inter, sans-serif",
             animations: { enabled: false },
           },
+          series: [
+            {
+              name: "Total Gasto",
+              data: dataValores,
+            },
+          ],
           plotOptions: {
             bar: {
               horizontal: true,

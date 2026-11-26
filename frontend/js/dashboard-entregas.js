@@ -30,7 +30,66 @@
 
   // ─── Helpers ────────────────────────────────────────────────────────────────
   const E = () => window.RezFireEntregas;
-  const REF = () => E().ENTREGAS_REF_DATE;
+  const isBackendEntregasAtivo = () => Array.isArray(window.__rezfireBackendOrders) && window.__rezfireBackendOrders.length > 0;
+  const REF = () => (isBackendEntregasAtivo() ? new Date() : E().ENTREGAS_REF_DATE);
+
+  function mapBackendOrdersToEntregas(orders) {
+    const SI = E().STATUS_INTERNO;
+    const SL = E().STATUS_LOGISTICO;
+    const nowMs = Date.now();
+
+    return orders.map((o) => {
+      const isMl = o.canal === "Mercado Livre";
+      const isCanc = o.status === "Cancelado";
+      let statusInterno = SI.A_SEPARAR;
+      let statusLogistico = SL.AGUARDANDO_ENVIO;
+
+      if (isCanc) {
+        statusInterno = SI.CANCELADO;
+        statusLogistico = SL.CANCELADO;
+      } else if (o.status_entrega === "Entregue" || o.status === "Concluido" || o.status === "Concluído") {
+        statusInterno = SI.PRONTO_DESPACHO;
+        statusLogistico = SL.ENTREGUE;
+      } else if (o.status_entrega === "Despachado") {
+        statusInterno = SI.PRONTO_DESPACHO;
+        statusLogistico = SL.EM_TRANSITO;
+      } else if (o.status_entrega === "Pronto p/ despacho") {
+        statusInterno = SI.PRONTO_DESPACHO;
+        statusLogistico = SL.AGUARDANDO_ENVIO;
+      } else {
+        statusInterno = SI.A_SEPARAR;
+        statusLogistico = SL.AGUARDANDO_ENVIO;
+      }
+
+      const dataVendaMs = new Date(o.data_pedido).getTime();
+      const prazoDias = Number(o.prazo_dias_estimado || 3);
+      const previsaoMs = (o.data_despacho ? new Date(o.data_despacho).getTime() : dataVendaMs + DAY_MS) + prazoDias * DAY_MS;
+
+      if (!isCanc && statusLogistico === SL.AGUARDANDO_ENVIO && o.prazo_despacho && new Date(o.prazo_despacho).getTime() < nowMs) {
+        statusLogistico = SL.ATRASADO;
+      }
+
+      return {
+        id_entrega: `ENT-${o.id_pedido}`,
+        codigo_pedido_ml: isMl ? o.codigo_pedido : null,
+        codigo_pedido_direto: !isMl ? o.codigo_pedido : null,
+        canal: isMl ? "Mercado Livre" : "Venda Direta",
+        cliente: o.cliente || "Cliente",
+        uf: o.uf || "SP",
+        valor_total: Number(o.valor_total || 0),
+        modalidade_envio: o.modalidade_envio || (isMl ? "Mercado Envios Coleta" : "Logística Própria"),
+        status_interno: statusInterno,
+        status_logistico: statusLogistico,
+        data_venda: o.data_pedido,
+        prazo_despacho: o.prazo_despacho || new Date(dataVendaMs + DAY_MS).toISOString(),
+        data_despacho: o.data_despacho || null,
+        previsao_entrega: new Date(previsaoMs).toISOString(),
+        data_entrega: o.data_entrega_efetiva || null,
+        ocorrencias: [],
+        itens: o.itens || [],
+      };
+    });
+  }
 
   function kpiCard(label, value, hint) {
     if (typeof window.kpiCard === "function") {
@@ -609,10 +668,14 @@
 
     const periodo = Number(document.getElementById("filtro-entregas-periodo")?.value ?? 30);
     const canal = document.getElementById("filtro-entregas-canal")?.value || "todos";
-    const metrics = computeMetrics(E().loadEntregas(), periodo, canal);
+    const usandoBackend = isBackendEntregasAtivo();
+    const listaEntregas = usandoBackend ? mapBackendOrdersToEntregas(window.__rezfireBackendOrders) : E().loadEntregas();
+    const metrics = computeMetrics(listaEntregas, periodo, canal);
 
     const ref = document.getElementById("label-entregas-referencia");
-    if (ref) ref.textContent = `Referência operacional: ${REF().toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" })} (dados de demonstração)`;
+    if (ref) {
+      ref.textContent = `Referência operacional: ${REF().toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" })} (${usandoBackend ? "dados em tempo real MySQL" : "dados de demonstração"})`;
+    }
 
     renderBanner(metrics);
     renderKPIs(metrics);

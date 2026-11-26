@@ -48,20 +48,20 @@
   </style>
 </head>
 <body class="bg-cream text-stone-900 font-sans antialiased">
-  <div class="app-layout" id="app-shell">
-    <main class="main-content">
-      <!-- Topbar -->
-      <header class="topbar">
+  <div class="app-shell" id="app-shell">
+    <main class="app-main">
+      <!-- Toolbar / Cabeçalho -->
+      <div class="page-toolbar">
         <div>
           <h1 class="page-title flex items-center gap-2">
             <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="text-accent"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
             Usuários e Permissões
           </h1>
           <p class="page-subtitle">
-            Controle de acessos, cadastro de operadores e matriz de papéis.
+            Controle de acessos, cadastro de operadores e matriz de papéis (RBAC).
           </p>
         </div>
-        <div class="topbar-actions flex items-center gap-2">
+        <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
           <button id="btn-abrir-matriz" type="button" class="btn-ghost text-xs px-3 py-1.5 flex items-center gap-1.5 border-stone-300">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
             Matriz de Permissões
@@ -71,7 +71,7 @@
             + Novo Usuário
           </button>
         </div>
-      </header>
+      </div>
 
       <!-- Cards de Resumo Operacional (KPIs) -->
       <section class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5 mb-5">

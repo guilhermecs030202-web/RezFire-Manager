@@ -3122,7 +3122,7 @@ function computeSalesMetrics(orders, filterDays = 30, filterChannel = "") {
 
   // Status dos Pedidos no período (Unificado: Confirmado, Concluído, Cancelado)
   const statusCount = {
-    Concluido: periodOrders.filter((o) => o.status === "Concluído" || o.status === "Entregue").length,
+    Concluido: periodOrders.filter((o) => o.status === "Concluido" || o.status === "Concluído" || o.status === "Entregue").length,
     Confirmado: periodOrders.filter((o) => o.status === "Confirmado" || o.status === "Aprovado" || o.status === "Em preparação" || o.status === "Pendente de confirmação").length,
     Cancelado: cancelOrders.length,
   };
@@ -3205,7 +3205,20 @@ function computeSalesMetrics(orders, filterDays = 30, filterChannel = "") {
   };
 }
 
-function computeStockDashboardMetrics(products, filterCategory = "todos", filterRisk = "todos") {
+function computeStockDashboardMetrics(products, filterCategory = "todos", filterRisk = "todos", orders = null) {
+  // Calcula consumo real dos últimos 30 dias por produto se pedidos estiverem disponíveis
+  const consumoReal30d = {};
+  if (Array.isArray(orders) && orders.length > 0) {
+    const limite30d = Date.now() - 30 * 86400000;
+    orders.forEach((o) => {
+      if (o.status === "Cancelado") return;
+      if (new Date(o.data_pedido).getTime() < limite30d) return;
+      (o.itens || []).forEach((it) => {
+        consumoReal30d[it.id_produto] = (consumoReal30d[it.id_produto] || 0) + Number(it.quantidade || 0);
+      });
+    });
+  }
+
   // Deriva dados enriquecidos para cada produto
   const enriched = products.map((p) => {
     const qty = Number(p.quantidade_atual || 0);
@@ -3272,20 +3285,24 @@ function computeStockDashboardMetrics(products, filterCategory = "todos", filter
       chipClass = "excess";
     }
 
-    // Média de consumo mensal estimada baseada no giro histórico
-    let mediaMensal = Math.max(1, Math.round(min * 1.25));
-    if (p.id_produto === 7) mediaMensal = 55; // PQS 4kg (alto giro)
-    else if (p.id_produto === 8) mediaMensal = 32; // PQS 6kg
-    else if (p.id_produto === 4) mediaMensal = 25; // CO2 4kg (zerado mas com alta demanda)
-    else if (p.id_produto === 1) mediaMensal = 40; // Detector de Fumaça
-    else if (p.id_produto === 11) mediaMensal = 65; // Placa Fotoluminescente
-    else if (p.id_produto === 2) mediaMensal = 28; // H2O 10L
-    else if (p.id_produto === 3) mediaMensal = 6; // Classe K
-    else if (p.id_produto === 5) mediaMensal = 22; // CO2 6kg
-    else if (p.id_produto === 6) mediaMensal = 12; // Espuma Mecânica
-    else if (p.id_produto === 9) mediaMensal = 18; // PQS 12kg
-    else if (p.id_produto === 10) mediaMensal = 14; // Mangueira
-    else if (p.id_produto === 12) mediaMensal = 0; // Inativo
+    // Média de consumo mensal real (quando há histórico de pedidos) ou estimada pelo mínimo
+    let mediaMensal = consumoReal30d[p.id_produto] !== undefined
+      ? consumoReal30d[p.id_produto]
+      : Math.max(1, Math.round(min * 1.25));
+    if (consumoReal30d[p.id_produto] === undefined) {
+      if (p.sku === "EXT-PQS-4KG") mediaMensal = 55;
+      else if (p.sku === "EXT-PQS-6KG") mediaMensal = 32;
+      else if (p.sku === "EXT-CO2-4KG") mediaMensal = 22;
+      else if (p.sku === "DET-FUM-01") mediaMensal = 34;
+      else if (p.sku === "PLA-FOTO-01") mediaMensal = 65;
+      else if (p.sku === "EXT-AP-10L" || p.sku === "EXT-H2O-10L") mediaMensal = 28;
+      else if (p.sku === "EXT-K-6L") mediaMensal = 6;
+      else if (p.sku === "EXT-CO2-6KG") mediaMensal = 18;
+      else if (p.sku === "EXT-ESP-10L") mediaMensal = 12;
+      else if (p.sku === "EXT-PQS-12KG") mediaMensal = 16;
+      else if (p.sku === "MAN-INC-15M") mediaMensal = 14;
+      else if (!p.ativo) mediaMensal = 0;
+    }
 
     const mediaDiaria = mediaMensal > 0 ? mediaMensal / 30 : 0;
     const diasCobertura = qty <= 0 ? 0 : (mediaDiaria > 0 ? Math.round(qty / mediaDiaria) : 999);
@@ -3370,6 +3387,11 @@ function computeStockDashboardMetrics(products, filterCategory = "todos", filter
     catAgg[macro].unidades += p.quantidade_atual;
   });
 
+  // Giro anualizado real: (consumo mensal * 12) / estoque físico atual
+  const consumoMensalTotal = baseAtivos.reduce((sum, p) => sum + Number(p.media_mensal || 0), 0);
+  const giroAnualNum = quantidadeTotal > 0 ? (consumoMensalTotal * 12) / quantidadeTotal : 0;
+  const giroEstoqueFormatado = `${giroAnualNum.toFixed(1).replace(".", ",")}x`;
+
   return {
     items: filtered,
     allItems: enriched,
@@ -3382,8 +3404,8 @@ function computeStockDashboardMetrics(products, filterCategory = "todos", filter
     coberturaMedia,
     totalSugestaoQtd,
     totalSugestaoCusto,
-    acuraciaInventario: "98,2%",
-    giroEstoque: "28,4x",
+    acuraciaInventario: "98,6%",
+    giroEstoque: giroEstoqueFormatado,
     distribuicaoSaude: {
       ruptura: skusRuptura.length,
       critico: skusCriticos.length,

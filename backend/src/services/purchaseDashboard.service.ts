@@ -339,25 +339,27 @@ export class PurchaseDashboardService {
     // Gráfico 4: Pedidos por Status
     const sqlStatusCount = `
       SELECT 
-        po.status,
+        UPPER(po.status) AS status,
         COUNT(*) AS total,
         COALESCE(SUM(po.valor_total), 0) AS valor
       FROM pedidos_compra po
       WHERE po.data_emissao BETWEEN ? AND ?
         ${whereSupplierPO}
-      GROUP BY po.status
+      GROUP BY UPPER(po.status)
     `;
     const statusRows = await AppDataSource.query(sqlStatusCount, paramsPO);
     const statusDict: Record<string, { total: number; valor: number }> = {
-      Aberto: { total: 0, valor: 0 },
-      Parcial: { total: 0, valor: 0 },
-      Recebido: { total: 0, valor: 0 },
-      Atrasado: { total: 0, valor: 0 },
-      Cancelado: { total: 0, valor: 0 },
+      ABERTO: { total: 0, valor: 0 },
+      PARCIAL: { total: 0, valor: 0 },
+      RECEBIDO: { total: 0, valor: 0 },
+      ATRASADO: { total: 0, valor: 0 },
+      CANCELADO: { total: 0, valor: 0 },
+      RASCUNHO: { total: 0, valor: 0 },
     };
     statusRows.forEach((r: any) => {
-      if (statusDict[r.status]) {
-        statusDict[r.status] = {
+      const st = String(r.status || '').toUpperCase();
+      if (statusDict[st]) {
+        statusDict[st] = {
           total: Number(r.total) || 0,
           valor: Number(r.valor) || 0,
         };
@@ -367,18 +369,18 @@ export class PurchaseDashboardService {
     const statusChart = {
       labels: ['Recebido', 'Aberto', 'Atrasado', 'Parcial', 'Cancelado'],
       series: [
-        statusDict['Recebido'].total,
-        statusDict['Aberto'].total,
-        statusDict['Atrasado'].total,
-        statusDict['Parcial'].total,
-        statusDict['Cancelado'].total,
+        statusDict['RECEBIDO'].total,
+        statusDict['ABERTO'].total,
+        statusDict['ATRASADO'].total,
+        statusDict['PARCIAL'].total,
+        statusDict['CANCELADO'].total,
       ],
       valores: [
-        statusDict['Recebido'].valor,
-        statusDict['Aberto'].valor,
-        statusDict['Atrasado'].valor,
-        statusDict['Parcial'].valor,
-        statusDict['Cancelado'].valor,
+        statusDict['RECEBIDO'].valor,
+        statusDict['ABERTO'].valor,
+        statusDict['ATRASADO'].valor,
+        statusDict['PARCIAL'].valor,
+        statusDict['CANCELADO'].valor,
       ],
     };
 

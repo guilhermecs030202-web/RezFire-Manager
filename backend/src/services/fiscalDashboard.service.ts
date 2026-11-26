@@ -1,5 +1,6 @@
 import { AppDataSource } from '../config/database';
 import { NotaFiscal } from '../entities/NotaFiscal';
+import { NotaFiscalInutilizacao } from '../entities/NotaFiscalInutilizacao';
 import { Pedido } from '../entities/Pedido';
 import { PurchaseOrder } from '../entities/PurchaseOrder';
 import { Supplier } from '../entities/Supplier';
@@ -106,20 +107,20 @@ export class FiscalDashboardService {
 
     // 1. Carrega dados de Notas Fiscais reais do banco
     const nfRepo = AppDataSource.getRepository(NotaFiscal);
+    const inutRepo = AppDataSource.getRepository(NotaFiscalInutilizacao);
     const pedidoRepo = AppDataSource.getRepository(Pedido);
     const poRepo = AppDataSource.getRepository(PurchaseOrder);
     const emitenteRepo = AppDataSource.getRepository(EmitenteFiscal);
 
     const countNfTotal = await nfRepo.count();
 
-    // Se a base de dados ainda não tiver notas fiscais de teste emitidas, sintetiza conjunto determinístico
-    // baseado nos pedidos e fornecedores reais existentes no banco para não deixar a tela vazia
     let notasPeriodoAtual: any[] = [];
     let notasPeriodoAnt: any[] = [];
+    let inutilizacoesAtual = 0;
+    let inutilizacoesAnt = 0;
     let pedidosSemNfeReais: any[] = [];
 
     if (countNfTotal > 0) {
-      // Query real no MySQL
       const qbAtual = nfRepo.createQueryBuilder('nf')
         .leftJoinAndSelect('nf.pedido', 'pedido')
         .where('nf.created_at >= :inicio AND nf.created_at <= :fim', { inicio: dataInicio, fim: dataFim });
@@ -131,21 +132,33 @@ export class FiscalDashboardService {
       notasPeriodoAtual = await qbAtual.getMany();
 
       const qbAnt = nfRepo.createQueryBuilder('nf')
+        .leftJoinAndSelect('nf.pedido', 'pedido')
         .where('nf.created_at >= :inicioAnt AND nf.created_at < :fimAnt', { inicioAnt: dataInicioAnt, fimAnt: dataFimAnt });
       notasPeriodoAnt = await qbAnt.getMany();
+
+      inutilizacoesAtual = await inutRepo.createQueryBuilder('inut')
+        .where('inut.created_at >= :inicio AND inut.created_at <= :fim', { inicio: dataInicio, fim: dataFim })
+        .getCount();
+      inutilizacoesAnt = await inutRepo.createQueryBuilder('inut')
+        .where('inut.created_at >= :inicioAnt AND inut.created_at < :fimAnt', { inicioAnt: dataInicioAnt, fimAnt: dataFimAnt })
+        .getCount();
     } else {
-      // Gera dados demonstrativos realistas e consistentes com o faturamento da RezFire
       const dadosDemo = this.gerarDadosDemonstracao(dataInicio, dataFim, dataInicioAnt, dataFimAnt);
       notasPeriodoAtual = dadosDemo.atual;
       notasPeriodoAnt = dadosDemo.anterior;
     }
 
-    // 2. Pedidos sem NF-e (faturáveis há > 24h)
+    // 2. Pedidos faturáveis há > 24h SEM NF-e autorizada vinculada
     const limitePendencia = new Date(agora.getTime() - LIMITES_ALERTAS_FISCAIS.HORAS_PEDIDO_SEM_NFE_CRITICO * 60 * 60 * 1000);
-    const pedidosBanco = await pedidoRepo.createQueryBuilder('p')
-      .where('p.status IN (:...status)', { status: ['Confirmado', 'Concluido'] })
-      .andWhere('p.created_at <= :limite', { limite: limitePendencia })
-      .getMany();
+    const pedidosBanco = await AppDataSource.query(
+      `SELECT p.id_pedido, p.codigo_pedido, p.data_pedido, p.valor_total
+       FROM pedidos p
+       LEFT JOIN notas_fiscais nf ON nf.id_pedido = p.id_pedido AND nf.status IN ('autorizada', 'em_processamento')
+       WHERE p.status IN ('Confirmado', 'Concluido')
+         AND p.data_pedido <= ?
+         AND nf.id_nota_fiscal IS NULL`,
+      [limitePendencia]
+    );
 
     pedidosSemNfeReais = pedidosBanco;
 
@@ -189,17 +202,16 @@ export class FiscalDashboardService {
     // KPI 3: Inconformidades (canceladas / rejeitadas / inutilizadas)
     const inconformidadesAtual = notasPeriodoAtual.filter(n => ['cancelada', 'rejeitada', 'inutilizada'].includes(n.status));
     const inconformidadesAnt = notasPeriodoAnt.filter(n => ['cancelada', 'rejeitada', 'inutilizada'].includes(n.status));
-    const qtdInconformidadesAtual = inconformidadesAtual.length;
-    const qtdInconformidadesAnt = inconformidadesAnt.length;
-    const totalNotasPeriodo = notasPeriodoAtual.length || 1;
+    const qtdInconformidadesAtual = inconformidadesAtual.length + inutilizacoesAtual;
+    const qtdInconformidadesAnt = inconformidadesAnt.length + inutilizacoesAnt;
+    const totalNotasPeriodo = (notasPeriodoAtual.length + inutilizacoesAtual) || 1;
     const pctInconformidades = Number(((qtdInconformidadesAtual / totalNotasPeriodo) * 100).toFixed(1));
     const deltaInconformidades = qtdInconformidadesAnt > 0 ? Number((((qtdInconformidadesAtual - qtdInconformidadesAnt) / qtdInconformidadesAnt) * 100).toFixed(1)) : null;
 
-    // KPI 4: Pedidos sem NF-e (pendências)
+    // KPI 4: Pedidos sem NF-e (pendências reais > 24h)
     const totalPedidosSemNfe = countNfTotal > 0 ? pedidosSemNfeReais.length : Math.max(3, pedidosSemNfeReais.length);
 
     // KPI 5: Total de Impostos do Período e Carga Tributária %
-    // No Simples Nacional da RezFire (Anexo I/II), alíquota média entre 4% a 8.5%
     let impostosTotalAtual = 0;
     let icmsTotal = 0;
     let pisTotal = 0;
@@ -214,7 +226,7 @@ export class FiscalDashboardService {
       icmsTotal += Number(totSnap.vICMS || (vTotTrib * 0.45));
       pisTotal += Number(totSnap.vPIS || (vTotTrib * 0.12));
       cofinsTotal += Number(totSnap.vCOFINS || (vTotTrib * 0.28));
-      simplesTotal += Number(vTotTrib * 0.15);
+      simplesTotal += Number(totSnap.vSimples || (vTotTrib * 0.15));
     }
 
     const cargaTributariaPct = valorFaturadoAtual > 0 ? Number(((impostosTotalAtual / valorFaturadoAtual) * 100).toFixed(2)) : 6.50;
@@ -226,19 +238,28 @@ export class FiscalDashboardService {
     }
     const deltaImpostos = impostosTotalAnt > 0 ? Number((((impostosTotalAtual - impostosTotalAnt) / impostosTotalAnt) * 100).toFixed(1)) : null;
 
-    // KPI 6: Tempo Médio entre Pedido e Emissão da Nota (em horas)
-    let somaHorasEmissao = 0;
-    let countComDatas = 0;
-    for (const n of nfeAutorizadasAtual) {
-      if (n.autorizada_em && n.created_at) {
-        const diffHoras = (new Date(n.autorizada_em).getTime() - new Date(n.created_at).getTime()) / (1000 * 60 * 60);
-        if (diffHoras >= 0 && diffHoras < 240) {
-          somaHorasEmissao += diffHoras;
-          countComDatas++;
+    // KPI 6: Tempo Médio entre Pedido e Emissão/Autorização da Nota (em horas)
+    const calcTempoMedioHoras = (lista: any[]): number | null => {
+      let soma = 0;
+      let cnt = 0;
+      for (const n of lista) {
+        const dtFim = n.autorizada_em || n.emitida_em;
+        const dtIni = n.pedido?.data_pedido || n.created_at;
+        if (dtFim && dtIni) {
+          const diffH = (new Date(dtFim).getTime() - new Date(dtIni).getTime()) / (1000 * 60 * 60);
+          if (diffH >= 0 && diffH < 240) {
+            soma += diffH;
+            cnt++;
+          }
         }
       }
-    }
-    const tempoMedioEmissaoHoras = countComDatas > 0 ? Number((somaHorasEmissao / countComDatas).toFixed(1)) : 2.4;
+      return cnt > 0 ? Number((soma / cnt).toFixed(1)) : null;
+    };
+    const tempoMedioEmissaoHoras = calcTempoMedioHoras(nfeAutorizadasAtual) ?? 2.1;
+    const tempoMedioEmissaoAnt = calcTempoMedioHoras(nfeAutorizadasAnt);
+    const deltaTempoEmissao = tempoMedioEmissaoAnt && tempoMedioEmissaoAnt > 0
+      ? Number((((tempoMedioEmissaoHoras - tempoMedioEmissaoAnt) / tempoMedioEmissaoAnt) * 100).toFixed(1))
+      : null;
 
     const kpis: Record<string, KpiItemFiscal> = {
       notasEmitidas: {
@@ -266,7 +287,7 @@ export class FiscalDashboardService {
       pedidosSemNfe: {
         valor: totalPedidosSemNfe,
         valorFormatado: `${totalPedidosSemNfe} pedidos`,
-        deltaPercentual: -12.5,
+        deltaPercentual: null,
         deltaSentidoBom: false,
         tooltip: 'Pedidos com pagamento confirmado há mais de 24 horas que ainda não tiveram NF-e autorizada.',
       },
@@ -281,8 +302,8 @@ export class FiscalDashboardService {
       tempoMedioEmissao: {
         valor: tempoMedioEmissaoHoras,
         valorFormatado: tempoMedioEmissaoHoras < 1 ? `${Math.round(tempoMedioEmissaoHoras * 60)} min` : `${tempoMedioEmissaoHoras}h`,
-        deltaPercentual: -15.4, // Queda no tempo de emissão é bom
-        deltaSentidoBom: true,
+        deltaPercentual: deltaTempoEmissao,
+        deltaSentidoBom: false, // Queda no tempo de emissão é favorável
         tooltip: 'Tempo médio decorrido entre a confirmação da venda e a autorização da NF-e na SEFAZ.',
       },
     };
@@ -357,7 +378,7 @@ export class FiscalDashboardService {
     });
 
     // 6. Gráficos
-    const graficos = this.construirGraficosFiscais(notasPeriodoAtual, dataInicio, dataFim, dias);
+    const graficos = this.construirGraficosFiscais(notasPeriodoAtual, dataInicio, dataFim, dias, countNfTotal > 0, inutilizacoesAtual);
 
     // 7. Bloco "Entradas x Pedidos de Compra"
     const conciliacoesEntrada = await this.obterConciliacaoEntradasPo(poRepo);
@@ -460,7 +481,14 @@ export class FiscalDashboardService {
 
   // --- MÉTODOS AUXILIARES E GERADORES GRÁFICOS ---
 
-  private construirGraficosFiscais(notas: any[], dataInicio: Date, dataFim: Date, dias: number) {
+  private construirGraficosFiscais(
+    notas: any[],
+    dataInicio: Date,
+    dataFim: Date,
+    dias: number,
+    usandoBancoReal: boolean = false,
+    inutilizacoesQtd: number = 0
+  ) {
     // 1. Evolução Diária/Semanal de Faturamento e Emissões
     const mapaDias: Record<string, { notas: number; faturamento: number; icms: number; pis: number; cofins: number; simples: number }> = {};
     const passoDias = dias > 60 ? 7 : 1;
@@ -518,15 +546,32 @@ export class FiscalDashboardService {
     ];
 
     // 4. Ranking de Rejeições e Cancelamentos SEFAZ
-    const motivosMap: Record<string, { motivo: string; tipo: 'Rejeição SEFAZ' | 'Cancelamento Gestor'; total: number }> = {
-      'Rejeição 204': { motivo: 'Rejeição 204: Duplicidade de NF-e [nNF: 1045, nRec: 351000]', tipo: 'Rejeição SEFAZ', total: 3 },
-      'Rejeição 539': { motivo: 'Rejeição 539: Duplicidade com diferença na Chave de Acesso', tipo: 'Rejeição SEFAZ', total: 2 },
-      'Rejeição 778': { motivo: 'Rejeição 778: Informado NCM inexistente na tabela da SEFAZ', tipo: 'Rejeição SEFAZ', total: 1 },
-      'Canc. Desistência': { motivo: 'Cancelamento: Desistência e devolução do cliente antes do despacho', tipo: 'Cancelamento Gestor', total: 2 },
-      'Canc. Erro Endereço': { motivo: 'Cancelamento: Erro nos dados cadastrais de entrega do destinatário', tipo: 'Cancelamento Gestor', total: 1 },
-    };
+    const motivosMap: Record<string, { motivo: string; tipo: 'Rejeição SEFAZ' | 'Cancelamento Gestor'; total: number }> = {};
+
+    if (usandoBancoReal) {
+      for (const n of notas) {
+        if (n.status === 'rejeitada') {
+          const mot = n.ultimo_motivo_sefaz || `Rejeição ${n.ultimo_codigo_sefaz || 'SEFAZ'}: Falha de validação`;
+          const key = `rej-${n.ultimo_codigo_sefaz || mot.slice(0, 24)}`;
+          if (!motivosMap[key]) motivosMap[key] = { motivo: mot, tipo: 'Rejeição SEFAZ', total: 0 };
+          motivosMap[key].total++;
+        } else if (n.status === 'cancelada') {
+          const mot = n.justificativa_cancelamento || 'Cancelamento homologado pelo gestor';
+          const key = `can-${mot.slice(0, 32)}`;
+          if (!motivosMap[key]) motivosMap[key] = { motivo: mot, tipo: 'Cancelamento Gestor', total: 0 };
+          motivosMap[key].total++;
+        }
+      }
+    } else {
+      motivosMap['Rejeição 204'] = { motivo: 'Rejeição 204: Duplicidade de NF-e [nNF: 1045, nRec: 351000]', tipo: 'Rejeição SEFAZ', total: 3 };
+      motivosMap['Rejeição 539'] = { motivo: 'Rejeição 539: Duplicidade com diferença na Chave de Acesso', tipo: 'Rejeição SEFAZ', total: 2 };
+      motivosMap['Rejeição 778'] = { motivo: 'Rejeição 778: Informado NCM inexistente na tabela da SEFAZ', tipo: 'Rejeição SEFAZ', total: 1 };
+      motivosMap['Canc. Desistência'] = { motivo: 'Cancelamento: Desistência e devolução do cliente antes do despacho', tipo: 'Cancelamento Gestor', total: 2 };
+      motivosMap['Canc. Erro Endereço'] = { motivo: 'Cancelamento: Erro nos dados cadastrais de entrega do destinatário', tipo: 'Cancelamento Gestor', total: 1 };
+    }
 
     const ranking = Object.values(motivosMap).sort((a, b) => b.total - a.total);
+    statusCounts.inutilizada += inutilizacoesQtd;
 
     return {
       evolucao: {
@@ -536,13 +581,21 @@ export class FiscalDashboardService {
       },
       distribuicaoStatus: {
         labels: ['Autorizada', 'Cancelada', 'Rejeitada', 'Inutilizada', 'Em Proc. / Rascunho'],
-        series: [
-          statusCounts.autorizada || 28,
-          statusCounts.cancelada || 2,
-          statusCounts.rejeitada || 2,
-          statusCounts.inutilizada || 1,
-          statusCounts.em_processamento || 1,
-        ],
+        series: usandoBancoReal
+          ? [
+              statusCounts.autorizada,
+              statusCounts.cancelada,
+              statusCounts.rejeitada,
+              statusCounts.inutilizada,
+              statusCounts.em_processamento,
+            ]
+          : [
+              statusCounts.autorizada || 28,
+              statusCounts.cancelada || 2,
+              statusCounts.rejeitada || 2,
+              statusCounts.inutilizada || 1,
+              statusCounts.em_processamento || 1,
+            ],
       },
       impostosEmpilhados: {
         categorias: labelsData,

@@ -12,6 +12,7 @@
     "migration:generate": "typeorm-ts-node-commonjs migration:generate -d src/config/database.ts",
     "migration:revert": "typeorm-ts-node-commonjs migration:revert -d src/config/database.ts",
     "seed": "tsx src/database/seed.ts",
+    "seed:empresa": "tsx src/database/seed-empresa-media.ts",
     "fiscal:setup-producao": "node scripts/setup-fiscal-producao.js"
   },
   "keywords": [

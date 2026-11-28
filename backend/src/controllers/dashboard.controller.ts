@@ -4,14 +4,26 @@ import { CustomerDashboardService } from '../services/customerDashboard.service'
 import { PurchaseDashboardService } from '../services/purchaseDashboard.service';
 import { ReturnDashboardService } from '../services/returnDashboard.service';
 import { FiscalDashboardService } from '../services/fiscalDashboard.service';
+import { RadarDashboardService } from '../services/radarDashboard.service';
 
 const dashboardService = new DashboardService();
 const customerDashboardService = new CustomerDashboardService();
 const purchaseDashboardService = new PurchaseDashboardService();
 const returnDashboardService = new ReturnDashboardService();
 const fiscalDashboardService = new FiscalDashboardService();
+const radarDashboardService = new RadarDashboardService();
 
 export class DashboardController {
+  async obterVisaoGeral(req: Request, res: Response) {
+    try {
+      const dias = req.query.dias ? Number(req.query.dias) : 30;
+      const perfil = req.usuario?.perfil || 'GESTOR';
+      const resultado = await radarDashboardService.obterVisaoGeral(dias, perfil);
+      return res.json(resultado);
+    } catch (error: any) {
+      return res.status(500).json({ sucesso: false, mensagem: error.message });
+    }
+  }
   async obterKpis(req: Request, res: Response) {
     try {
       const dias = req.query.dias ? Number(req.query.dias) : 30;

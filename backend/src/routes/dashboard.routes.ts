@@ -7,6 +7,8 @@ const controller = new DashboardController();
 
 router.use(authMiddleware);
 
+router.get('/visao-geral', controller.obterVisaoGeral);
+router.get('/radar', controller.obterVisaoGeral);
 router.get('/kpis', controller.obterKpis);
 router.get('/graficos', controller.obterGraficos);
 router.get('/impacto-quedas-anuncios', controller.obterImpactoQuedasAnuncios);

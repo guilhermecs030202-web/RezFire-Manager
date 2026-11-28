@@ -110,6 +110,9 @@ async function hydrateDashboardFromBackend() {
       if (typeof renderTabEntregas === "function") {
         renderTabEntregas();
       }
+      if (window.RezFireRadar && typeof window.RezFireRadar.refresh === "function") {
+        window.RezFireRadar.refresh(true);
+      }
     }
   } catch (err) {
     console.warn("[Dashboard] Modo fallback local ativo:", err?.message || err);
@@ -139,6 +142,9 @@ async function renderDashboard() {
   setupPurchaseFilters();
   setupReturnFilters();
   bindTabs();
+  if (window.RezFireRadar && typeof window.RezFireRadar.init === "function") {
+    window.RezFireRadar.init();
+  }
   bindOrderModalEvents();
   bindStockModalEvents();
   bindFinancialRatesModalEvents();
@@ -1197,6 +1203,9 @@ function bindStockModalEvents() {
       // Atualiza os dashboards imediatamente
       renderTabEstoque(products);
       renderTabVendas(products);
+      if (window.RezFireRadar && typeof window.RezFireRadar.refresh === "function") {
+        window.RezFireRadar.refresh(false);
+      }
     });
   }
 }
@@ -1211,8 +1220,20 @@ function bindTabs() {
       btn.classList.add("is-active");
       targetContent.classList.add("is-active");
 
-      if (tabName === "ml") {
+      if (tabName === "visao-geral") {
+        window.RezFireRadar?.refresh(true);
+      } else if (tabName === "vendas") {
+        renderTabVendas(getDashboardProducts());
+      } else if (tabName === "estoque") {
+        renderTabEstoque(getDashboardProducts());
+      } else if (tabName === "ml") {
         renderTabML();
+      } else if (tabName === "entregas" && typeof renderTabEntregas === "function") {
+        renderTabEntregas();
+      } else if (tabName === "produtos") {
+        renderTabProdutos(getDashboardProducts());
+      } else if (tabName === "financeiro") {
+        renderTabFinanceiro(getDashboardProducts());
       } else if (tabName === "clientes") {
         renderTabClientes();
       } else if (tabName === "compras") {
@@ -1223,12 +1244,25 @@ function bindTabs() {
         renderTabFiscal();
       }
 
+      // Sincroniza URL sem recarregar a página para facilitar navegação e compartilhamento
+      try {
+        const url = new URL(window.location.href);
+        if (tabName === "visao-geral") {
+          url.searchParams.delete("tab");
+        } else {
+          url.searchParams.set("tab", tabName);
+        }
+        window.history.replaceState({}, "", url.toString());
+      } catch (e) {}
+
       // Redimensiona ApexCharts após transição de abas para manter layout responsivo e nítido
       setTimeout(() => {
         window.dispatchEvent(new Event("resize"));
       }, 50);
     }
   }
+
+  window.RezFireActivateDashboardTab = activateTab;
 
   document.querySelectorAll(".dash-tab").forEach((btn) => {
     btn.addEventListener("click", () => {

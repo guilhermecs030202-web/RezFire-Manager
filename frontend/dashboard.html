@@ -32,25 +32,100 @@
       <main class="app-main">
         <h1 class="page-title">PAINEL EXECUTIVO</h1>
         <p class="page-subtitle">
-          Indicadores calculados a partir das movimentações dos últimos 6 meses
-          (dados de demonstração).
+          Visão imediata de prioridades operacionais, gargalos críticos e indicadores estratégicos da RezFire.
         </p>
 
-        <div class="dash-tabs">
-          <button class="dash-tab is-active" data-tab="vendas">Vendas</button>
-          <button class="dash-tab" data-tab="estoque">Estoque</button>
-          <button class="dash-tab" data-tab="ml">Mercado Livre</button>
-          <button class="dash-tab" data-tab="entregas">Entregas</button>
-          <button class="dash-tab" data-tab="produtos">Produtos</button>
-          <button class="dash-tab" data-tab="financeiro">Financeiro</button>
-          <button class="dash-tab" data-tab="clientes">Clientes</button>
-          <button class="dash-tab" data-tab="compras">Compras e Fornecedores</button>
-          <button class="dash-tab" data-tab="devolucoes">Devoluções e Qualidade</button>
-          <button class="dash-tab" data-tab="fiscal">Fiscal &amp; NF-e</button>
+        <div class="dash-tabs" id="painel-dash-tabs">
+          <button class="dash-tab is-active" data-tab="visao-geral">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg>
+            <span>Visão Geral</span>
+          </button>
+          <button class="dash-tab" data-tab="vendas"><span class="dash-tab-dot" id="tab-dot-vendas"></span><span>Vendas</span></button>
+          <button class="dash-tab" data-tab="estoque"><span class="dash-tab-dot" id="tab-dot-estoque"></span><span>Estoque</span></button>
+          <button class="dash-tab" data-tab="ml"><span class="dash-tab-dot" id="tab-dot-ml"></span><span>Mercado Livre</span></button>
+          <button class="dash-tab" data-tab="entregas"><span class="dash-tab-dot" id="tab-dot-entregas"></span><span>Entregas</span></button>
+          <button class="dash-tab" data-tab="produtos"><span class="dash-tab-dot" id="tab-dot-produtos"></span><span>Produtos</span></button>
+          <button class="dash-tab" data-tab="financeiro" id="dash-tab-btn-financeiro"><span class="dash-tab-dot" id="tab-dot-financeiro"></span><span>Financeiro</span></button>
+          <button class="dash-tab" data-tab="clientes"><span class="dash-tab-dot" id="tab-dot-clientes"></span><span>Clientes</span></button>
+          <button class="dash-tab" data-tab="compras"><span class="dash-tab-dot" id="tab-dot-compras"></span><span>Compras e Fornecedores</span></button>
+          <button class="dash-tab" data-tab="devolucoes"><span class="dash-tab-dot" id="tab-dot-devolucoes"></span><span>Devoluções e Qualidade</span></button>
+          <button class="dash-tab" data-tab="fiscal" id="dash-tab-btn-fiscal"><span class="dash-tab-dot" id="tab-dot-fiscal"></span><span>Fiscal &amp; NF-e</span></button>
+        </div>
+
+        <!-- ABA 1: VISÃO GERAL / RADAR DE DECISÃO RÁPIDA -->
+        <div id="tab-visao-geral" class="tab-content is-active">
+          <!-- Barra de Controles da Visão Geral -->
+          <div class="page-toolbar" style="margin-top: 8px; margin-bottom: 16px; align-items: center; flex-wrap: wrap;">
+            <div class="flex items-center gap-3 flex-wrap">
+              <div class="flex items-center gap-2">
+                <label for="filtro-radar-periodo" class="text-xs font-bold text-stone-500 uppercase">Janela de Análise:</label>
+                <select id="filtro-radar-periodo" class="search-input" style="width: 185px; padding: 8px 12px;">
+                  <option value="7">Últimos 7 dias</option>
+                  <option value="30" selected>Últimos 30 dias</option>
+                  <option value="90">Últimos 90 dias</option>
+                </select>
+              </div>
+
+              <div class="flex items-center gap-2">
+                <span class="text-xs font-bold text-stone-500 uppercase">Exibição dos Blocos:</span>
+                <div class="radar-sort-switch" role="group" aria-label="Modo de ordenação dos blocos">
+                  <button type="button" class="radar-sort-btn is-active" id="btn-radar-ordem-fixa" data-sort="fixa">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
+                    Ordem Fixa
+                  </button>
+                  <button type="button" class="radar-sort-btn" id="btn-radar-ordem-prioridade" data-sort="prioridade">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="m3 16 4 4 4-4"/><path d="M7 20V4"/><path d="M11 4h10"/><path d="M11 8h7"/><path d="M11 12h4"/></svg>
+                    Por Prioridade Crítica
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <div class="flex items-center gap-3 flex-wrap">
+              <span id="radar-last-updated" class="text-xs text-stone-500 font-medium"></span>
+              <button type="button" id="btn-atualizar-radar" class="btn-ghost" style="padding: 8px 14px; font-size: 0.8rem; display: inline-flex; align-items: center; gap: 6px;">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/></svg>
+                Atualizar Diagnóstico
+              </button>
+            </div>
+          </div>
+
+          <!-- Termômetro Geral da Empresa + Filtros Rápidos por Cor -->
+          <section id="radar-summary-banner" class="radar-summary-banner is-atencao" aria-live="polite">
+            <div>
+              <div class="flex items-center gap-2 mb-1">
+                <span id="radar-geral-badge" class="radar-status-badge atencao">ANALISANDO...</span>
+                <span class="text-xs font-bold text-stone-500 uppercase tracking-wider">Diagnóstico Geral da RezFire</span>
+              </div>
+              <p id="radar-geral-mensagem" class="text-sm sm:text-base font-bold text-stone-900 m-0">
+                Consolidando indicadores das 10 áreas operacionais e financeiras...
+              </p>
+            </div>
+            <div class="radar-counters" id="radar-counters-bar"></div>
+          </section>
+
+          <!-- Top 3 Prioridades Imediatas ("O que resolver agora") -->
+          <section id="radar-priority-section" class="radar-priority-box" style="display: none;">
+            <div class="flex items-center justify-between gap-2 flex-wrap">
+              <div class="flex items-center gap-2">
+                <span style="font-size: 1.05rem;">🎯</span>
+                <h2 class="text-xs sm:text-sm font-extrabold text-stone-800 uppercase tracking-wider m-0">
+                  Prioridades Imediatas — Onde Agir Primeiro
+                </h2>
+              </div>
+              <span class="text-xs text-stone-500 font-medium">Clique em um item para abrir direto o painel correspondente</span>
+            </div>
+            <div id="radar-priority-list" class="radar-priority-list"></div>
+          </section>
+
+          <!-- Grade de Semáforos dos 10 Dashboards -->
+          <section aria-label="Mapa de situação dos 10 painéis">
+            <div id="radar-blocos-grid" class="radar-grid"></div>
+          </section>
         </div>
 
         <!-- ABA 2: DASHBOARD DE VENDAS -->
-        <div id="tab-vendas" class="tab-content is-active">
+        <div id="tab-vendas" class="tab-content">
           <!-- Toolbar de Filtros do Dashboard de Vendas -->
           <div class="page-toolbar" style="margin-top: 12px; margin-bottom: 20px;">
             <div class="flex items-center gap-3 flex-wrap">
@@ -1746,6 +1821,7 @@
     <script src="js/api.js?v=20261119-qualidade"></script>
     <script src="js/layout.js?v=20261119-qualidade"></script>
     <script src="js/dashboard-entregas.js?v=20261119-qualidade"></script>
-    <script src="js/dashboard.js?v=20261119-qualidade"></script>
+    <script src="js/dashboard-radar.js?v=20261128-radar"></script>
+    <script src="js/dashboard.js?v=20261128-radar"></script>
   </body>
 </html>

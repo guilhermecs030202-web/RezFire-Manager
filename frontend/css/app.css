@@ -1947,3 +1947,475 @@ body {
     width: 100%;
   }
 }
+
+/* ==========================================================================
+   VISÃO GERAL / RADAR EXECUTIVO (SEMÁFORO DE DECISÃO RÁPIDA)
+   ========================================================================== */
+
+.dash-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.dash-tab-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  display: inline-block;
+  flex-shrink: 0;
+  background: #d6d3d1;
+  transition: background-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.dash-tab-dot.is-critico {
+  background: #dc2626;
+  box-shadow: 0 0 0 3px rgba(220, 38, 38, 0.18);
+}
+
+.dash-tab-dot.is-atencao {
+  background: #f59e0b;
+  box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.2);
+}
+
+.dash-tab-dot.is-saudavel {
+  background: #16a34a;
+}
+
+/* Barra Executiva de Saúde Geral */
+.radar-summary-banner {
+  border-radius: 14px;
+  padding: 18px 22px;
+  margin-bottom: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  flex-wrap: wrap;
+  border: 1.5px solid #e7e5e4;
+  background: #ffffff;
+  box-shadow: var(--card-shadow);
+}
+
+.radar-summary-banner.is-critico {
+  background: linear-gradient(135deg, #fff5f5 0%, #ffffff 65%);
+  border-color: #fca5a5;
+  border-left: 6px solid #dc2626;
+}
+
+.radar-summary-banner.is-atencao {
+  background: linear-gradient(135deg, #fffbeb 0%, #ffffff 65%);
+  border-color: #fcd34d;
+  border-left: 6px solid #f59e0b;
+}
+
+.radar-summary-banner.is-saudavel {
+  background: linear-gradient(135deg, #f0fdf4 0%, #ffffff 65%);
+  border-color: #86efac;
+  border-left: 6px solid #16a34a;
+}
+
+.radar-counters {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.radar-counter-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 7px 13px;
+  border-radius: 10px;
+  font-size: 0.82rem;
+  font-weight: 700;
+  border: 1px solid transparent;
+  cursor: pointer;
+  background: #fff;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.radar-counter-pill:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.06);
+}
+
+.radar-counter-pill.is-active {
+  outline: 2px solid var(--ink);
+  outline-offset: 1px;
+}
+
+.radar-counter-pill.critico {
+  background: #fef2f2;
+  color: #991b1b;
+  border-color: #fecaca;
+}
+
+.radar-counter-pill.atencao {
+  background: #fffbeb;
+  color: #92400e;
+  border-color: #fde68a;
+}
+
+.radar-counter-pill.saudavel {
+  background: #f0fdf4;
+  color: #166534;
+  border-color: #bbf7d0;
+}
+
+.radar-counter-pill.todos {
+  background: #f5f5f4;
+  color: #292524;
+  border-color: #e7e5e4;
+}
+
+/* Alternador Ordem Fixa vs Prioridade */
+.radar-sort-switch {
+  display: inline-flex;
+  background: #ebe4db;
+  padding: 4px;
+  border-radius: 10px;
+  gap: 4px;
+}
+
+.radar-sort-btn {
+  border: 0;
+  background: transparent;
+  color: #57534e;
+  font-family: inherit;
+  font-size: 0.8rem;
+  font-weight: 700;
+  padding: 7px 13px;
+  border-radius: 7px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  transition: all 0.15s ease;
+}
+
+.radar-sort-btn:hover {
+  color: var(--ink);
+}
+
+.radar-sort-btn.is-active {
+  background: #ffffff;
+  color: var(--ink);
+  box-shadow: 0 1px 3px rgba(26, 20, 18, 0.1);
+}
+
+/* Faixa Top 3 Prioridades Imediatas */
+.radar-priority-box {
+  background: #ffffff;
+  border: 1px solid #e7e5e4;
+  border-radius: 14px;
+  padding: 16px 20px;
+  margin-bottom: 20px;
+  box-shadow: var(--card-shadow);
+}
+
+.radar-priority-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(270px, 1fr));
+  gap: 12px;
+  margin-top: 12px;
+}
+
+.radar-priority-item {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 14px;
+  border-radius: 10px;
+  border: 1px solid #e7e5e4;
+  cursor: pointer;
+  text-align: left;
+  background: #fafaf9;
+  transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
+}
+
+.radar-priority-item:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(26, 20, 18, 0.07);
+}
+
+.radar-priority-item.is-critico {
+  background: #fff8f8;
+  border-color: #fca5a5;
+  border-left: 4px solid #dc2626;
+}
+
+.radar-priority-item.is-atencao {
+  background: #fffdf5;
+  border-color: #fcd34d;
+  border-left: 4px solid #f59e0b;
+}
+
+/* Grade dos 10 Blocos de Semáforo */
+.radar-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 16px;
+}
+
+.radar-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  border-radius: 14px;
+  padding: 18px 20px 16px;
+  cursor: pointer;
+  transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease;
+  background: #ffffff;
+  border: 1.5px solid #e7e5e4;
+  box-shadow: var(--card-shadow);
+  min-height: 218px;
+}
+
+.radar-card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 8px 24px rgba(26, 20, 18, 0.1);
+}
+
+/* Cores claras e inequívocas por criticidade */
+.radar-card.is-critico {
+  background: linear-gradient(180deg, #fff5f5 0%, #ffffff 52%);
+  border-color: #f87171;
+  border-top: 6px solid #dc2626;
+}
+
+.radar-card.is-critico:hover {
+  border-color: #dc2626;
+  box-shadow: 0 10px 26px rgba(220, 38, 38, 0.14);
+}
+
+.radar-card.is-atencao {
+  background: linear-gradient(180deg, #fffbeb 0%, #ffffff 52%);
+  border-color: #fbbf24;
+  border-top: 6px solid #f59e0b;
+}
+
+.radar-card.is-atencao:hover {
+  border-color: #d97706;
+  box-shadow: 0 10px 26px rgba(245, 158, 11, 0.14);
+}
+
+.radar-card.is-saudavel {
+  background: linear-gradient(180deg, #f0fdf4 0%, #ffffff 48%);
+  border-color: #86efac;
+  border-top: 6px solid #16a34a;
+}
+
+.radar-card.is-saudavel:hover {
+  border-color: #16a34a;
+  box-shadow: 0 10px 26px rgba(22, 163, 74, 0.12);
+}
+
+.radar-card-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.radar-card-title-wrap {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.radar-card-icon {
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.radar-card.is-critico .radar-card-icon {
+  background: #fee2e2;
+  color: #b91c1c;
+}
+
+.radar-card.is-atencao .radar-card-icon {
+  background: #fef3c7;
+  color: #b45309;
+}
+
+.radar-card.is-saudavel .radar-card-icon {
+  background: #dcfce7;
+  color: #15803d;
+}
+
+.radar-card-title {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 800;
+  color: var(--ink);
+  line-height: 1.2;
+}
+
+.radar-card-subtitle {
+  margin: 2px 0 0;
+  font-size: 0.73rem;
+  color: var(--muted);
+  font-weight: 500;
+}
+
+.radar-status-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 0.7rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  padding: 4px 9px;
+  border-radius: 999px;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.radar-status-badge.critico {
+  background: #dc2626;
+  color: #ffffff;
+}
+
+.radar-status-badge.atencao {
+  background: #f59e0b;
+  color: #1a1412;
+}
+
+.radar-status-badge.saudavel {
+  background: #16a34a;
+  color: #ffffff;
+}
+
+.radar-headline-box {
+  margin: 14px 0 12px;
+  padding: 10px 12px;
+  border-radius: 9px;
+  font-size: 0.85rem;
+  font-weight: 700;
+  line-height: 1.4;
+}
+
+.radar-card.is-critico .radar-headline-box {
+  background: #fef2f2;
+  color: #7f1d1d;
+  border: 1px solid #fecaca;
+}
+
+.radar-card.is-atencao .radar-headline-box {
+  background: #fffbeb;
+  color: #78350f;
+  border: 1px solid #fde68a;
+}
+
+.radar-card.is-saudavel .radar-headline-box {
+  background: #f0fdf4;
+  color: #14532d;
+  border: 1px solid #bbf7d0;
+}
+
+.radar-extra-alerts {
+  margin: -4px 0 10px;
+  padding-left: 16px;
+  font-size: 0.75rem;
+  color: #57534e;
+  line-height: 1.4;
+}
+
+.radar-metrics-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  padding-top: 10px;
+  border-top: 1px dashed #e7e5e4;
+}
+
+.radar-mini-metric {
+  min-width: 0;
+}
+
+.radar-mini-label {
+  display: block;
+  font-size: 0.68rem;
+  font-weight: 700;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.radar-mini-value {
+  display: block;
+  margin-top: 2px;
+  font-size: 0.82rem;
+  font-weight: 800;
+  color: var(--ink);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.radar-mini-value.danger {
+  color: #b91c1c;
+}
+
+.radar-mini-value.warning {
+  color: #b45309;
+}
+
+.radar-mini-value.ok {
+  color: #15803d;
+}
+
+.radar-card-footer {
+  margin-top: 12px;
+  padding-top: 10px;
+  border-top: 1px solid #f1ece4;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.radar-card.is-critico .radar-card-footer {
+  color: #dc2626;
+}
+
+.radar-card.is-atencao .radar-card-footer {
+  color: #b45309;
+}
+
+.radar-card.is-saudavel .radar-card-footer {
+  color: #15803d;
+}
+
+.radar-weight-tag {
+  font-size: 0.68rem;
+  font-weight: 700;
+  color: #78716c;
+  background: #f5f5f4;
+  border: 1px solid #e7e5e4;
+  padding: 2px 7px;
+  border-radius: 6px;
+}
+
+@media (max-width: 768px) {
+  .radar-grid {
+    grid-template-columns: 1fr;
+  }
+  .radar-metrics-row {
+    grid-template-columns: 1fr;
+  }
+}

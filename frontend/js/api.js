@@ -7,6 +7,19 @@ const API_BASE_URL = 'http://localhost:3001/api';
 window.RezFireAPI = {
   baseUrl: API_BASE_URL,
 
+  buildQuery(params = {}) {
+    if (!params || typeof params !== 'object') return '';
+    const cleanParams = {};
+    Object.keys(params).forEach((k) => {
+      const v = params[k];
+      if (v !== undefined && v !== null && v !== '' && v !== 'undefined' && v !== 'null') {
+        cleanParams[k] = v;
+      }
+    });
+    const qs = new URLSearchParams(cleanParams).toString();
+    return qs ? `?${qs}` : '';
+  },
+
   async request(endpoint, options = {}) {
     const url = `${API_BASE_URL}${endpoint}`;
     const defaultHeaders = {
@@ -233,6 +246,12 @@ window.RezFireAPI = {
 
   // Módulo de Dashboard & KPIs (Cálculos Diretos no MySQL)
   dashboard: {
+    async visaoGeral(dias = 30) {
+      return window.RezFireAPI.request(`/dashboard/visao-geral?dias=${dias}`);
+    },
+    async radar(dias = 30) {
+      return window.RezFireAPI.dashboard.visaoGeral(dias);
+    },
     async obterKpis(dias = 30) {
       return window.RezFireAPI.request(`/dashboard/kpis?dias=${dias}`);
     },
@@ -886,8 +905,7 @@ window.RezFireAPI = {
   // Módulo de Pedidos de Compra (RezFire Manager)
   purchaseOrders: {
     async listar(params = {}) {
-      const query = new URLSearchParams(params).toString();
-      return window.RezFireAPI.request(`/purchase-orders${query ? '?' + query : ''}`);
+      return window.RezFireAPI.request(`/purchase-orders${window.RezFireAPI.buildQuery(params)}`);
     },
     async buscarPorId(id) {
       return window.RezFireAPI.request(`/purchase-orders/${id}`);
